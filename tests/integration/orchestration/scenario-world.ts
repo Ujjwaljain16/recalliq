@@ -203,6 +203,10 @@ export function world(analyzer: TurnAnalyzer | TurnAnalysis) {
       return sql.messagesInIntervals(...a);
     },
     searchAll: (...a) => sql.searchAll(...a),
+    conversationOverview: (...a) => {
+      log.push('overview');
+      return sql.conversationOverview(...a);
+    },
     decisions: (...a) => sql.decisions(...a),
     entitiesByAlias: (...a) => sql.entitiesByAlias(...a),
   };

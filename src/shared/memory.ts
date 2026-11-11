@@ -71,8 +71,30 @@ export interface ResolvedContext {
   clarification?: { question: string; options: Array<{ label: string; ref: string }> };
 }
 
+/** What the user has said in one conversation so far, for a recall that names no day ("what have we talked about?"). */
+export interface ConversationOverview {
+  /** The most recent user messages of the conversation, oldest first, at most the limit asked for. */
+  hits: MemoryCandidate[];
+  /** How many user messages of the conversation matched, including those beyond the limit. */
+  total: number;
+  /** How many other conversations of the user hold at least one user message. */
+  otherConversations: number;
+}
+
 export interface MemoryRetriever {
   messagesInIntervals(u: UserId, iv: DayInterval[], terms: string[]): MemoryCandidate[];
+  /**
+   * The user messages of one conversation written at or before `before`, leaving out the message of the turn
+   * `excludeTurn` (the question being answered). Local times are given in `tz`.
+   */
+  conversationOverview(
+    u: UserId,
+    conversationId: ConversationId,
+    excludeTurn: TurnId,
+    before: Ms,
+    limit: number,
+    tz: string,
+  ): ConversationOverview;
   searchAll(u: UserId, terms: string[], limit: number): MemoryCandidate[];
   decisions(
     u: UserId,
