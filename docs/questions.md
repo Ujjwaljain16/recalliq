@@ -19,7 +19,7 @@ questions, including resolved ones and their history.
 | Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — | — |
 | Q-005 | Deletion and the belief rebuilder | **applied**, rebuild correctness untested until M4 | T-DB-09 | [ADR-35](adr/ADR-35.md) |
 | Q-006 | `begin` while a different key is running | **applied** (M2) | — | [ADR-30](adr/ADR-30.md) |
-| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003 in M2, 006 in M3 for `decisions`); plan recorded (2026-11-12); `search_requests`, `search_results`, snapshots, `beliefs`, `belief_history` **not yet enforced** | Each table, before its first use in M4 | [ADR-27](adr/ADR-27.md) |
+| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003 in M2, 006 in M3 for `decisions`); plan recorded (2026-11-12); `search_requests` and `search_results` (migration 007, M4); `beliefs` and `belief_history` **not yet enforced** (Agent B, migration 008) | Each table, before its first use in M4 | [ADR-27](adr/ADR-27.md) |
 | Q-008 | Declared-only contract functions | applied | — | — |
 | Q-009 | Type-identical lint edits | applied | — | — |
 | Q-010 | Small implementation choices | applied | — | — |
@@ -254,9 +254,8 @@ one winner, five `TurnInProgressError`, one running turn, one stored message.
 **History:** Raised in M1 → partly applied in M2 (migration 003). **Still open** for the tables listed there.
 
 Applied for evidence (turn, snapshot, entity), findings (entity), assertions (turn, message, finding-to-turn) and
-`assertion_evidence` (migration 003), and for `decisions` and `decision_entities` (migration 006, milestone 3, 8 triggers, 24 tests). Still open:
+`assertion_evidence` (migration 003), and for `decisions` and `decision_entities` (migration 006, milestone 3, 8 triggers, 24 tests) and for `search_requests` and `search_results` (migration 007, milestone 4, 5 triggers). Still open:
 
-- `search_requests` (`user_id` vs its turn);
 - `source_snapshots`, which has no turn;
 - `beliefs` and `belief_history`.
 
@@ -410,3 +409,5 @@ IDs assigned in Milestone 2 and do not exist in the contract documents.
 **History:** Raised 2026-11-12 when the observation definition was relaxed to allow provider-cached copies. **Open.**
 
 ADR-36 needs a content as-of time for a cached observation, and asks that cache metadata and age be preserved when the provider reports them. `SearchHit` and `SourceSnapshot` have only `observedAt`, `providerPublishedAt`, `providerLastUpdatedAt`, `freshFetch` and `crawlStatus`, and the schema has no column for a capture time or cache age. Until this is settled the change detector derives the as-of time from the fields that exist: `observedAt` for a live crawl, otherwise `providerLastUpdatedAt`, otherwise unknown (which cannot support `changed`). Proposed resolution, once the search adapter shows what the provider actually returns: a nullable `contentAsOf` on `SearchHit`, `SourceSnapshot` and the evidence time fields, with an additive migration. Not applied: it changes shared contracts and the schema.
+
+**Finding from the search adapter (2026-11-12, from reading docs.exa.ai; nothing was run against the live API):** the documented search API has no per-result capture time or cache age. A live crawl is requested with `contents.maxAgeHours: 0` (content fetched within the last 60 seconds); a cached result is marked only by `statuses[].source = "cached"`, a field documented for the contents endpoint and **not confirmed** for search. Consequently a cached hit can be dated no better than `publishedAt`, which is a hint. The adapter sets `freshFetch` only when a live fetch was requested, the crawl status is ok and the status source is `live` (an assumption: only `cached` is documented), so it errs towards false. A `contentAsOf` field would therefore usually be null, and the change detector will mostly derive an as-of time from `observedAt` of a live crawl. Raw `source` and `status` are kept in recordings. Decision on adding the field is deferred until a real recording exists.

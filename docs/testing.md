@@ -31,7 +31,7 @@ Test files are under `tests/integration/db/`. The test case is the test's full n
 | **T-MEM-08** | A deleted conversation cannot be recalled | `m3-integration.test.ts` | passed (milestone 3) | Recalled by date, topic and tag on the real write path |
 
 Other M1 tests: privacy deletion mechanics (with a recording fake rebuilder, so rebuild *correctness* is untested), repositories, config,
-contract parity of migration 001, and the migration runner. `migrations.test.ts` now also checks that migrations 001 to 006 load
+contract parity of migration 001, and the migration runner. `migrations.test.ts` now also checks that migrations 001 to 007 load
 contiguously, that the installed triggers equal exactly those the migrations declare, that a version-1 database upgrades to the latest
 schema without losing data, and the Q-003 rules (connection PRAGMAs, no PRAGMA in a migration, each migration transactional).
 
@@ -114,6 +114,20 @@ orchestrator re-ran only the full suite after merging.
 Mutation spot checks reported by the workers, each restored afterwards: resolver 11 breaks (10 caught; one was an equivalent change); retriever 8 breaks (7 caught; unquoting FTS tokens
 survives because `sanitizeTerms` already strips everything but letters and digits); baseline loader and enrichment 6 breaks plus the 8 migration-006 triggers dropped one at a time and the
 quote check, all caught; recall layer 5 breaks, all caught. Limits: a conversation that fills all eight retrieved messages can hide a second matching conversation (`truncated` is reported, no question is asked yet); the loader and the recall layer have no caller until milestone 5.
+
+## Milestone 4 groups, search and source evidence (Agent A)
+
+All fixtures are hand-authored and labelled `[SYNTHETIC]`: no live provider call has been made, so nothing below shows that the adapter matches the real Exa responses.
+
+| Group | Test files | Tests | What it covers |
+|---|---|---|---|
+| URL and structure | `tests/unit/sources/url.test.ts`, `structure.test.ts` | 25 | Tracking vs meaningful query parameters, credentials, ports, IDN, IPv6, unsafe schemes, very long URLs; headings, tables, fences, CRLF, linear time |
+| Search adapter and replay | `tests/unit/search/*.test.ts` | 44 | Normalisation, the `freshFetch` rules, malformed items, every HTTP status mapping, Retry-After, timeout vs cancel, key never in errors, replay hit and miss |
+| Executor and store | `tests/integration/search/executor.test.ts`, `tests/integration/sources/snapshot-store.test.ts` | 36 | Persistence, rounds, concurrency bound, typed failures, retry gated by the budget, deadline, cancellation, database errors propagate, atomic rollback |
+| Migration 007 | `tests/integration/search/ownership-007.test.ts` | 12 | Cross-user rejection per trigger, identity immutability, and a test showing the pre-007 gap |
+| Bake-off harness | `tests/unit/search/bakeoff.test.ts` | 6 | Scoring and summary arithmetic on fake data. This is **not** a benchmark result: the bake-off has not been run |
+
+Counts are from a full run (123 tests across these files; the worker reported a smaller figure). Reported mutation checks (Agent A): 17 deliberate breaks caught, two surviving mutants explained (a trigger rename; a redundant rethrow).
 
 ## Documentation checks (`tests/integration/docs.test.ts`)
 

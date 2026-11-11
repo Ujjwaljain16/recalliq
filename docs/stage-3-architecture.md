@@ -770,7 +770,7 @@ The DDL is in contracts §1. Changes in 3.1:
 
 **Ownership and isolation**
 - Idempotency is unique per user.
-- Owner triggers check that `messages.user_id` and `turns.user_id` match the conversation's owner. *(Extended in implementation to evidence, findings and assertions by migration 003; `decisions` and `decision_entities` by migration 006; `search_requests`, `search_results`, snapshots by turn, `beliefs` and `belief_history` are not yet covered, [ADR-27](adr/ADR-27.md), Q-007.)*
+- Owner triggers check that `messages.user_id` and `turns.user_id` match the conversation's owner. *(Extended in implementation to evidence, findings and assertions by migration 003; `decisions` and `decision_entities` by migration 006, `search_requests` and `search_results` by migration 007; snapshots by turn (they have none), `beliefs` and `belief_history` are not yet covered, [ADR-27](adr/ADR-27.md), Q-007.)*
 - Origin triggers block fixture or non-live rows in a database whose `db_mode = 'real'`. *(Narrowed in implementation: migration 002 covers messages, entities and decisions on insert plus relabelling and `db_mode`; it does not cover every table, so isolation is partial. See [contracts §1.2](stage-3-contracts.md#12-migrations-applied-on-top-of-the-schema), [ADR-28](adr/ADR-28.md).)*
 
 **Immutability**
