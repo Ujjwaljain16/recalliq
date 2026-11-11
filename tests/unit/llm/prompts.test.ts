@@ -16,8 +16,8 @@ describe('synthesis prompt', () => {
 });
 
 describe('analysis prompt', () => {
-  it('is version 3, defines the three time roles with examples and forbids years the user did not write', () => {
-    expect(ANALYSIS_PROMPT_VERSION).toBe('analysis.v3');
+  it('is version 4, defines the three time roles with examples and forbids years the user did not write', () => {
+    expect(ANALYSIS_PROMPT_VERSION).toBe('analysis.v4');
     expect(ANALYSIS_SYSTEM).toContain(
       'reference_conversation: a day or time the user says an EARLIER CONVERSATION',
     );
@@ -30,5 +30,17 @@ describe('analysis prompt', () => {
       'must NOT contain a year or a date that the user did not write',
     );
     expect(ANALYSIS_SYSTEM).toContain('entity_set');
+  });
+
+  it('marks a recall that names no day with a conversation scope, and sends greetings to chat', () => {
+    expect(ANALYSIS_SYSTEM).toContain('set "recallScope" to "conversation"');
+    expect(ANALYSIS_SYSTEM).toContain('"what have we talked about so far?"');
+    expect(ANALYSIS_SYSTEM).toContain('Leave "recallScope" out on every other message.');
+    expect(ANALYSIS_SYSTEM).toContain('chat: greetings, thanks, small talk');
+  });
+
+  it('asks for queries about a stated subject of an earlier conversation, and none when it is not stated', () => {
+    expect(ANALYSIS_SYSTEM).toContain('"managed Postgres hosting pricing"');
+    expect(ANALYSIS_SYSTEM).toContain('When the subject is not stated');
   });
 });
