@@ -1,0 +1,8 @@
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Hello ","thought":false}]},"index":0}],"modelVersion":"model-test"}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"hidden thought","thought":true}]},"index":0}]}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":"€uro world."}]},"index":0}]}
+
+data: {"candidates":[{"content":{"role":"model","parts":[{"text":""}]},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":30,"cachedContentTokenCount":10,"candidatesTokenCount":6,"thoughtsTokenCount":4,"totalTokenCount":40},"modelVersion":"model-test"}
+
