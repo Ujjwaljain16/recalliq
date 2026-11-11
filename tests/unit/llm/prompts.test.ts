@@ -4,7 +4,7 @@ import { SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM } from '../../../src/llm/pro
 
 describe('synthesis prompt', () => {
   it('is version 5 and forbids free-text change language, requiring verdict placeholders', () => {
-    expect(SYNTHESIS_PROMPT_VERSION).toBe('synthesis.v5');
+    expect(SYNTHESIS_PROMPT_VERSION).toBe('synthesis.v6');
     expect(SYNTHESIS_SYSTEM).toContain('CHANGE OVER TIME or a COMPARISON');
     expect(SYNTHESIS_SYSTEM).toContain('[[F3:verdict]]');
     expect(SYNTHESIS_SYSTEM).toContain('Free text must not describe changes');

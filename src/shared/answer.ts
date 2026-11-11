@@ -37,7 +37,9 @@ export type SentenceIssue =
   /** A sourced sentence contains a link or an email address. */
   | 'sourced_link'
   /** A sourced sentence quotes more than the per-sentence or per-answer cap. */
-  | 'sourced_too_long';
+  | 'sourced_too_long'
+  /** A verified or sourced sentence with fewer than three words once citations and attribution are removed. */
+  | 'empty_sentence';
 
 /**
  * What a released sentence rests on. `verified`: it renders at least one finding placeholder, so its facts were

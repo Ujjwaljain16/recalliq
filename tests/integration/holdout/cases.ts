@@ -332,7 +332,7 @@ const LIST: HoldoutCase[] = [
     id: 'HO-08e',
     title: 'control: the same vendor-less price line on an unregistered domain stays weak',
     source: `${ADR41} decision 1 (ownership comes from the registry only); architecture R2 subject binding`,
-    expectation: 'no pass statement, no belief, "no verified price was found"',
+    expectation: 'no pass statement, no belief, "I could not confirm a price through my checks"',
     verdicts: [null],
     forbidden: [],
   },

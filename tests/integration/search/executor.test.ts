@@ -500,3 +500,28 @@ describe('SearchResearchExecutor: the search time budget (one budget for all att
     );
   });
 });
+
+describe('SearchResearchExecutor: the search provider is never a source', () => {
+  it('drops results on the provider domain and its subdomains, keeps every other result', async () => {
+    // The live case: a Formula 1 question cited the search provider's own page as a source.
+    const w = setup(() =>
+      response([
+        hit('https://exa.ai/search?q=formula-1-race', 'Final time of 1:35:23.504 in the race.'),
+        hit('https://docs.exa.ai/reference/search', 'Search results for formula 1.'),
+        hit('https://www.formula1.example/results/race', 'Race report and final time.'),
+        hit('https://notexa.ai.example/page', 'A different site that only looks similar.'),
+      ]),
+    );
+    const [o] = await w.executor.execute(plan([spec('f1')]), 1, budget(), w.emit);
+    const snaps = new SnapshotStore(w.t.db).getMany(w.userId, o?.snapshotIds ?? []);
+    expect(snaps.map((s) => s.domain).sort()).toEqual(['formula1.example', 'notexa.ai.example']);
+    expect(count(w.t.db, 'search_results')).toBe(2);
+  });
+
+  it('a search that returned only provider pages is empty', async () => {
+    const w = setup(() => response([hit('https://exa.ai/x', 'Provider page.')]));
+    const [o] = await w.executor.execute(plan([spec('only')]), 1, budget(), w.emit);
+    expect(o?.status).toBe('empty');
+    expect(o?.snapshotIds).toEqual([]);
+  });
+});

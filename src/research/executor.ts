@@ -179,6 +179,8 @@ export class SearchResearchExecutor implements ResearchExecutor {
     this.o.db.transaction(() => {
       let rank = 0;
       for (const hit of response.hits) {
+        // The search provider's own pages (its docs, its demo results) are never a source about the world.
+        if (isSearchProviderPage(hit.url)) continue;
         const id = this.snapshots.insert({
           userId: this.o.userId,
           hit,
@@ -256,4 +258,18 @@ export class SearchResearchExecutor implements ResearchExecutor {
       }
     }
   }
+}
+
+/** Registered domains of search providers. A result on one of them (or a subdomain) is the provider talking about itself. */
+export const SEARCH_PROVIDER_DOMAINS: readonly string[] = ['exa.ai'];
+
+/** True when the URL is on a search provider's own domain. An unparseable URL is left to the snapshot store. */
+export function isSearchProviderPage(url: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/\.$/, '');
+  } catch {
+    return false;
+  }
+  return SEARCH_PROVIDER_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
 }

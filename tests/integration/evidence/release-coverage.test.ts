@@ -45,7 +45,7 @@ const emptyLlm = () => new ScriptedLlm(() => ({ statements: [] }));
 
 async function run(w: World, outcomes: SearchOutcome[], llm = emptyLlm()) {
   const service = makeService(w, new ScriptedExecutor({ 1: outcomes }), llm);
-  const set = await service.run(request(w, { intents: ['releases'] }).req);
+  const set = await service.run(request(w, { intents: ['releases'], since: NOW - 30 * DAY }).req);
   const f = set.findings[0];
   if (!f) throw new Error('no finding');
   return f;
@@ -120,5 +120,43 @@ describe('release coverage in the research service', () => {
     const f = await run(w, [releaseOutcome(w, [], { status: 'empty' })]);
     expect(f.verdict).toBe('unable_to_verify');
     expect(f.coverage).toMatchObject({ searchesOk: 1, releaseSources: 0 });
+  });
+});
+
+describe('releases with no interval start in the research service', () => {
+  it('T-RS-56: planned as general searches (no release spec), the turn makes no release finding at all', async () => {
+    const w = makeWorld();
+    const general = { ...spec(w.acme.id), intent: 'general' as const };
+    const service = makeService(
+      w,
+      new ScriptedExecutor({
+        1: [{ spec: general, status: 'ok', snapshotIds: [news(w, NOW - 5 * DAY)] }],
+      }),
+      emptyLlm(),
+    );
+    const set = await service.run(
+      request(w, { intents: ['releases'], plan: { specs: [general] } }).req,
+    );
+    expect(set.findings).toEqual([]);
+    expect(Object.keys(set.sources)).toHaveLength(1);
+  });
+
+  it('T-RS-57: a release search with no interval start is unable_to_verify (no_time_window), never none_found', async () => {
+    const w = makeWorld();
+    const id = news(w, NOW - 5 * DAY);
+    const releases = { ...spec(w.acme.id), intent: 'releases' as const };
+    const service = makeService(
+      w,
+      new ScriptedExecutor({ 1: [{ spec: releases, status: 'ok', snapshotIds: [id] }] }),
+      emptyLlm(),
+    );
+    const set = await service.run(
+      request(w, { intents: ['releases'], plan: { specs: [releases] } }).req,
+    );
+    expect(set.findings[0]).toMatchObject({
+      intent: 'releases',
+      verdict: 'unable_to_verify',
+      verdictReason: 'no_time_window',
+    });
   });
 });

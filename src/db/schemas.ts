@@ -83,6 +83,7 @@ const sentenceIssue = exhaustive<SentenceIssue>()([
   'ungrounded_source',
   'sourced_link',
   'sourced_too_long',
+  'empty_sentence',
 ]);
 
 export const persistedSentenceSchema = z.object({
@@ -186,6 +187,7 @@ const verdictReason = exhaustive<PriceVerdictReason>()([
   'listed_differently',
   'insufficient_coverage',
   'low_authority_source',
+  'no_time_window',
   'search_timeout',
   'search_unavailable',
   'quota_exhausted',

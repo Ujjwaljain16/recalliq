@@ -123,12 +123,18 @@ const REASON_TEXT: Record<string, string> = {
   low_authority_source: 'only unofficial sources were found',
 };
 
+/** A finding whose check ran but produced no verified value: said as what it is, not as "no price exists". */
+export const NO_VERIFIED_PRICE_TEXT = 'I could not confirm a price through my checks';
+/** A releases finding with no interval to look in: there is nothing to report releases against. */
+export const NO_TIME_WINDOW_TEXT = 'I can only report releases for a period you name';
+
 /**
  * A finding whose check failed says so, with the reason of the failure (the verdict reason, else the coverage
  * failure). A first-time research question has no verdict, so this is the only way the reader learns that the
  * search or extraction failed rather than found nothing.
  */
 function unableText(f: Finding): string {
+  if (f.verdictReason === 'no_time_window') return NO_TIME_WINDOW_TEXT;
   return `couldn't be checked this time (${reasonText(f.verdictReason ?? f.coverage.failure)})`;
 }
 
@@ -163,7 +169,7 @@ function currentText(f: Finding, records: AnswerRecords): string {
     const tiered = cur.contested.every((cv) => conditionText(cv.conditions) !== null);
     return `listed as ${joined}${extra}${tiered ? ' depending on the conditions shown' : ' — official sources disagree'}`;
   }
-  if (!cur?.value) return 'no verified price was found';
+  if (!cur?.value) return NO_VERIFIED_PRICE_TEXT;
   const text = valueText(cur.value, f.beliefKey);
   if (f.currentStatus === 'stale') {
     const seen = cur.displayedAt ?? cur.verifiedAt;

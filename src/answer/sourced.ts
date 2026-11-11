@@ -78,7 +78,33 @@ export function attribute(
     return s ? [s] : [];
   });
   const first = sources[0];
-  if (!first || sources.some((s) => names(sentence.text.replace(TOKEN, ' '), s))) return sentence;
-  const prefix = `According to ${first.domain.replace(/^www\./, '')}: `;
+  if (!first) return sentence;
+  if (sources.some((s) => names(sentence.text.replace(TOKEN, ' '), s))) {
+    return keepDomainSpelling(sentence, sources);
+  }
+  const prefix = `According to ${bareDomain(first.domain)}: `;
   return { template: prefix + sentence.template, text: prefix + sentence.text };
+}
+
+/** A domain as stored (lower case), without a leading `www.`. Never re-cased for the start of a sentence. */
+const bareDomain = (domain: string): string => domain.toLowerCase().replace(/^www\./, '');
+
+/**
+ * An opening "According to Usatoday.com" written by the model is given the domain exactly as stored
+ * ("usatoday.com"): a domain is not a word to capitalise. Only an exact, case-insensitive match of a cited
+ * domain right after the opening "According to" is touched.
+ */
+function keepDomainSpelling(
+  sentence: { template: string; text: string },
+  sources: readonly GroundingSource[],
+): { template: string; text: string } {
+  const fix = (s: string): string => {
+    const m = /^(\s*according to\s+)(?:www\.)?([^\s:,;]+?)(?=[\s:,;]|$)/i.exec(s);
+    const written = m?.[2];
+    if (!m || written === undefined) return s;
+    const own = sources.find((x) => bareDomain(x.domain) === written.toLowerCase());
+    if (!own) return s;
+    return `${m[1] ?? ''}${bareDomain(own.domain)}${s.slice(m[0].length)}`;
+  };
+  return { template: fix(sentence.template), text: fix(sentence.text) };
 }

@@ -312,6 +312,8 @@ export function request(
     intents?: Array<'pricing' | 'releases' | 'general'>;
     budget?: FakeBudget;
     now?: Ms;
+    /** A "since" the user named (a resolved `change_since` mention starting at this instant). */
+    since?: Ms;
   } = {},
 ): { req: ResearchRequest; events: SseEvent[] } {
   const events: SseEvent[] = [];
@@ -329,7 +331,27 @@ export function request(
       turnId: w.turnId,
       ctx: {
         lane: over.baselines && over.baselines.length > 0 ? 'audit' : 'research',
-        temporal: [],
+        temporal:
+          over.since === undefined
+            ? []
+            : [
+                {
+                  mention: {
+                    text: 'since',
+                    expr: { kind: 'days_ago', n: 30 },
+                    role: 'change_since',
+                  },
+                  candidates: [
+                    {
+                      startMs: over.since,
+                      endMs: over.since + 86_400_000,
+                      localDate: new Date(over.since).toISOString().slice(0, 10),
+                      tz: 'UTC',
+                    },
+                  ],
+                  status: 'resolved',
+                },
+              ],
         memoryHits: [],
         decisions: [],
         entities,

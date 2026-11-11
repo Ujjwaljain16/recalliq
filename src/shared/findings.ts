@@ -35,6 +35,11 @@ export type PriceVerdictReason =
   | 'insufficient_coverage'
   /** The baseline or the current value rests only on tier C sources, so no change or confirmation is computed. */
   | 'low_authority_source'
+  /**
+   * A releases finding with no interval start: the user named no "since" and there is no earlier answer to
+   * compare with, so "no releases found" would have no window. Never `none_found` then.
+   */
+  | 'no_time_window'
   | CoverageFailure;
 
 export type ReleaseVerdict = 'releases_found' | 'none_found' | 'unable_to_verify';
@@ -75,11 +80,15 @@ export interface ChangeDetector {
     effectiveFrom?: Ms;
     direction?: 'up' | 'down' | 'other';
   };
+  /**
+   * `t0` is the start of the release interval: the earliest baseline, else the user's "since". `null` means the
+   * turn has no interval, and then the verdict is never `none_found` (reason `no_time_window`).
+   */
   releases(
     evidence: VerifiedEvidence[],
     coverage: Coverage,
-    t0: Ms,
-  ): { verdict: ReleaseVerdict; items: VerifiedEvidence[] };
+    t0: Ms | null,
+  ): { verdict: ReleaseVerdict; items: VerifiedEvidence[]; reason?: 'no_time_window' };
 }
 
 /**

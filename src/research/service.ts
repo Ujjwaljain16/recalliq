@@ -32,9 +32,6 @@ import type {
 import { termsOf } from '../shared/terms.js';
 import { withTurnSources } from './turn-sources.js';
 
-/** Default release look-back when neither a baseline nor a temporal mention gives the start of the interval. */
-export const DEFAULT_RELEASE_LOOKBACK_MS = 30 * 86_400_000;
-
 export interface ResearchServiceDeps {
   db: Db;
   executor: ResearchExecutor;
@@ -201,15 +198,26 @@ export class PipelineResearchService implements ResearchService {
         }
       }
       const failed = this.coverage(s, evidenceByKey);
+      const releaseSince = this.releaseSince(req, baselines);
+      // With no interval start the planner searched "what is new in X" as a general question (no release
+      // searches for this entity), so no release finding is made: the answer quotes the sources instead. A plan
+      // that did search for releases without an interval still gets its finding, which the detector turns into
+      // unable_to_verify (`no_time_window`), never "no releases found".
+      const plannedReleases = [...req.plan.specs, ...req.plan.fallback].some(
+        (q) => q.intent === 'releases' && q.entityId === s.entity.id,
+      );
       inputs.push({
         entity: s.entity,
-        intents: s.intents,
+        intents:
+          releaseSince === null && !plannedReleases
+            ? s.intents.filter((i) => i !== 'releases')
+            : s.intents,
         coverage: failed,
         beliefs,
         evidenceByKey,
         releaseEvidence,
         baselines,
-        releaseSince: this.releaseSince(req, baselines),
+        releaseSince,
       });
     }
 
@@ -436,12 +444,13 @@ export class PipelineResearchService implements ResearchService {
     };
   }
 
-  private releaseSince(req: ResearchRequest, baselines: readonly Baseline[]): Ms {
+  /** T0 of the release interval: the earliest baseline, else the user's "since"; null when there is neither. */
+  private releaseSince(req: ResearchRequest, baselines: readonly Baseline[]): Ms | null {
     if (baselines.length > 0) return Math.min(...baselines.map((b) => b.presentedAt));
     const since = req.ctx.temporal
       .filter((t) => t.mention.role === 'change_since')
       .flatMap((t) => t.candidates.map((c) => c.startMs));
-    return since.length > 0 ? Math.min(...since) : req.now - DEFAULT_RELEASE_LOOKBACK_MS;
+    return since.length > 0 ? Math.min(...since) : null;
   }
 
   private emitAll(

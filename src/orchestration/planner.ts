@@ -108,6 +108,28 @@ function specsFor(
         contentChars: 6_000,
       }),
     );
+  } else if (intent === 'releases' && releaseWindowStart(ctx, t.id) === undefined) {
+    // "What is new in X", "the latest version of X": no "since" and no earlier answer, so there is no interval
+    // to track releases in. It is a general question: the analysis queries and the entity's release notes are
+    // searched with the `general` intent (no domain filter: a project's notes are often on another host), and
+    // the answer quotes what the pages say. Nothing is extracted and no release verdict is made.
+    const asked = a.queries
+      .map((q) => q.trim())
+      .filter((q) => q.length > 0)
+      .slice(0, MAX_GENERAL_QUERIES);
+    const queries = [...asked.slice(0, 1), `${t.name} release notes`, ...asked.slice(1)];
+    queries.forEach((q, i) =>
+      add(
+        0,
+        make(`whatsnew${i}`, 1, 'general', {
+          query: q,
+          numResults: GENERAL_RESULTS,
+          freshness: 'cached',
+          contentMode: 'highlights',
+          contentChars: 1_500,
+        }),
+      ),
+    );
   } else if (intent === 'releases') {
     const start = releaseWindowStart(ctx, t.id);
     const since = start === undefined ? {} : { startPublishedDate: start };

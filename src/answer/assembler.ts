@@ -15,11 +15,24 @@ import { checkFreeText, type T3aContext } from './t3a.js';
 
 const TERMINATORS = new Set(['.', '!', '?']);
 const CLOSERS = new Set(['"', "'", '”', '’', ')', ']', '}']);
-const ABBREVIATION = /(?:^|[\s(])(?:e\.g|i\.e|vs|approx|inc|ltd|mr|mrs|dr)\.$/i;
+/**
+ * A last word that ends in a full stop without ending the sentence: initialisms written with dots (U.S., U.K.,
+ * e.g., i.e., a.m., p.m.), a single capital initial ("J. Smith") and common abbreviations (etc., Inc., Ltd., vs.,
+ * Mr., Dr., St., No., approx.). Decimals and versions (1.5, v2.3.1) never reach this: no space follows their dot.
+ */
+const ABBREVIATION =
+  /(?:^|[\s([{"'“‘])(?:(?:[a-z]\.){2,}|(?:etc|inc|ltd|corp|co|vs|approx|mr|mrs|ms|dr|st|no|jr|sr|prof)\.)$/i;
+/** A single capital initial ("J. Smith"). Case-sensitive: a lower-case letter before a stop ends a sentence. */
+const INITIAL = /(?:^|[\s([{"'“‘])[A-Z]\.$/;
+/** What may open the next sentence: a capital, a digit, an opening quote or bracket (a placeholder starts with "["). */
+const SENTENCE_START = /[\p{Lu}\p{N}"'“‘([]/u;
 const LIST_MARKER = /^\s*(?:[-*]\s+)?\d{1,2}[.)]$/;
 const COMPARATIVE =
   /\b(?:cheaper|pricier|costlier|more expensive|less expensive|best|only|most|least|than)\b/i;
 const TOKEN = /\[\[[^\]]*\]\]/g;
+/** Fewer content words than this, once citations and attribution are removed, and a factual sentence says nothing. */
+export const MIN_SENTENCE_WORDS = 3;
+const ATTRIBUTION = /^\s*according to\s+[^\s:,]+\s*[:,]?/i;
 
 const isWhitespace = (ch: string): boolean => /\s/.test(ch);
 
@@ -75,6 +88,11 @@ export class SentenceAssembler {
   private sep = '';
   private seenAny = false;
   private endCandidate = false;
+  /**
+   * Whitespace seen after a possible sentence end, held until the next character decides: a capital, digit,
+   * quote, bracket or placeholder (or the end of the stream) ends the sentence; anything else continues it.
+   */
+  private pending: string | null = null;
   private carry: SentenceIssue[] = [];
   /** Characters quoted by the sourced sentences that passed so far (the per-answer cap). */
   private sourcedChars = 0;
@@ -89,19 +107,42 @@ export class SentenceAssembler {
   feed(items: readonly StreamItem[]): void {
     for (const item of items) {
       if (item.type === 'text') this.text(item.text);
-      else if (item.type === 'malformed') this.issue('malformed_placeholder');
-      else this.placeholder(item.token, item.ref);
+      else if (item.type === 'malformed') {
+        this.settle();
+        this.issue('malformed_placeholder');
+      } else {
+        this.settle();
+        this.placeholder(item.token, item.ref);
+      }
     }
   }
 
   /** Normal end of the stream: the open sentence is complete. */
   finish(): void {
+    this.pending = null;
     if (this.cur) this.close();
   }
 
-  /** The stream was cut: the open sentence is dropped. It was never complete, so it is never released. */
+  /**
+   * The stream was cut: the open sentence is dropped. It was never complete, so it is never released. A sentence
+   * that had already ended (terminator and whitespace seen, only the next sentence's first character missing) is
+   * complete and is closed as it would have been.
+   */
   discardOpen(): void {
+    if (this.pending !== null) {
+      this.pending = null;
+      this.close();
+    }
     this.cur = null;
+  }
+
+  /** A sentence end was pending: whatever comes next (a placeholder, a malformed token) starts a new sentence. */
+  private settle(): void {
+    if (this.pending === null) return;
+    const ws = this.pending;
+    this.pending = null;
+    this.close();
+    this.sep += ws;
   }
 
   // ── internals ──
@@ -139,18 +180,39 @@ export class SentenceAssembler {
       }
       const cur = this.cur;
       if (!cur) continue;
+      if (this.pending !== null) {
+        if (ch === '\n' || ch === '\r') {
+          this.settle();
+          this.sep += ch;
+          continue;
+        }
+        if (isWhitespace(ch)) {
+          this.pending += ch;
+          continue;
+        }
+        if (SENTENCE_START.test(ch)) {
+          this.settle();
+          this.open();
+        } else {
+          // a lower-case word after the stop: the sentence goes on, with the whitespace that was held
+          cur.template += this.pending;
+          cur.text += this.pending;
+          this.pending = null;
+        }
+      }
+      const now = this.cur;
+      if (!now) continue;
       if (ch === '\n' || ch === '\r') {
         this.close();
         this.sep += ch;
         continue;
       }
-      if (isWhitespace(ch) && this.endCandidate && this.isBoundary(cur.template)) {
-        this.close();
-        this.sep += ch;
+      if (isWhitespace(ch) && this.endCandidate && this.isBoundary(now.template)) {
+        this.pending = ch;
         continue;
       }
-      cur.template += ch;
-      cur.text += ch;
+      now.template += ch;
+      now.text += ch;
       if (TERMINATORS.has(ch)) this.endCandidate = true;
       else if (!CLOSERS.has(ch)) this.endCandidate = false;
     }
@@ -158,7 +220,7 @@ export class SentenceAssembler {
 
   private isBoundary(template: string): boolean {
     const t = template.replace(/["'”’)\]}]+$/, '');
-    return !ABBREVIATION.test(t) && !LIST_MARKER.test(t);
+    return !ABBREVIATION.test(t) && !INITIAL.test(t) && !LIST_MARKER.test(t);
   }
 
   private placeholder(token: string, ref: PlaceholderRef): void {
@@ -224,6 +286,7 @@ export class SentenceAssembler {
     }
 
     if (repeatsRenderedText(open.template, open.placeholders)) issues.add('duplicate_text');
+    if ((rendersFinding || sourced) && saysNothing(open)) issues.add('empty_sentence');
     if (sourced && issues.size === 0) {
       this.sourcedChars += quoted;
       const attributed = attribute(open, cited, ctx);
@@ -272,4 +335,34 @@ export class SentenceAssembler {
     }
     return true;
   }
+}
+
+/**
+ * True when a factual sentence (verified or sourced) carries no statement of its own: with every citation
+ * removed (a source placeholder renders only "[n]"), an opening "According to <domain>" removed and punctuation
+ * removed, fewer than `MIN_SENTENCE_WORDS` words are left. A finding placeholder that renders text is a complete
+ * statement by itself (it may render a single word, "changed"), so it counts as enough; one that renders nothing
+ * counts for nothing. "Vercel: [[F1]]." says something; "According to vercel.com: [[S:a]], [[S:b]]." does not.
+ */
+export function saysNothing(sentence: {
+  template: string;
+  placeholders: PersistedSentence['placeholders'];
+}): boolean {
+  let i = 0;
+  let statements = 0;
+  const body = sentence.template.replace(TOKEN, () => {
+    const p = sentence.placeholders[i++];
+    if (p === undefined || p.snapshotId !== undefined) return ' ';
+    if (p.findingId !== undefined) {
+      if (p.rendered.trim() !== '') statements += 1;
+      return ' ';
+    }
+    return ` ${p.rendered} `;
+  });
+  if (statements > 0) return false;
+  const words = body
+    .replace(ATTRIBUTION, ' ')
+    .replace(/\[\d+\]/g, ' ')
+    .match(/[\p{L}\p{N}][\p{L}\p{N}'’.-]*/gu);
+  return (words?.length ?? 0) < MIN_SENTENCE_WORDS;
 }
