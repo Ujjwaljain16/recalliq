@@ -324,6 +324,21 @@ Reported mutation checks: 25 deliberate breaks in the verifier, resolver, detect
 , a code the symbol cannot stand for, and a code not next to the amount stay unknown |
 | Evaluation path | `tests/integration/evidence/extraction-eval.test.ts` | The real extractor and verifier over the gold pages with an oracle model, an empty model, a scripted fake and a recorded-then-replayed one; failures recorded; prompt and token cap reach the model; the command refuses a live run without `--confirm-live-calls`, without `--max-calls`, with a cap below the page count, or without the key and model in the environment, and never prints a key |
 
+## Scenario routing (audit lane, shortlist resolution, analysis roles), added 2026-11-12
+
+Driven through the real coordinator with real SQLite, the real temporal resolver, memory retriever and baseline source; the analyzer, research service and answer pipeline are doubles with canned output, so these tests show what is retrieved, whom is researched and what the code writes, not model quality. The analysis used for the first question is the one the real analyzer returned, verbatim, plus a corrected variant (the role of "Monday" fixed).
+
+| File | What it covers |
+|---|---|
+| `tests/integration/orchestration/scenario-routing.test.ts` | First question: Monday message and shortlist retrieved, all five tools researched in shortlist order, reply opens with what was written and when, then the no-earlier-answer statement, then the findings; model sentences numbered after the code-written ones in the stream and in storage; `unable_to_verify` findings; the captured (uncorrected) analysis still reaches the five; cap of 6 with a warning; a name with no stored entity researched by name; two shortlists on one day clarify; none stored gives the fixed reply; research lane routing. Second and third question: reply says what was asked and when (user's zone), that no earlier answer is on record, and offers a lookup, with no research and no answer-model call; no stored message means no claim that one existed; the old reply fails the expectation. Years: a year the user did not write is gone before the research request, one the user wrote stays |
+| `tests/unit/llm/analyzer.test.ts` | Year stripping: unwritten years removed and the query tidied, a written year kept and only that year, numbers that are not years untouched |
+| `tests/unit/llm/prompts.test.ts` | Prompt version `analysis.v3`, the three role definitions with examples, the no-year rule |
+| `tests/unit/orchestration/lanes.test.ts` | Audit with no baseline: researches when there is a company, fixed reply when there is none |
+
+Existing end-to-end tests that expected the fixed reply for an audit with a named company and no baseline now expect the research to run and the plain statement (`acknowledgement.test.ts`, `isolation.test.ts`).
+
+Mutation checks, each restored afterwards and each made at least one test fail: shortlist resolution removed (10 failed); audit falling back to the fixed reply despite companies (10); the recalled question left out of the reply (8); year stripping removed (3); role instructions removed from the prompt (1, the prompt version test).
+
 ## Documentation checks (`tests/integration/docs.test.ts`)
 
 Added in the post-M2 documentation pass. They check the documents against each other and against the code; they do not test application behaviour.

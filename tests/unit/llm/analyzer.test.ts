@@ -119,3 +119,50 @@ describe('LlmTurnAnalyzer', () => {
     expect(degradedAnalysis('What does the Pro plan cost at ExampleCo?')).toEqual(a);
   });
 });
+
+describe('years the user did not write', () => {
+  const withQueries = (queries: string[], alternateQueries: string[] = []) => ({
+    ...goodModelOutput,
+    queries,
+    alternateQueries,
+  });
+  const analyse = (message: string, raw: unknown) =>
+    new LlmTurnAnalyzer({ llm: new FakeLlm().queueStructured(raw) }).analyze(
+      { ...input, userMessage: message },
+      new FakeBudget(60000),
+    );
+
+  it('are stripped from queries and alternate queries, and what is left is tidy', async () => {
+    const a = await analyse(
+      'Has pricing changed since Monday?',
+      withQueries(
+        [
+          'CRM software pricing updates releases 2024',
+          'CRM news in 2025',
+          'Acme 2023 vs Beta 1999',
+        ],
+        ['best CRM 2024 pricing', '2024'],
+      ),
+    );
+    expect(a.queries).toEqual([
+      'CRM software pricing updates releases',
+      'CRM news',
+      'Acme vs Beta',
+    ]);
+    expect(a.alternateQueries).toEqual(['best CRM pricing']);
+  });
+
+  it('are kept when the user wrote that year, and only that year', async () => {
+    const a = await analyse(
+      'What did Acme change in 2024?',
+      withQueries(['Acme changes 2024', 'Acme changes 2025'], ['Acme 2024 release notes 2023']),
+    );
+    expect(a.queries).toEqual(['Acme changes 2024', 'Acme changes']);
+    expect(a.alternateQueries).toEqual(['Acme 2024 release notes']);
+  });
+
+  it('leave numbers that are not years alone', async () => {
+    const a = await analyse('x', withQueries(['plan for 20 seats at 1500 usd', 'v12345']));
+    expect(a.queries).toEqual(['plan for 20 seats at 1500 usd', 'v12345']);
+  });
+});

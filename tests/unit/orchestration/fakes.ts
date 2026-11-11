@@ -144,11 +144,18 @@ export type AnswerResult = Awaited<ReturnType<AnswerPipeline['run']>>;
 export class FakeAnswer implements AnswerPipeline {
   calls: Array<Parameters<AnswerPipeline['run']>[0]> = [];
   budgets: unknown[] = [];
+  /** Events the double streams before it returns, the way the real pipeline does. */
+  streams: SseEvent[] = [];
   constructor(
     private readonly make: (input: Parameters<AnswerPipeline['run']>[0]) => AnswerResult | Error,
   ) {}
-  run(input: Parameters<AnswerPipeline['run']>[0], budget: Parameters<AnswerPipeline['run']>[1]) {
+  run(
+    input: Parameters<AnswerPipeline['run']>[0],
+    budget: Parameters<AnswerPipeline['run']>[1],
+    emit?: Parameters<AnswerPipeline['run']>[2],
+  ) {
     this.calls.push(input);
+    for (const e of this.streams) emit?.(e);
     this.budgets.push(budget);
     const out = this.make(input);
     return out instanceof Error ? Promise.reject(out) : Promise.resolve(out);

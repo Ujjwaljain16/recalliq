@@ -31,11 +31,11 @@ describe('T-E2E acknowledgement decides what the assistant said', () => {
           auditOf(AUDIT_BETA, 'Beta Suite'),
         ],
         extraction: [extractionOf('Acme CRM', 90), extractionOf('Beta Suite', 80)],
-        search: [priceSearch('Acme CRM', 90, 90), priceSearch('Beta Suite', 80)],
+        search: [priceSearch('Acme CRM', 90, 90), priceSearch('Beta Suite', 80, 80)],
         synthesis: [
           say(BOTH, 'Acme CRM: [[F1]].', ' Beta Suite: [[F2]].'),
           say(AUDIT_ACME, 'I said [[F1:baseline]]. Acme CRM: [[F1:verdict]].'),
-          say(AUDIT_BETA, 'Nothing here.'),
+          say(AUDIT_BETA, 'Beta Suite: [[F1]].'),
         ],
       }),
     });
@@ -56,10 +56,13 @@ describe('T-E2E acknowledgement decides what the assistant said', () => {
     expect(f).toHaveLength(1);
     expect(f[0]?.baseline?.value.amount).toBe(90);
 
-    // Beta's claim was streamed but never acknowledged: no baseline, no research, an honest reply
+    // Beta's claim was streamed but never acknowledged: it is no baseline. The current price is researched and
+    // the answer says plainly that nothing earlier can be compared against.
     const beta = await ask(user, conv, AUDIT_BETA);
-    expect(eventsOf(beta, 'finding')).toHaveLength(0);
-    expect(beta.sentences.join(' ')).toContain('no earlier claim of mine');
+    const betaFindings = eventsOf(beta, 'finding') as Array<{ baseline?: unknown }>;
+    expect(betaFindings).toHaveLength(1);
+    expect(betaFindings[0]?.baseline).toBeUndefined();
+    expect(beta.sentences.join(' ')).toContain('no earlier answer of my own on record');
   });
 
   it('a withheld sentence never reaches the stream or the database, and leaves nothing to acknowledge', async () => {
