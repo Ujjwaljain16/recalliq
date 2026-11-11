@@ -36,8 +36,11 @@ const OFFER = 'If you want, I can look up the current state on the web instead.'
  * Audit lane: "is what you told me on 3 November still right?".
  *
  *  - Which earlier conversation is meant is decided like recall: an explicit date goes through
- *    `resolveRecall` (several candidates: clarify; no record: a fixed reply), otherwise the current
- *    conversation is the one audited. When the date reference found stored messages of the user, the reply
+ *    `resolveRecall` (several candidates: clarify), otherwise the current conversation is the one audited.
+ *  - Nothing stored on that day: one code-written sentence names the day in words. A set of companies nobody
+ *    named and nothing stored names is a question (which ones, and what will be checked); a stated subject
+ *    continues in the research lane in the same turn behind that sentence; no subject is a fixed reply that
+ *    invites the user to say what was asked. When the date reference found stored messages of the user, the reply
  *    opens with a sentence written in code that says what was asked and when, quoted as stored.
  *  - Who is researched: the entities the user named; when none were named and the user refers to a set of
  *    companies ("the 5 CRM tools"), the entities of the one shortlist stored on the day pointed at. Two stored

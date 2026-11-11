@@ -40,7 +40,10 @@ export interface ResearchOptions {
  *  3. a day the user points at ("last Tuesday I asked ...") is recalled like the audit lane does; when no company
  *     was named, the companies come from the earlier message itself (its tags and the stored entities it
  *     names), several candidate conversations being a question and never a pick. What was asked opens the answer;
- *  4. the plan is built in code and executed by the injected ResearchService.
+ *  4. the plan is built in code and executed by the injected ResearchService. A plan with no search (only a
+ *     category was given) is a question about which companies to check, never a guessed search.
+ *
+ * The audit lane hands a turn over through `researchTurn` when nothing is stored for the day the user pointed at.
  */
 export const researchLane: LaneHandler = (input, deps) => researchTurn(input, deps);
 
