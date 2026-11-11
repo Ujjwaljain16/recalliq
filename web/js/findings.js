@@ -186,3 +186,77 @@ export function findingRow(f, sources, opts) {
     citations: citations(ids, sources),
   };
 }
+
+function planOf(f) {
+  const m = /\|p=([^|]*)/.exec(f.beliefKey ?? '');
+  const plan = m?.[1];
+  if (!plan || plan === '-' || plan === 'unspecified') return null;
+  const text = decodeURIComponent(plan.replace(/\+/g, ' ')).replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * The findings of ONE entity as one row: "Lite $19 · Growth $34 · Premium $64 per user per month · currency not
+ * stated · not seen recently". A unit shared by every plan is said once at the end, a note shared by several
+ * plans is said once. Findings are one per plan, so without this the card repeats the entity name per plan.
+ */
+function groupRow(group, sources, opts) {
+  const rows = group.map((f) => findingRow(f, sources, opts));
+  const parts = group.map((f, i) => {
+    const v = f.current?.value;
+    const plan = planOf(f);
+    if (!v || f.intent !== 'pricing') return { plan, money: rows[i].value, unit: '' };
+    const money = shortValue(v);
+    return { plan, money, unit: formatValue(v).slice(money.length).trim() };
+  });
+  const units = new Set(parts.map((p) => p.unit));
+  const shared = units.size === 1 ? [...units][0] : '';
+  const body = parts
+    .map((p) => {
+      const unit = shared === '' && p.unit ? ` ${p.unit}` : '';
+      return `${p.plan ? `${p.plan} ` : ''}${p.money}${unit}`;
+    })
+    .join(' · ');
+  const notes = [];
+  if (group.some((f) => f.current?.value?.currency === 'unknown'))
+    notes.push('currency not stated');
+  const staleBadge = rows.find((r) => r.status?.kind === 'stale')?.status ?? null;
+  if (staleBadge)
+    notes.push(staleBadge.label.startsWith('last seen') ? 'not seen recently' : staleBadge.label);
+  const other = rows.find(
+    (r) => r.status && r.status.kind !== 'stale' && r.status.kind !== 'verified',
+  );
+  const status = staleBadge
+    ? { ...staleBadge, label: 'not seen recently' }
+    : (other?.status ?? rows[0].status);
+  const seen = new Set();
+  const cites = rows
+    .flatMap((r) => r.citations)
+    .filter((c) => (seen.has(c.n) ? false : (seen.add(c.n), true)));
+  return {
+    name: rows[0].name,
+    value: [body + (shared ? ` ${shared}` : ''), ...notes.filter((n) => n !== status?.label)].join(
+      ' · ',
+    ),
+    status,
+    verdict: rows.every((r) => r.verdict?.label === rows[0].verdict?.label)
+      ? rows[0].verdict
+      : null,
+    baseline: rows.find((r) => r.baseline)?.baseline ?? null,
+    releases: rows.flatMap((r) => r.releases),
+    citations: cites,
+  };
+}
+
+/** The rows of the findings card: findings of the same entity are one row, in the order of their first finding. */
+export function groupedFindingRows(findings, sources, opts) {
+  const sorted = [...findings].sort((a, b) => a.ord - b.ord);
+  const groups = new Map();
+  for (const f of sorted) {
+    const key = f.entityId ?? f.entityName;
+    groups.set(key, [...(groups.get(key) ?? []), f]);
+  }
+  return [...groups.values()].map((g) =>
+    g.length === 1 ? findingRow(g[0], sources, opts) : groupRow(g, sources, opts),
+  );
+}

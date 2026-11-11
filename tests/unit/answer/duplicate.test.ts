@@ -11,7 +11,7 @@ const dup = (template: string, rendered: string): boolean =>
 
 const NO_PRICE = 'no verified price was found';
 const UNABLE = "couldn't be checked this time (the search timed out)";
-const STALE = 'US$90 per user per month (pro) (last seen 3 Nov 2026) [1]';
+const STALE = 'US$90 per user per month (pro, last seen 3 Nov 2026) [1]';
 const CONTESTED =
   'listed as US$90 per user per month (pro) [1] and US$100 per user per month (pro) [2] — official sources disagree';
 const SAME_PRICE = 'the official page still showed the same price when checked on 3 Nov 2026';
