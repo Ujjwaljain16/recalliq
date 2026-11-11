@@ -79,6 +79,11 @@ describe('duplicate text: the free text restates what a placeholder renders', ()
     expect(dup('Thanks for waiting.', NO_PRICE)).toBe(false);
   });
 
+  it('a rendered text of two words is compared whole', () => {
+    expect(dup('Neon: sources disagree [[F1]].', 'sources disagree')).toBe(true);
+    expect(dup('Neon: sources [[F2]] disagree [[F1]].', 'sources disagree')).toBe(false);
+  });
+
   it('a run never spans a placeholder', () => {
     expect(dup('no verified [[F2]] price [[F1]]', NO_PRICE)).toBe(false);
   });

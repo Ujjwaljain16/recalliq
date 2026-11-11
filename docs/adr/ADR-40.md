@@ -51,6 +51,10 @@ The safety boundary for statements about change is **structural**, not lexical. 
 
 **Limitation, stated plainly.** The word lists (the original phrase families and a broader lexicon of change verbs, comparatives and timing words, matched after normalising case, spacing, look-alike characters and hyphenation) are a backstop. They are not a complete natural-language semantic detector: a paraphrase outside the lists can pass, and a harmless sentence that uses a listed word (for example "you can change plans") is withheld. The verdict-placeholder requirement and the prompt are the boundary; the lists only catch the wording they know. The corpus in `tests/unit/answer` records known false positives and known false negatives.
 
+## Duplicate text
+
+A placeholder renders a complete statement or value, so the free text around it must not repeat it (the observed defect: "No verified price was found for Neon [[F1]]" read as "... for Neon no verified price was found"). When a sentence ends, before release, the pipeline compares its free text, case-insensitively and ignoring punctuation and whitespace, with the rendered text of its placeholders. It withholds the sentence (issue `duplicate_text`, same semantics as any other withheld sentence) when the free text contains a placeholder's whole rendered text of two or more words, or a run of three consecutive words of it with at least two content words (units and common filler words such as `per`, `user`, `month` do not count). A run never spans a placeholder, and a placeholder that renders a single word is not compared. The synthesis prompt asks for a lead-in with the entity name and a colon instead. Like the change-language check, this is a backstop and not complete: a restatement in different words passes, and a harmless sentence that happens to repeat three content words of a rendering is withheld.
+
 ## Consequences and trade-offs
 
 - No token-by-token typing: the first visible text arrives when the first sentence is validated.
