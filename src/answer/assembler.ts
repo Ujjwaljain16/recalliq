@@ -1,6 +1,7 @@
 import type { PersistedSentence, PlaceholderRef, SentenceIssue } from '../shared/answer.js';
 import type { Finding } from '../shared/findings.js';
 import type { Logger } from '../shared/infrastructure.js';
+import { repeatsRenderedText } from './duplicate.js';
 import { parsePlaceholderBody, type StreamItem } from './placeholders.js';
 import { resolveRef, type AnswerRecords } from './records.js';
 import type { Renderer } from './render.js';
@@ -187,6 +188,8 @@ export class SentenceAssembler {
     for (const i of checkFreeText({ template: open.template, refs: open.refs }, this.deps.t3a)) {
       issues.add(i);
     }
+
+    if (repeatsRenderedText(open.template, open.placeholders)) issues.add('duplicate_text');
 
     let judgeFacts: string[] | null = null;
     if (issues.size === 0) {
