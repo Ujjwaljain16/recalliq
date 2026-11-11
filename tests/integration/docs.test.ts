@@ -111,6 +111,26 @@ describe('architecture decision records', () => {
     expect(status(14)).toBe('Proposed'); // models
   });
 
+  it('decisions whose mechanism is not chosen stay Proposed (single-instance guard, failure transitions)', () => {
+    const status = (n: number) => adrs.find((a) => a.number === n)?.status;
+    expect(status(34)).toBe('Proposed');
+    expect(status(39)).toBe('Proposed');
+  });
+
+  it('ADR-01 to ADR-24 say they were reconstructed, not recovered, and the index says so too', () => {
+    for (const adr of adrs.filter((a) => a.number <= 24)) {
+      expect(adr.text, `provenance of ADR-${adr.number}`).toContain(
+        '- **Provenance:** Reconstructed on 2026-11-11',
+      );
+      expect(adr.text, `provenance of ADR-${adr.number}`).toContain(
+        'is **not** recovered original ADR text',
+      );
+    }
+    expect(fs.readFileSync(path.join(ADR_DIR, 'README.md'), 'utf8')).toContain(
+      '**not** recovered original ADR text',
+    );
+  });
+
   it('contain no measurement-style results (latency percentiles or millisecond figures)', () => {
     for (const adr of adrs) {
       expect(adr.text, adr.file).not.toMatch(/\bp(50|95|99)\b|\b\d+(\.\d+)?\s?ms\b/i);

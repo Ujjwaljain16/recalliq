@@ -7,7 +7,7 @@ the repository, so re-run the suite before relying on these numbers.
 Run everything: `npm run check` (typecheck, lint, format check, tests). Tests only: `npm test`. Every test is offline and
 deterministic: in-memory SQLite or a temporary file, a fixed clock, no network, no live provider.
 
-**Last run:** 13 files, 218 passed, 2 `todo`, 0 failed, 0 skipped (203 of them are the code tests of milestones 1 and 2; 15 are the documentation checks below).
+**Last run:** 13 files, 220 passed, 2 `todo`, 0 failed, 0 skipped (203 of them are the code tests of milestones 1 and 2; 17 are the documentation checks below).
 
 Test IDs: those named in the contract documents are used as given. IDs the documents list without numbers were enumerated here
 (Q-004, Q-018). `T-TRN-*` and `T-ASR-*` are new IDs from Milestone 2 and do not exist in the contract documents.
@@ -102,7 +102,7 @@ Added in the post-M2 documentation pass. They check the documents against each o
 
 | Group | What it enforces |
 |---|---|
-| ADRs (7 tests) | numbers contiguous from 01 and unique; each has a title, a valid status (Proposed, Accepted, Superseded) and implementation value, and every required section in order; a Superseded ADR names its replacement; an ADR marked "implemented" links at least one test; the search-provider and model ADRs stay Proposed; no ADR contains latency-percentile or millisecond figures; the index lists every ADR with the same title, status and implementation, and its counts are right |
+| ADRs (9 tests) | numbers contiguous from 01 and unique; each has a title, a valid status (Proposed, Accepted, Superseded) and implementation value, and every required section in order; a Superseded ADR names its replacement; an ADR marked "implemented" links at least one test; the search-provider and model ADRs stay Proposed; the single-instance-guard and failure-transition ADRs (34, 39) stay Proposed; ADR-01 to ADR-24 and the index carry the reconstructed-not-recovered provenance statement; no ADR contains latency-percentile or millisecond figures; the index lists every ADR with the same title, status and implementation, and its counts are right |
 | Links (3 tests) | every relative link in the README, `docs/questions.md`, `docs/testing.md`, `docs/turn-lifecycle.md`, the proposals and the ADRs resolves to a file; every ADR or question referred to by number exists; Q-001, Q-007, Q-011, Q-015 and Q-016 stay in the question log, and every question keeps its row in the summary table |
 | ER diagram (5 tests) | `docs/diagrams/er.mmd` draws exactly the tables of the schema the migrations create (the FTS5 virtual table excluded), with every column, type, primary-key and foreign-key flag; every foreign key appears once as a solid relationship with its ON DELETE action; dotted relationships are only for columns with no foreign key; nothing planned is drawn |
 
@@ -119,7 +119,7 @@ mutable identity, presented without acknowledgement, render beyond streamed, `no
 three ownership triggers, two isolation triggers). Every one made at least one test fail, and the sources were restored byte-identical. This is a manual
 spot check, not an automated mutation-testing run, and it does not show the tests are complete. The documentation checks were mutated the same way (16 breaks: a removed or added table or column,
 a wrong ON DELETE label, a bad status, a missing section, a broken link, an unknown ADR, a measurement decision marked Accepted, an unsupported "implemented" claim, an invented latency figure,
-a disagreeing or missing index row, a dropped open question or summary row); every one made a test fail and the documents were restored identical.
+a disagreeing or missing index row, a dropped open question or summary row); every one made a test fail and the documents were restored identical. The two gates added in the final documentation pass (provenance statement, ADR-34 and ADR-39 staying Proposed) were each mutated once (a provenance line removed from ADR-12; ADR-34 set to Accepted) and each failed as expected.
 
 ## Known gaps in the tests
 

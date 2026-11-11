@@ -4,6 +4,7 @@
 - **Implementation:** partly implemented
 - **Decided:** Owner: "No embeddings unless evaluation demonstrates a material retrieval problem", 2026-11-11
 - **Recorded:** 2026-11-11
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-04](ADR-04.md), [ADR-07](ADR-07.md)
 
 ## Context

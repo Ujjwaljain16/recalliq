@@ -13,6 +13,11 @@ Conventions:
 
 ## 1. SQL schema (`001_init.sql`)
 
+> **Correction (final documentation pass, 2026-11-12).** Two statements in this section are narrower in the implementation, and the schema below is no longer the whole database:
+>
+> - **The two `PRAGMA` lines are connection settings, not migration statements.** `foreign_keys` is per connection and `journal_mode = WAL` cannot be changed inside a transaction on a file database (verified, [ADR-25](adr/ADR-25.md)), so `openDatabase()` sets them on every connection and `001_init.sql` omits them. A test compares the rest of the SQL block below with `001_init.sql` ([tests/integration/db/contract-parity.test.ts](../tests/integration/db/contract-parity.test.ts)).
+> - **Migrations 002–005 add triggers that this block does not show.** They are listed in [§1.2](#12-migrations-applied-on-top-of-the-schema) and in [turn-lifecycle.md](turn-lifecycle.md). Where this document or the architecture says a trigger "blocks" something, §1.2 says whether it does so today.
+
 ```sql
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
@@ -357,6 +362,19 @@ This runs as one transaction:
 7. `rebuildBeliefs(userId, K)`: delete `beliefs` and `belief_history` for every key in K, then replay the remaining `pass` evidence.
 
 Test coverage: T-MEM-08, T-DB-08 (referenced evidence survives), T-DB-09 (rebuild-after-delete equals a fresh rebuild).
+
+### 1.2 Migrations applied on top of the schema
+
+Added after this document was reconciled. They only add triggers; no table or column changed. Decisions: [ADR-25](adr/ADR-25.md) to [ADR-32](adr/ADR-32.md).
+
+| # | Migration | Enforces in the database | Not covered |
+|---|---|---|---|
+| 002 | `002_demo_isolation.sql` | A `real` database rejects inserts of non-live messages, entities and decisions, relabelling of users, conversations, entities and decisions, and any change to `meta.db_mode` | Other tables carry no origin column or are not checked; isolation is partial (Q-002) |
+| 003 | `003_ownership_consistency.sql` | Evidence, findings and assertions reference only rows of the same user as their turn; `assertion_evidence` and the evidence/finding references are immutable | `search_requests`, `decisions`, snapshots by turn, `beliefs`, `belief_history` (Q-007; plan in [questions.md](questions.md)) |
+| 004 | `004_turn_lifecycle.sql` | The 19-edge transition table, immutable turn identity, finished turns are final, state/status coupling | Failure edges from intermediate states (Q-011) |
+| 005 | `005_delivery_acknowledgement.sql` | Streamed vs rendered extents, "presented only if acknowledged", the `presented`, `not_presented` and verdict event rules | |
+
+The origin triggers mentioned in architecture §12 therefore block **some** fixture rows, not all, and ownership is enforced for some tables, not all.
 
 ---
 

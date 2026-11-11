@@ -7,19 +7,19 @@ the code does meanwhile.
 Status values: **open** (needs a decision), **decided** (owner decision recorded, implementation pending),
 **applied** (implemented as described).
 
-The normative contracts (`stage-3-contracts.md`) have **not** been modified (Milestones 1 and 2, and the post-M2 documentation pass).
+The normative contracts (`stage-3-contracts.md`) were **not** modified in Milestones 1 and 2. The final documentation pass (2026-11-12) added a correction note and §1.2 to contracts §1 and corrected architecture §8; contracts §2 (including the locale change) is still unedited.
 Proposed contract edits are written here for review instead. Decisions are recorded in [adr/README.md](adr/README.md); this file keeps the
 questions, including resolved ones and their history.
 
 | ID | Topic | Status | Blocks | ADR |
 |---|---|---|---|---|
-| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **decided** (rule) / **open** (locale contract change) | Milestone 4 change detector | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
+| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **decided** (rule, effective-date distinction, locale as a dimension); a, b, c, e are proposed defaults; contract §2 edit **not applied** | Milestone 4 change detector (unimplemented) | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
 | Q-002 | Demo isolation covers only some tables | **applied** (migration 002, M2); complete isolation still not claimed | — | [ADR-28](adr/ADR-28.md) |
 | Q-003 | PRAGMAs outside migrations | **applied**, approved | — | [ADR-25](adr/ADR-25.md) |
 | Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — | — |
 | Q-005 | Deletion and the belief rebuilder | **applied**, rebuild correctness untested until M4 | T-DB-09 | [ADR-35](adr/ADR-35.md) |
 | Q-006 | `begin` while a different key is running | **applied** (M2) | — | [ADR-30](adr/ADR-30.md) |
-| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003, M2); search_requests, decisions, snapshots, beliefs open | Evidence-pipeline milestone | [ADR-27](adr/ADR-27.md) |
+| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003, M2); table-by-table plan recorded (2026-11-12), remaining tables **not yet enforced** | Each table, before its first use in M3 or M4 | [ADR-27](adr/ADR-27.md) |
 | Q-008 | Declared-only contract functions | applied | — | — |
 | Q-009 | Type-identical lint edits | applied | — | — |
 | Q-010 | Small implementation choices | applied | — | — |
@@ -27,12 +27,23 @@ questions, including resolved ones and their history.
 | Q-012 | Acknowledgement before the answer is stored | open | — | [ADR-23](adr/ADR-23.md) |
 | Q-013 | Meaning of `AckRequest.complete` | open | — | [ADR-31](adr/ADR-31.md) |
 | Q-014 | JSON columns only partly validated | open | Milestones 3, 5 | [ADR-32](adr/ADR-32.md), [ADR-05](adr/ADR-05.md) |
-| Q-015 | Which assertions may become baselines | open | Milestone 3 | [ADR-38](adr/ADR-38.md) |
+| Q-015 | Which assertions may become baselines | **decided** (rules, ADR-38); loader not implemented | Milestone 3 | [ADR-38](adr/ADR-38.md) |
 | Q-016 | `recoverRunning` assumes one process | open | — | [ADR-34](adr/ADR-34.md), [ADR-33](adr/ADR-33.md) |
 | Q-017 | Behaviour added beyond the contract | applied | — | [ADR-30](adr/ADR-30.md), [ADR-32](adr/ADR-32.md) |
 | Q-018 | Test IDs introduced in M2 | applied → [testing.md](testing.md) | — | — |
 
 ---
+
+## Owner review of the documentation (2026-11-12)
+
+The 39-ADR structure and numbering were accepted, with these decisions. Docs only: no application code changed.
+
+- **Provenance.** ADR-01..24 are reconstructed from the architecture §20 register and the Stage 3 / 3.1 documents, not recovered original text; each page and the index say so. Decision status and implementation status are separate fields.
+- **Q-015 / ADR-38 decided:** historical *recall* and *baseline eligibility* are different. Rules in [ADR-38](adr/ADR-38.md). The loader is not implemented.
+- **Q-001:** the effective-date distinction is decided; locale is a required comparability dimension ([ADR-37](adr/ADR-37.md)); the change detector stays unimplemented until M4.
+- **Q-007:** a table-by-table plan with timing is recorded below; ownership is **not** fully enforced today.
+- **ADR-34 and ADR-39 stay Proposed**, no mechanism and no failure edges chosen. **Q-011, Q-012, Q-013, Q-014 and Q-016 stay open.**
+- **Corrections to normative text:** contracts §1 (PRAGMAs, migrations 002–005) and architecture §8, §12, Part IV scenarios 2–3, the scenario matrix, U12 and U19.
 
 ## Owner review of Milestone 2 (2026-11-11)
 
@@ -52,7 +63,7 @@ Milestone 2 was approved, with these qualifications. They are recorded here and 
 ## Q-001: temporal proof for `changed`, and the missing `locale` dimension
 
 **ADR:** [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md)  
-**History:** Raised in M1 (conflict between the kickoff and architecture §8) → owner decided the rule on 2026-11-11 → the locale contract change is still only proposed. **Open.**
+**History:** Raised in M1 (conflict between the kickoff and architecture §8) → owner decided the rule on 2026-11-11 → on 2026-11-12 the owner settled the effective-date question (d) and accepted locale as a comparability dimension; the contract §2 edit is recorded but **not applied**. The change detector is **unimplemented** and stays so until M4.
 
 ### Owner decision (2026-11-11): the exact proof requirements
 
@@ -72,7 +83,7 @@ keep their own conditions, e.g. `baseline_incorrect`, `contested`, `unable_to_ve
 
 ### How this differs from the current specification
 
-Architecture §8 ("post-baseline proof") says `changed` holds if **either** a stated effective date after
+Architecture §8 ("post-baseline proof"; text as it stood before the 2026-11-12 correction) says `changed` holds if **either** a stated effective date after
 T0 exists **or** same-source bracketing holds, where bracketing is an observation of `vB` made as early
 as 48 h *before* T0 followed by a later different observation. The decision above:
 
@@ -82,15 +93,14 @@ as 48 h *before* T0 followed by a later different observation. The decision abov
 
 ### Sub-questions the decision leaves open
 
-The following need an answer before `ChangeDetector` is written. The proposed answer is the one the code
-will follow unless the owner says otherwise.
+The following need an answer before `ChangeDetector` is written. Row d is decided (2026-11-12). Rows a, b, c and e are **proposed defaults, not owner-confirmed**: the code will follow them unless the owner says otherwise. Architecture §8 states a and b as the working definitions.
 
 | # | Question | Proposed answer |
 |---|---|---|
 | a | What counts as an "observation"? | A `pass` evidence statement whose snapshot has `fresh_fetch = 1` and `crawl_status = 'ok'`, timed by `observed_at`. Provider-reported dates are hints and do not count |
 | b | What is "matching source identity"? | The same `url_norm` (the same page). A different page on the same domain does not match |
 | c | What is "comparable … pricing context"? | `comparableKeys(a, b) === 'equal'`: every dimension of the belief key matches (plan, arrangement, condition hash, unit, usage unit, billing period, currency, value kind), plus locale once it exists. `'comparable'` (differs only where one side is `unspecified`) is **not** enough |
-| d | Does a stated effective date after T0 (architecture §8, reason `stated_effective_date`) still count as a post-baseline proof? | **Unclear in the decision.** Read literally, only bracketing yields `changed`, and "effective 1 Dec" from an official page alone would give `differs_timing_unknown`. That changes architecture §8 rows 6b, the `stated_effective_date` reason, and the expected outcome of the `effective-date-stated` synthetic scenario (T-BEL-2x). Needs an explicit answer |
+| d | Does a stated effective date after T0 (architecture §8, reason `stated_effective_date`) still count as a post-baseline proof? | **Decided 2026-11-12: yes, when it is explicitly associated with the price and reliable.** An effective date that the extraction attaches to the new price, from an A1 or A2 source, later than T0, can establish timing (`changed`, "from <date>"). A publication date or a fetch date alone cannot, and a fresh fetch never sets one. Architecture §8 is corrected accordingly; the `effective-date-stated` scenario keeps its `changed` outcome only if the date is explicitly tied to the price |
 | e | Does the baseline's own fresh fetch count as the old-value observation? | No. It was made before the answer was presented, so it is not "after the previous answer" (rule 1) |
 
 ### Consequence for M4 and for demo data
@@ -102,8 +112,7 @@ becomes reachable only when the system has re-observed the old value after T0 an
 therefore include a re-observation of the old value after T0 if a `changed` verdict is to be demonstrated
 honestly. This is a real consequence of the stricter rule, not a defect.
 
-Architecture Part IV scenarios 2 and 3 and the `silent-change-no-date` fixture need their expected verdicts
-re-derived under this rule when the architecture document is next updated (not done in M1).
+Architecture Part IV scenarios 2 and 3 were re-derived under this rule on 2026-11-12 (architecture §8 corrected, old text kept as history). The `silent-change-no-date` fixture does not exist yet; its expected verdict must follow the corrected scenarios.
 
 ### Missing `locale` dimension
 
@@ -142,7 +151,7 @@ regions, on the same domain, therefore maps to **one** key:
 6. Open point for the reviewer: two observations of the **same URL** with locale `unspecified` are
    comparable (same page), but `unspecified` against a known locale is not.
 
-Status: **open**. The change detector will not be written until this is reviewed.
+Status: **decided as a dimension** (2026-11-12): locale is a required pricing-comparability dimension ([ADR-37](adr/ADR-37.md)). The edit above to contracts §2 is the recorded implementation and has **not** been applied; it lands with the first code that writes belief keys. Nothing is implemented, and the change detector will not be written before then. The point in item 6 is adopted: `unspecified` against a known locale is not comparable.
 
 ---
 
@@ -250,6 +259,24 @@ Applied for evidence (turn, snapshot, entity), findings (entity), assertions (tu
 - `source_snapshots`, which has no turn;
 - `beliefs` and `belief_history`.
 
+### Plan for the remaining tables (2026-11-12)
+
+Ownership is **not** fully enforced today. Evidence, findings, assertions and `assertion_evidence` are protected (migration 003, checked by reading it); every table below is not. Each row is a plan: the triggers do not exist, and whether a JSON-referenced id can be checked by a trigger (`json_each`) is untried.
+
+Rule for timing: a table's ownership trigger and its cross-user tests land in the same change as the first code that writes it, and that change is not accepted without them. They are not deferred to the end of the project.
+
+| Table | What is unchecked now | Planned enforcement | Enforce before first use by |
+|---|---|---|---|
+| `decisions` | `user_id` may differ from its conversation's or message's owner; `message_id` may belong to another conversation; `supersedes_id` may point at another user's decision | Insert trigger: `user_id` equals the conversation's and the message's; the message belongs to the conversation; `supersedes_id` is the same user's. Update trigger: identity columns immutable | Whichever milestone first writes decisions (M3 if the enricher or recall lane does) |
+| `decision_entities` | The decision and the entity may belong to different users | Insert trigger: both rows have the same `user_id` | Same change as `decisions` |
+| `search_requests` | `user_id` may differ from its turn's; `entity_id` is unchecked | Insert trigger: `user_id` equals the turn's; `entity_id`, if set, is the same user's. Identity columns immutable | M4, before the first search adapter persists a request |
+| `search_results` | A request and a snapshot of different users can be linked | Insert trigger: request and snapshot have the same `user_id` | M4, with `search_requests` |
+| `source_snapshots` | It has no turn: a snapshot cannot be tied to the turn that fetched it. `user_id` is bound only by the writer | Cannot be checked against a turn. Ownership is enforced at its links (evidence, already covered; `search_results`, above) and by making the identity columns immutable | M4, with `search_results` |
+| `beliefs` | `entity_id` may belong to another user; `winning_evidence` (JSON) may name another user's evidence | Insert/update trigger: the entity is the same user's. The evidence ids are validated by the writer, with a trigger only if `json_each` proves workable. Beliefs are derived, so a failed check is repaired by rebuild | M4, before `BeliefResolver` writes |
+| `belief_history` | `user_id` is unchecked; `evidence_ids` (JSON) and `turn_id` (no foreign key) may point at another user's rows | Insert trigger: a non-null `turn_id` belongs to the same user; JSON ids as for `beliefs`. Append-only between rebuilds is already enforced | M4, with `beliefs` |
+
+Regression tests required per table, modelled on [ownership.test.ts](../tests/integration/db/ownership.test.ts): a cross-user insert is rejected with the trigger's message; a same-user insert is accepted; identity columns cannot be updated; the rule holds on the real write path at the latest schema; and deleting the trigger makes the test fail (a manual mutation check, recorded in [testing.md](testing.md)).
+
 Two behaviours go beyond the contract and are stated here: a finding's `entity_id` (a plain column in the contract)
 must now reference an **existing** entity of the turn's user; and evidence rows may reference a turn only at insert
 time (the contract deliberately has no foreign key there, so evidence can outlive a deleted turn).
@@ -331,17 +358,17 @@ with their producers (turn analysis and memory in Milestone 3, the SSE writer in
 findings, normalised values, metrics, assertions and baseline events. `complete()` **rejects** a completion with non-empty
 `enrichment` or `touchedBeliefKeys`, with an explicit error, until Milestones 3 and 4 can act on them; it never ignores them.
 
-### Q-015: which stored assertions may become baselines — open (Milestone 3)
+### Q-015: which stored assertions may become baselines — decided (rules); loader not implemented (Milestone 3)
 
 **ADR:** [ADR-38](adr/ADR-38.md)  
-**History:** Raised in M2. Direction given by the owner; details to be finalised at the start of M3. **Open.**
+**History:** Raised in M2. Direction given by the owner; on 2026-11-12 the owner adopted the recall / baseline-eligibility distinction and the rules were written from the actual placeholder grammar and schema. **Decided**; nothing in code applies them yet.
 
-The database records every assertion and its delivery state; it does not decide eligibility. When the baseline loader is
-written, it should take **presented** assertions only, and the following need a decision:
+The database records every assertion and its delivery state; it does not decide eligibility. The rules are in [ADR-38](adr/ADR-38.md): recall needs presentation; baseline eligibility additionally needs the current-value placeholder `F<n>`, a `verified` sentence, set key and value, and at least one evidence link with every linked statement `pass`. The two questions that were open were answered like this:
 
-- the `F<n>:baseline` and `F<n>:verdict` placeholder variants restate an earlier claim or a verdict, so they should
-  probably not themselves become baselines (only the `F<n>` current-value variant should);
-- whether an assertion in a sentence with status `unverified` or `unchecked` may be a baseline.
+- `F<n>:baseline`, `F<n>:verdict` and `F<n>:derived:<k>` are **not** baselines; only `F<n>` is;
+- an assertion in a sentence with status `unverified`, `unchecked` or `truncated` is recallable but **not** a baseline.
+
+Still open: the baseline loader that applies rules 2 to 5 (M3), and its tests.
 
 ### Q-016: `recoverRunning` assumes one application process per database file — open
 

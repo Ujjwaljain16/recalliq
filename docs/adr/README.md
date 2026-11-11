@@ -4,6 +4,9 @@ One page per decision, recorded 2026-11-11 after milestones 1 and 2. ADR-01 to A
 [stage-3-architecture.md](../stage-3-architecture.md), restated against what is actually implemented. ADR-25 to ADR-39 record decisions made
 during implementation, and open decisions raised since; they were never in the original register.
 
+**Provenance.** ADR-01 to ADR-24 were reconstructed on 2026-11-11 from the architecture §20 register (one summary row each) and the Stage 3 / 3.1 design documents. They are **not** recovered original ADR text; no earlier pages existed, and each page says so. Where a page cites a rationale, it comes from those documents. **Status** records whether the decision was made; **Implementation** records, separately, what the code and tests do today. ADR-25 to ADR-39 record decisions made
+
+
 ## Statuses
 
 | Status | Meaning |
@@ -18,7 +21,7 @@ during implementation, and open decisions raised since; they were never in the o
 | partly implemented | Some of it exists; the page says exactly what |
 | not implemented | A design or a decision only |
 
-Counts: 39 ADRs. Accepted 33, Proposed 6, Superseded 0.
+Counts: 39 ADRs. Accepted 35, Proposed 4, Superseded 0.
 Implemented 9, partly 15, not implemented 15.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
@@ -64,9 +67,9 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-33](ADR-33.md) | Recovery: running turns become interrupted at startup | Accepted | implemented | Turns still running at startup are marked interrupted in whatever state they reached; nothing is resumed or invented. | [ADR-34](ADR-34.md), [ADR-39](ADR-39.md), [Q-016](../questions.md) |
 | [ADR-34](ADR-34.md) | Single-instance guard for a database file | Proposed | not implemented | Prevent a second application process from opening the same database file; the mechanism is not chosen. | [ADR-33](ADR-33.md), [Q-016](../questions.md) |
 | [ADR-35](ADR-35.md) | Privacy deletion with an injected belief rebuilder | Accepted | partly implemented | Deleting a conversation is an explicit procedure; derived beliefs are rebuilt by a dependency passed in, with no default. | [ADR-06](ADR-06.md), [ADR-13](ADR-13.md), [Q-005](../questions.md) |
-| [ADR-36](ADR-36.md) | Stricter proof for a post-baseline change | Accepted | not implemented | `changed` needs an observation of the old value after the previous answer, then a later observation of the new value, from the same source and comparable context; otherwise `differs_timing_unknown`. | [ADR-22](ADR-22.md), [ADR-37](ADR-37.md), [Q-001](../questions.md) |
-| [ADR-37](ADR-37.md) | Locale as a dimension of the belief key | Proposed | not implemented | Add a code-derived `locale` to the price belief key so that regional prices neither collide nor compare. | [ADR-21](ADR-21.md), [ADR-36](ADR-36.md), [Q-001](../questions.md) |
-| [ADR-38](ADR-38.md) | Which assertions may become historical baselines | Proposed | partly implemented | Only presented assertions qualify; a rendered but unverified sentence is not a factual baseline; a baseline keeps its evidence references and verification status. | [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md) |
+| [ADR-36](ADR-36.md) | Stricter proof for a post-baseline change | Accepted | not implemented | `changed` needs the old value re-observed after the previous answer then the new value observed later, same source and comparable context, or an explicitly associated reliable effective date; publication and fetch dates alone never; otherwise `differs_timing_unknown`. | [ADR-22](ADR-22.md), [ADR-37](ADR-37.md), [Q-001](../questions.md) |
+| [ADR-37](ADR-37.md) | Locale as a dimension of the belief key | Accepted | not implemented | Locale is a required comparability dimension; the typed-key change (code-derived `locale`, `|loc=` encoding) is recorded but not yet applied to the contract. | [ADR-21](ADR-21.md), [ADR-36](ADR-36.md), [Q-001](../questions.md) |
+| [ADR-38](ADR-38.md) | Which assertions may become historical baselines | Accepted | partly implemented | Recall needs presentation; baseline eligibility also needs the current-value placeholder, a verified sentence and passing evidence links. Only presentation gating exists in code. | [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md) |
 | [ADR-39](ADR-39.md) | Failure transitions from intermediate states | Proposed | not implemented | Decide which failures are recoverable, which are terminal, and how partial work is preserved, before the orchestrator is written. | [ADR-29](ADR-29.md), [ADR-33](ADR-33.md), [Q-011](../questions.md) |
 
 ## How these relate to other documents

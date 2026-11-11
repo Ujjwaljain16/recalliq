@@ -4,6 +4,7 @@
 - **Implementation:** partly implemented
 - **Decided:** Owner approval, 2026-11-11 (3.1)
 - **Recorded:** 2026-11-11
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-13](ADR-13.md), [ADR-37](ADR-37.md), [ADR-22](ADR-22.md)
 
 ## Context

@@ -656,11 +656,15 @@ flowchart LR
 The two proofs:
 
 - **Prior-effect proof.** Some `pass` statement with value ≠ `vB` for `kB`, at a tier at least as high as `tier_B`, has either `effectiveFrom ≤ T0`, or `displayedAt ≤ T0` with a basis other than `unknown`.
-- **Post-baseline proof.** Either of these holds:
-  - some `pass` statement at tier A1 or A2 states `effectiveFrom > T0` for `C.value`;
-  - **same-source bracketing:** there is an observation of `vB` from C's winning `url_norm` with `displayedAt ≥ T0 − 48 h` (usually the baseline's own fresh fetch), and C's winning observation of `C.value` is later.
+- **Post-baseline proof.** Either of these holds. *(Revised 2026-11-12 after the owner's decision in [Q-001](questions.md), [ADR-36](adr/ADR-36.md). The earlier text allowed "same-source bracketing" from an observation up to 48 h **before** T0; that tolerance is removed, and the old text is kept below as history.)*
+  - **Re-observation bracketing.** All of: (1) an observation of `vB` made **after** T0 (the baseline's own fetch precedes T0 and does not count); (2) a later observation of `C.value`; (3) both from the same source identity, the same `url_norm`; (4) the same belief key, which includes comparable locale, plan, billing arrangement and pricing context once locale is part of the key ([ADR-37](adr/ADR-37.md)). `changeWindow = {after: the vB observation, notAfter: C's observation of C.value}`.
+  - **Explicit effective date.** Some `pass` statement at tier A1 or A2 for `C.value` carries an `effectiveFrom` that the extraction explicitly associates with that price (a date stated in the text about that price, not the page's publication date or the fetch time) and `effectiveFrom > T0`. `changeWindow` is "from `effectiveFrom`". Only an explicitly associated, reliable effective date can establish timing; **publication dates and fetch dates alone never do** (a fresh fetch never sets `effectiveFrom`, T-BEL-22).
 
-  In the bracketing case, `changeWindow = {after: that vB observation, notAfter: C.displayedAt}`.
+  An observation here is a `pass` statement from a fresh, successfully crawled snapshot, timed by `observed_at`; provider-reported dates are hints and do not count. Neither route is implemented: the change detector is milestone 4.
+
+  *Superseded text, kept as history:* "same-source bracketing: there is an observation of `vB` from C's winning `url_norm` with `displayedAt ≥ T0 − 48 h` (usually the baseline's own fresh fetch), and C's winning observation of `C.value` is later."
+
+  **Consequence.** A baseline is presented after it was observed, so the first audit that sees a different price will usually have no old-value observation after T0, and the verdict is `differs_timing_unknown` unless an explicit effective date is stated. `changed` by bracketing needs a re-observation of the old value after the answer.
 
 **Release verdicts:**
 
@@ -765,8 +769,8 @@ The DDL is in contracts §1. Changes in 3.1:
 
 **Ownership and isolation**
 - Idempotency is unique per user.
-- Owner triggers check that `messages.user_id` and `turns.user_id` match the conversation's owner.
-- Origin triggers block fixture or non-live rows in a database whose `db_mode = 'real'`.
+- Owner triggers check that `messages.user_id` and `turns.user_id` match the conversation's owner. *(Extended in implementation to evidence, findings and assertions by migration 003; `search_requests`, `decisions`, snapshots by turn, `beliefs` and `belief_history` are not yet covered, [ADR-27](adr/ADR-27.md), Q-007.)*
+- Origin triggers block fixture or non-live rows in a database whose `db_mode = 'real'`. *(Narrowed in implementation: migration 002 covers messages, entities and decisions on insert plus relabelling and `db_mode`; it does not cover every table, so isolation is partial. See [contracts §1.2](stage-3-contracts.md#12-migrations-applied-on-top-of-the-schema), [ADR-28](adr/ADR-28.md).)*
 
 **Immutability**
 - Append-only triggers on snapshots, evidence, assertion events and belief history (UPDATE is blocked; DELETE is allowed for privacy).
@@ -889,7 +893,7 @@ The architecture is unchanged: replay through the orchestrator with a FixedClock
 | Issue | Case IDs | Content |
 |---|---|---|
 | A. Currency | T-EV-CUR-01..12 | Positive: `US$90` → USD; `A$90` → AUD; `C$90` → CAD; `€90` → EUR; bare `$90` + "All prices in USD" → USD; bare `$90` from two observations on the same domain → comparable. Negative: bare `$90` extracted as USD → fail; `¥` extracted as JPY → fail; bare `$` on a different domain never merges; `A$` misread as USD → fail; currency with no declaration stays `unknown` |
-| B. Observed vs effective | T-BEL-20..27, synthetic `silent-change-no-date`, `effective-date-stated`, `already-wrong` | Official page differs and no date is available → `differs_timing_unknown`. Baseline was a fresh fetch at T0 and is now different → `changed` with a window. Text says "effective 1 Dec" → `effectiveFrom`. Prior-effect evidence → `baseline_incorrect`. Both proofs → `contested`. Fresh fetch never sets `effectiveFrom` |
+| B. Observed vs effective | T-BEL-20..27, synthetic `silent-change-no-date`, `effective-date-stated`, `already-wrong` | Official page differs and no date is available → `differs_timing_unknown`. Old value re-observed after T0 on the same page, then a different value → `changed` with a window (revised 2026-11-12; a baseline's own pre-T0 fetch no longer suffices). Text says "effective 1 Dec" → `effectiveFrom`. Prior-effect evidence → `baseline_incorrect`. Both proofs → `contested`. Fresh fetch never sets `effectiveFrom` |
 | C. Subject binding | T-EV-SUBJ-01..10, synthetic `comparison-article` | Title-only subject → weak. Competitor nearest to the value → fail. Official domain only → weak. Alias in an associated header → pass. Header with another entity's heading in between → weak |
 | D. Unit | T-EV-UNIT-01..10 | No seat language → `unspecified`, never `flat`. "per account" → flat. "per GB-month" with `usageUnit` → usage. Usage claimed without a metered marker → fail |
 | E. Belief key | T-KEY-01..10, T-BEL-30..36 | Promo doesn't overwrite list; conditional is separately retrievable; planned stays planned before its date and becomes a pending signal after it; monthly vs annual aren't a conflict; `lower_bound` vs `exact` are not compared; canonical encoding round-trips |
@@ -941,10 +945,11 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
 2. **A historical price that was already wrong when reported.**
    - If our 3 Nov answer wasn't supported by its own evidence under re-verification, the verdict is `baseline_incorrect: unsupported_at_time`.
    - If an A1 statement shows the other value was in effect by 3 Nov (`effectiveFrom ≤ T0`, or `displayedAt ≤ T0` with a known basis), the verdict is `baseline_incorrect: other_value_in_effect_at_T0`.
+   - *(2026-11-12)* A price with an explicitly associated A1/A2 `effectiveFrom > T0` gives `changed` from that date. A publication date or a fetch time alone gives no timing.
    - **If nothing shows timing, the verdict is `differs_timing_unknown`, not `changed`.** The pre-3.1 behaviour of reporting `changed` with a caveat was removed because it claimed more than the evidence showed.
 
 3. **The vendor changes the pricing page without an announcement.**
-   - If the baseline was itself a fresh fetch of the same URL around T0, same-source bracketing gives `changed`, with window (T0 observation, today's observation].
+   - *(Revised 2026-11-12.)* The baseline's own fetch precedes T0 and no longer counts. `changed` needs the old price observed again **after** T0 on the same `url_norm`, then the new price observed later; the window is between those two observations. Otherwise the verdict is `differs_timing_unknown`. The earlier text allowed a fresh fetch up to 48 h before T0.
    - If the baseline came from another source, or from a non-fresh snapshot, the verdict is `differs_timing_unknown`.
    - **A fresh fetch never invents an effective date** (T-BEL-22).
 
@@ -1001,11 +1006,11 @@ See the [blueprint](design-doc-blueprint.md).
 |---|---|---|---|
 | U1 | Search provider | Exa | Phase-4 bake-off |
 | U7 | Extraction model | Sonnet 5.5 at low effort | Phase-11 eval |
-| U12 | Time windows: freshness, contest window, FindingSet reuse, bracketing tolerance | 30 d / 7 d / 30 min / 48 h | Eval |
+| U12 | Time windows: freshness, contest window, FindingSet reuse | 30 d / 7 d / 30 min | Eval. *(The bracketing tolerance, 48 h, was removed on 2026-11-12, see U19.)* |
 | U13 | Tier-B domain list | About 20 domains | Eval |
 | U14 | Run to completion after a client disconnect | On | Observed cost |
 | U15 | Rates of weak results and unknown currency on real pricing pages | Unknown | Phase-4 measurement. If high, revisit the R2 association window, but **never** relax title binding or bare-`$` handling |
 | U16 | Whether Exa `text` keeps enough heading structure for header association | Unknown | Phase-4 measurement |
 | U17 | Whether Exa's crawler location affects the prices it fetches (regional pricing) | Unknown; not documented | Phase-4 spot check; otherwise documented as limitation L-11 |
 | U18 | Whether `sendBeacon` acks on `pagehide` work reliably across browsers | Re-render ack is the fallback | Manual check in Phase 9 |
-| U19 | Same-source bracketing tolerance | 48 h | Tuning against recorded scenarios (with U12) |
+| U19 | Same-source bracketing tolerance | **Closed 2026-11-12: removed.** The old-value observation must be after T0 ([Q-001](questions.md), [ADR-36](adr/ADR-36.md)) | Nothing to tune |
