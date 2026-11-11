@@ -85,94 +85,199 @@ const GLOBAL_NEGATIVE =
   /\b(?:none of them(?: (?:has |have )?changed)?|none of the (?:\w+ ){0,2}changed|no changes|nothing (?:has )?changed|all (?:of them )?(?:are |remain |stay )?(?:the )?same|all unchanged)\b/gi;
 
 type Predicate = (f: Finding) => boolean;
-const is =
-  (...verdicts: Array<Finding['verdict']>): Predicate =>
-  (f) =>
-    verdicts.includes(f.verdict);
 const releaseKind =
   (...kinds: Array<'launch' | 'change' | 'removal'>): Predicate =>
   (f) =>
     f.verdict === 'releases_found' && (f.releases ?? []).some((r) => kinds.includes(r.kind));
 
-/** Phrase families and the finding verdicts that justify them (contracts §3). */
-export const VERDICT_FAMILIES: Array<{ id: string; re: RegExp; ok: Predicate }> = [
-  {
-    id: 'up',
-    re: /\b(?:raised|raises|increased|increases|went up|gone up|goes up|rose|hiked)\b/i,
-    ok: (f) => f.verdict === 'changed' && f.direction === 'up',
-  },
-  {
-    id: 'down',
-    re: /\b(?:cut|cuts|lowered|lowers|reduced|reduces|dropped|drops|went down|decreased)\b/i,
-    ok: (f) => f.verdict === 'changed' && f.direction === 'down',
-  },
-  { id: 'unchanged', re: /\b(?:unchanged|same price|no change)\b/i, ok: is('unchanged_confirmed') },
-  {
-    id: 'nosign',
-    re: new RegExp(NOSIGN.source, 'i'),
-    ok: is('unchanged_confirmed', 'no_evidence_of_change'),
-  },
-  {
-    id: 'differs',
-    re: /\b(?:different now|differs|differ)\b/i,
-    ok: is('differs_timing_unknown', 'changed'),
-  },
-  {
-    id: 'launch',
-    re: /\b(?:launched|launches|released|shipped|introduced)\b/i,
-    ok: releaseKind('launch', 'change'),
-  },
-  { id: 'removal', re: /\b(?:discontinued|removed|retired|sunset)\b/i, ok: releaseKind('removal') },
-  {
-    id: 'wrong',
-    re: /\b(?:was wrong|out of date|outdated|incorrect)\b/i,
-    ok: is('baseline_incorrect'),
-  },
-];
+/** What a piece of change or comparison language claims. Each kind has one strict compatibility rule below. */
+export type ChangeKind =
+  | 'up'
+  | 'down'
+  | 'more'
+  | 'less'
+  | 'change'
+  | 'gone'
+  | 'timing'
+  | 'unchanged'
+  | 'nosign'
+  | 'differs'
+  | 'wrong'
+  | 'launch'
+  | 'removal';
 
-const isChange =
-  (direction: 'up' | 'down'): Predicate =>
-  (f) =>
-    f.verdict === 'changed' && f.direction === direction;
-
-type LexiconCategory = 'up' | 'down' | 'more' | 'less' | 'neutral' | 'launch' | 'removal';
+interface WordRule {
+  kind: ChangeKind;
+  re: RegExp;
+}
 
 /**
- * Broad lexicon of words that imply a price or product change over time, or a comparison. A blacklist can
- * never be complete, so these are not the only line of defence: the synthesis prompt forbids free-text change
- * language, and this list is applied conservatively (when in doubt the sentence is withheld). The verdict
- * families above are matched first; whatever they cover keeps its own rule.
+ * The original phrase families (contracts §3). They are enforced in every turn, with or without findings.
  */
-export const CHANGE_LEXICON: Array<{ cat: LexiconCategory; re: RegExp }> = [
+export const CORE_WORDS: WordRule[] = [
   {
-    cat: 'up',
-    re: /\b(?:rais(?:e|es|ed|ing)|increas(?:e|es|ed|ing)|ris(?:e|es|ing)|rose|risen|jump(?:s|ed|ing)?|surg(?:e|es|ed|ing)|spik(?:e|es|ed|ing)|climb(?:s|ed|ing)?|hik(?:e|es|ed|ing)|bump(?:s|ed|ing)?|doubl(?:e|es|ed|ing)|tripl(?:e|es|ed|ing)|quadrupl(?:e|es|ed|ing)|up ?tick(?:s|ed|ing)?|mark(?:ed)? ?ups?|marked up)\b/i,
+    kind: 'up',
+    re: /\b(?:raised|raises|increased|increases|went up|gone up|goes up|rose|hiked)\b/gi,
   },
   {
-    cat: 'down',
-    re: /\b(?:cut(?:s|ting)?|slash(?:es|ed|ing)?|drop(?:s|ped|ping)?|fall(?:s|ing|en)?|fell|plung(?:e|es|ed|ing)|dip(?:s|ped|ping)?|decreas(?:e|es|ed|ing)|reduc(?:e|es|ed|ing|tion)|lower(?:s|ed|ing)?|discount(?:s|ed|ing)?|halv(?:e|es|ed|ing)|down ?tick(?:s|ed|ing)?|mark(?:ed)? ?downs?|marked down)\b/i,
+    kind: 'down',
+    re: /\b(?:cut|cuts|lowered|lowers|reduced|reduces|dropped|drops|went down|decreased)\b/gi,
+  },
+  { kind: 'unchanged', re: /\b(?:unchanged|same price|no change)\b/gi },
+  { kind: 'nosign', re: new RegExp(NOSIGN.source, 'gi') },
+  { kind: 'differs', re: /\b(?:different now|differs|differ)\b/gi },
+  { kind: 'launch', re: /\b(?:launched|launches|released|shipped|introduced)\b/gi },
+  { kind: 'removal', re: /\b(?:discontinued|removed|retired|sunset)\b/gi },
+  { kind: 'wrong', re: /\b(?:was wrong|out of date|outdated|incorrect)\b/gi },
+];
+
+/**
+ * A broad lexicon of words that imply a price or product change over time, a comparison, or a time of change.
+ * It is a BACKSTOP, not a complete natural-language detector: paraphrases outside it can pass. It is applied
+ * only when the turn is about findings (a finding placeholder in the sentence, or findings in the turn).
+ */
+export const EXTRA_WORDS: WordRule[] = [
+  {
+    kind: 'up',
+    re: /\b(?:rais(?:e|es|ed|ing)|increas(?:e|es|ed|ing)|ris(?:e|es|ing)|risen|jump(?:s|ed|ing)?|surg(?:e|es|ed|ing)|spik(?:e|es|ed|ing)|climb(?:s|ed|ing)?|hik(?:e|es|ed|ing)|bump(?:s|ed|ing)?|doubl(?:e|es|ed|ing)|tripl(?:e|es|ed|ing)|quadrupl(?:e|es|ed|ing)|up ?tick(?:s|ed|ing)?|mark(?:ed)? ?ups?|marked up)\b/gi,
   },
   {
-    cat: 'more',
-    re: /\b(?:pricier|priciest|pricey|costlier|costliest|more expensive|more costly|costs? more|costing more)\b/i,
+    kind: 'down',
+    re: /\b(?:cut(?:s|ting)?|slash(?:es|ed|ing)?|drop(?:s|ped|ping)?|fall(?:s|ing|en)?|fell|plung(?:e|es|ed|ing)|dip(?:s|ped|ping)?|decreas(?:e|es|ed|ing)|reduc(?:e|es|ed|ing|tion)|lower(?:s|ed|ing)?|discount(?:s|ed|ing)?|halv(?:e|es|ed|ing)|down ?tick(?:s|ed|ing)?|mark(?:ed)? ?downs?|marked down)\b/gi,
   },
   {
-    cat: 'less',
-    re: /\b(?:cheaper|cheapest|less expensive|less costly|costs? less|costing less)\b/i,
+    kind: 'more',
+    re: /\b(?:pricier|priciest|pricey|costlier|costliest|more expensive|more costly|costs? more|costing more)\b/gi,
   },
   {
-    cat: 'neutral',
-    re: /\b(?:chang(?:e|es|ed|ing)|updat(?:e|es|ed|ing)|(?:went|gone) (?:from|to|up|down|over|under|higher|lower)|now costs?|used to|previously|formerly|no longer|any ?more|new pric(?:e|es|ing)|re ?pric(?:e|es|ed|ing)|adjust(?:s|ed|ing|ment)?|revis(?:e|es|ed|ion))\b/i,
+    kind: 'less',
+    re: /\b(?:cheaper|cheapest|less expensive|less costly|costs? less|costing less)\b/gi,
   },
   {
-    cat: 'removal',
-    re: /\b(?:deprecat(?:e|es|ed|ing)|discontinu(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|retir(?:e|es|ed|ing)|sunset(?:s|ted|ting)?|phas(?:e|es|ed|ing) out|end(?:ed)? of life)\b/i,
+    kind: 'change',
+    re: /\b(?:chang(?:e|es|ed|ing)|updat(?:e|es|ed|ing)|(?:went|gone) (?:from|to|over|under|higher|lower)|now costs?|used to|previously|formerly|new pric(?:e|es|ing)|re ?pric(?:e|es|ed|ing)|adjust(?:s|ed|ing|ment)?|revis(?:e|es|ed|ion))\b/gi,
+  },
+  { kind: 'gone', re: /\b(?:no longer|any ?more)\b/gi },
+  {
+    kind: 'timing',
+    re: /\b(?:since|recently|lately|overnight|just now|last (?:week|month|year)|this (?:week|month)|earlier this|after (?:my|your|our|the) (?:last |earlier )?answer)\b/gi,
   },
   {
-    cat: 'launch',
-    re: /\b(?:launch(?:es|ed|ing)?|releas(?:e|es|ed|ing)|ship(?:s|ped|ping)|introduc(?:e|es|ed|ing)|unveil(?:s|ed|ing)?|announc(?:e|es|ed|ing)|roll(?:s|ed|ing)? out|new (?:plan|tier|feature|version))\b/i,
+    kind: 'removal',
+    re: /\b(?:deprecat(?:e|es|ed|ing)|discontinu(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|retir(?:e|es|ed|ing)|sunset(?:s|ted|ting)?|phas(?:e|es|ed|ing) out|end(?:ed)? of life)\b/gi,
+  },
+  {
+    kind: 'launch',
+    re: /\b(?:launch(?:es|ed|ing)?|releas(?:e|es|ed|ing)|ship(?:s|ped|ping)|introduc(?:e|es|ed|ing)|unveil(?:s|ed|ing)?|announc(?:e|es|ed|ing)|roll(?:s|ed|ing)? out|new (?:plan|tier|feature|version))\b/gi,
   },
 ];
+
+/**
+ * Strict compatibility of a kind of language with the VERDICT of the finding it is attached to. The status
+ * `changed` alone is never enough (an anchoring placeholder is also required, see `claimIssue`), and
+ * `differs_timing_unknown` never permits a confirmed-change word. Contested, unable_to_verify, stale and unknown
+ * findings authorise no definitive change claim because no rule below accepts them.
+ */
+const COMPATIBLE: Record<ChangeKind, Predicate> = {
+  up: (f) => f.verdict === 'changed' && f.direction === 'up' && f.currentStatus === 'confirmed',
+  down: (f) => f.verdict === 'changed' && f.direction === 'down' && f.currentStatus === 'confirmed',
+  more: (f) => f.verdict === 'changed' && f.direction === 'up' && f.currentStatus === 'confirmed',
+  less: (f) => f.verdict === 'changed' && f.direction === 'down' && f.currentStatus === 'confirmed',
+  change: (f) => f.verdict === 'changed' && f.currentStatus === 'confirmed',
+  gone: (f) =>
+    (f.verdict === 'changed' && f.currentStatus === 'confirmed') || releaseKind('removal')(f),
+  // wording that implies a date or window needs a finding that carries one
+  timing: (f) =>
+    f.verdict === 'changed' &&
+    f.currentStatus === 'confirmed' &&
+    (f.changeWindow !== undefined || f.effectiveFrom !== undefined),
+  unchanged: (f) => f.verdict === 'unchanged_confirmed',
+  nosign: (f) => f.verdict === 'unchanged_confirmed' || f.verdict === 'no_evidence_of_change',
+  differs: (f) =>
+    f.verdict === 'differs_timing_unknown' ||
+    (f.verdict === 'changed' && f.currentStatus === 'confirmed'),
+  wrong: (f) => f.verdict === 'baseline_incorrect',
+  launch: releaseKind('launch', 'change'),
+  removal: releaseKind('removal'),
+};
+
+const MARK_OPEN = String.fromCharCode(0x27e6);
+const MARK_CLOSE = String.fromCharCode(0x27e7);
+const MARKER = new RegExp(`${MARK_OPEN}(k+)${MARK_CLOSE}`, 'g');
+/** A clause boundary for attaching words to findings. Commas and colons do NOT end a clause. */
+const CLAUSE_BOUNDARY = /;|\band\b|\bbut\b|\bwhile\b|\bwhereas\b|\bwhich\b/g;
+const PLURAL_REFERENCE =
+  /\b(?:both|all|each|every|either|neither|they|them|these|those|the others?)\b/;
+
+interface Marked {
+  pos: number;
+  ord: number;
+  anchoring: boolean;
+}
+
+/**
+ * Checks every piece of change or comparison language in one normalised variant of a sentence.
+ * Attachment rule (deterministic): a word attaches to the finding of the placeholders in its own clause (a
+ * clause ends at ";", "and", "but", "while", "whereas", "which"). With none in the clause, it attaches to the
+ * sentence's only finding. Several findings in the clause, or none to attach to: ambiguous, so it is refused.
+ * The one exception is a comparison between findings ("cheaper than"), which the T3b judge decides; it never
+ * authorises a temporal word. The attached finding must be backed by a `:verdict` or `:baseline` placeholder of
+ * that same finding in the same clause (or sentence, for the fallback), and its verdict must fit the word.
+ * Returns true when something is not authorised.
+ */
+function languageRefused(
+  variant: string,
+  refs: T3aSentence['refs'],
+  rules: WordRule[],
+  skip: ReadonlySet<ChangeKind>,
+): boolean {
+  const bounds = [...variant.matchAll(CLAUSE_BOUNDARY)].map((m) => m.index);
+  const clauseOf = (pos: number): number => bounds.filter((b) => b < pos).length;
+  const markers: Marked[] = [];
+  for (const m of variant.matchAll(MARKER)) {
+    const r = refs[(m[1] ?? '').length - 1];
+    if (r?.finding) {
+      markers.push({
+        pos: m.index,
+        ord: r.finding.ord,
+        anchoring: r.ref.kind === 'finding' && r.ref.variant !== 'current',
+      });
+    }
+  }
+  const byOrd = new Map(
+    refs.flatMap((r) => (r.finding ? [[r.finding.ord, r.finding] as const] : [])),
+  );
+  const sentenceOrds = new Set(markers.map((m) => m.ord));
+
+  let masked = variant;
+  for (const { kind, re } of rules) {
+    const found = [...masked.matchAll(new RegExp(re.source, 'gi'))];
+    for (const m of found) masked = mask(masked, m.index, m[0].length);
+    if (skip.has(kind)) continue;
+    for (const m of found) {
+      const here = markers.filter((k) => clauseOf(k.pos) === clauseOf(m.index));
+      const comparing = kind === 'more' || kind === 'less';
+      const hereOrds = new Set(here.map((k) => k.ord));
+      // "both", "they" and the like spread one word over several findings: refuse when there are several.
+      if (!comparing && sentenceOrds.size >= 2 && PLURAL_REFERENCE.test(variant)) return true;
+      let pool: Marked[];
+      let ord: number;
+      if (hereOrds.size === 1) {
+        pool = here;
+        ord = [...hereOrds][0] ?? -1;
+      } else if (hereOrds.size === 0 && sentenceOrds.size === 1) {
+        pool = markers;
+        ord = [...sentenceOrds][0] ?? -1;
+      } else if (comparing && (hereOrds.size >= 2 || sentenceOrds.size >= 2)) {
+        continue; // between findings: the judge decides, and it authorises nothing else
+      } else return true; // ambiguous, or nothing to attach to
+      const f = byOrd.get(ord);
+      if (!f || !pool.some((k) => k.ord === ord && k.anchoring)) return true;
+      if (!COMPATIBLE[kind](f)) return true;
+    }
+  }
+  return false;
+}
 
 const chars = (...codes: number[]): string => String.fromCharCode(...codes);
 /** Zero-width characters and the soft hyphen, which can be slipped into a word to hide it. */
@@ -285,7 +390,11 @@ function dateAllowed(
 /** Returns the issues of one sentence's free text, in a stable order. Empty means the text is clean. */
 export function checkFreeText(sentence: T3aSentence, ctx: T3aContext): SentenceIssue[] {
   const issues = new Set<SentenceIssue>();
-  let text = sentence.template.replace(/\[\[[^\]]*\]\]/g, ' ');
+  let placeholderIndex = 0;
+  let text = sentence.template.replace(
+    /\[\[[^\]]*\]\]/g,
+    () => ` ${MARK_OPEN}${'k'.repeat(++placeholderIndex)}${MARK_CLOSE} `,
+  );
   const userText = ctx.userMessage;
   const userLower = userText.toLowerCase();
   const userNumerals = numeralsOf(userText);
@@ -352,45 +461,16 @@ export function checkFreeText(sentence: T3aSentence, ctx: T3aContext): SentenceI
     for (const m of negatives) text = mask(text, m.index, m[0].length);
   }
 
-  // Verdict words need a compatible finding in the same sentence. Matching runs on normalised text and on a
-  // hyphen-free variant, so case, spacing, look-alike characters and hyphenation do not hide a word.
-  const variants = textVariants(text);
-  const linked = sentence.refs.flatMap((r) => (r.finding ? [r.finding] : []));
-  let rest = variants;
-  for (const family of VERDICT_FAMILIES) {
-    const skip = globalSupported && (family.id === 'nosign' || family.id === 'unchanged');
-    if (!skip && variants.some((v) => family.re.test(v)) && !linked.some(family.ok)) {
-      issues.add('unsupported_verdict_word');
-    }
-    rest = rest.map((v) => v.replace(new RegExp(family.re.source, 'gi'), ' '));
-  }
-
-  // Broad change lexicon (structural rule). Words the families above already cover keep their own rule; every
-  // other word that implies a change over time or a comparison is allowed only when the sentence is about a
-  // finding (it has a finding placeholder, or the turn has findings) AND carries a `:verdict` or `:baseline`
-  // placeholder of a finding whose verdict fits. A plain current-value placeholder never justifies it.
+  // Change and comparison language needs a compatible verdict placeholder of the finding it is about, in the
+  // same clause. Matching runs on normalised text and on a hyphen-free variant, so case, spacing, look-alike
+  // characters and hyphenation do not hide a word.
   const aboutFindings = sentence.refs.some((r) => r.finding !== null) || ctx.findings.length > 0;
-  if (aboutFindings) {
-    const anchored = sentence.refs.flatMap((r) =>
-      r.finding && r.ref.kind === 'finding' && r.ref.variant !== 'current' ? [r.finding] : [],
-    );
-    const distinct = new Set(linked.map((f) => f.ord)).size;
-    for (const { cat, re } of CHANGE_LEXICON) {
-      if (!rest.some((v) => re.test(v))) continue;
-      const ok =
-        (cat === 'up' && anchored.some(isChange('up'))) ||
-        (cat === 'down' && anchored.some(isChange('down'))) ||
-        (cat === 'neutral' &&
-          (anchored.some(is('changed', 'differs_timing_unknown', 'baseline_incorrect')) ||
-            anchored.some(releaseKind('removal')))) ||
-        (cat === 'removal' && anchored.some(releaseKind('removal'))) ||
-        (cat === 'launch' && anchored.some(releaseKind('launch', 'change'))) ||
-        // A comparison between several findings is judged by the T3b judge, not forbidden.
-        ((cat === 'more' || cat === 'less') && distinct >= 2) ||
-        (cat === 'more' && anchored.some(isChange('up'))) ||
-        (cat === 'less' && anchored.some(isChange('down')));
-      if (!ok) issues.add('unsupported_verdict_word');
-    }
+  const rules = aboutFindings ? [...CORE_WORDS, ...EXTRA_WORDS] : CORE_WORDS;
+  const skip: ReadonlySet<ChangeKind> = globalSupported
+    ? new Set<ChangeKind>(['unchanged', 'nosign'])
+    : new Set<ChangeKind>();
+  if (textVariants(text).some((v) => languageRefused(v, sentence.refs, rules, skip))) {
+    issues.add('unsupported_verdict_word');
   }
 
   const order: SentenceIssue[] = [
