@@ -1,5 +1,6 @@
 import type {
   AuthorityTier,
+  CrawlBasis,
   Belief,
   ChangeDetector,
   Coverage,
@@ -91,6 +92,29 @@ function isFailure(c: Coverage): PriceVerdictReason | null {
   return c.failure ?? (c.extractionFailed ? 'extraction_failed' : null);
 }
 
+const BASIS_RANK: Record<CrawlBasis, number> = {
+  confirmed_live: 3,
+  requested_live: 2,
+  cached: 1,
+  unknown: 0,
+};
+
+/** The strongest crawl basis among the snapshots behind these evidence rows; undefined when none carries one. */
+export function strongestCrawlBasis(
+  ids: readonly EvidenceId[],
+  byId: ReadonlyMap<EvidenceId, VerifiedEvidence>,
+  snapshots: ReadonlyMap<SnapshotId, SourceSnapshot>,
+): CrawlBasis | undefined {
+  let best: CrawlBasis | undefined;
+  for (const id of ids) {
+    const e = byId.get(id);
+    const basis = e ? snapshots.get(e.snapshotId)?.crawlBasis : undefined;
+    if (basis !== undefined && (best === undefined || BASIS_RANK[basis] > BASIS_RANK[best]))
+      best = basis;
+  }
+  return best;
+}
+
 export interface AssemblerDeps {
   detector: ChangeDetector;
   newFindingId?: () => FindingId;
@@ -100,11 +124,14 @@ export interface AssemblerDeps {
 export class FindingAssembler {
   private readonly newFindingId: () => FindingId;
 
+  private snapshots: ReadonlyMap<SnapshotId, SourceSnapshot> = new Map();
+
   constructor(private readonly deps: AssemblerDeps) {
     this.newFindingId = deps.newFindingId ?? (() => newId('fnd'));
   }
 
   assemble(input: AssembleInput): FindingSet {
+    this.snapshots = input.snapshots;
     const findings: Finding[] = [];
     const evidenceById = new Map<EvidenceId, VerifiedEvidence>();
     const add = (e: VerifiedEvidence) => evidenceById.set(e.id, e);
@@ -253,6 +280,8 @@ export class FindingAssembler {
       citations: this.citations([...b.winningEvidence, ...pendingIds], byId),
       pendingSignals: b.pendingSignals,
     };
+    const basis = strongestCrawlBasis(b.winningEvidence, byId, this.snapshots);
+    if (basis !== undefined) cur.crawlBasis = basis;
     if (b.contestedValues) cur.contested = b.contestedValues;
     return cur;
   }

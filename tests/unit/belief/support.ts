@@ -6,6 +6,7 @@ import type {
   Baseline,
   Belief,
   Coverage,
+  CrawlBasis,
   Modality,
   Ms,
   NormalizedValue,
@@ -39,6 +40,8 @@ export interface EvOpts {
   tier?: AuthorityTier;
   observedAt?: Ms;
   fresh?: boolean;
+  /** Recorded on the snapshot; it must change nothing the evidence says. */
+  basis?: CrawlBasis;
   crawl?: 'ok' | 'failed' | 'unknown';
   lastUpdated?: Ms | null;
   published?: Ms | null;
@@ -63,6 +66,7 @@ export function ev(o: EvOpts): VerifiedEvidence {
     domain: o.domain ?? 'acme.example',
     observedAt: o.observedAt ?? NOW - DAY,
     freshFetch: o.fresh ?? true,
+    ...(o.basis !== undefined ? { crawlBasis: o.basis } : {}),
     crawlStatus: o.crawl ?? 'ok',
     providerLastUpdatedAt: o.lastUpdated ?? null,
     providerPublishedAt: o.published ?? null,
