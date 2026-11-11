@@ -4,7 +4,7 @@
 **Companion documents:**
 - [contracts.md](contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
 - [design-doc-blueprint.md](design-doc-blueprint.md): plan for DESIGN.md.
-- [design-review.md](design-review.md): what changed in 3.1 and why.
+- [design-review.md](history/design-review.md): the record of the first design reconciliation (historical).
 
 The Stage 2 decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, Exa as provisional search provider, and Haiku + Sonnet as provisional models.
 
