@@ -51,6 +51,7 @@ export interface EvOpts {
   planNorm?: string | null;
   conditions?: string | null;
   domain?: string;
+  entityId?: `ent_${string}`;
 }
 
 export function ev(o: EvOpts): VerifiedEvidence {
@@ -71,7 +72,7 @@ export function ev(o: EvOpts): VerifiedEvidence {
     id: `ev_${o.id}`,
     snapshotId: snap.id,
     urlNorm,
-    entityId: 'ent_acme',
+    entityId: o.entityId ?? 'ent_acme',
     kind: 'price',
     fields: {
       plan: 'Pro',
