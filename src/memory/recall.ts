@@ -70,7 +70,8 @@ export function resolveRecall(deps: RecallDeps, req: RecallRequest): RecallOutco
     return {
       kind: 'clarify',
       reason: 'no_date',
-      question: 'Which day do you mean?',
+      question:
+        "I couldn't tell which day you mean, so I can't look it up yet. Which day was it? I'll recall what you asked then.",
       options: [],
     };
   }
@@ -78,7 +79,7 @@ export function resolveRecall(deps: RecallDeps, req: RecallRequest): RecallOutco
     return {
       kind: 'clarify',
       reason: 'unresolved_date',
-      question: `I couldn't work out which day "${target.mention.text}" refers to. Which date do you mean?`,
+      question: `I couldn't work out which day "${target.mention.text}" refers to, so I can't look it up yet. Which date do you mean? I'll recall what you asked then.`,
       options: [],
     };
   }
@@ -95,7 +96,8 @@ export function resolveRecall(deps: RecallDeps, req: RecallRequest): RecallOutco
     return {
       kind: 'clarify',
       reason: 'ambiguous_day',
-      question: 'I found matches on more than one day. Which one do you mean?',
+      question:
+        "I found matches on more than one day, so I can't tell which one you mean. Which day was it? I'll recall what you asked then.",
       options: intervalsWithHits.map((i) => ({
         label: target.candidates[i]?.localDate ?? `day ${i}`,
         ref: `day:${target.candidates[i]?.localDate ?? i}`,
@@ -111,7 +113,7 @@ export function resolveRecall(deps: RecallDeps, req: RecallRequest): RecallOutco
     return {
       kind: 'clarify',
       reason: 'ambiguous_conversation',
-      question: `More than one conversation on ${localDate} matches. Which one do you mean?`,
+      question: `More than one conversation on ${localDate} matches, so I can't tell which one you mean. Which one is it? I'll answer from the one you pick.`,
       options: conversations.map((id) => {
         const first = hits.find((h) => h.conversationId === id);
         return {

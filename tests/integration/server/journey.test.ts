@@ -146,14 +146,14 @@ describe('a full user journey', () => {
     expect((res.events.at(-1)?.data as { status: string }).status).toBe('partial');
   });
 
-  it('answers small talk, and asks which day when a recall has no date', async () => {
+  it('answers small talk, and recalls this conversation when a recall has no date', async () => {
     t = await startTestApp();
     const user = t.client();
     const conversationId = await user.newConversation();
     const hello = await user.turn(conversationId, 'Hello there', 'k-1');
     expect((hello.events.at(-1)?.data as { status: string }).status).toBe('complete');
-    const clarify = await user.turn(conversationId, 'What did I ask?', 'k-2');
-    expect(eventNames(clarify.events)).toContain('clarification');
-    expect((clarify.events.at(-1)?.data as { status: string }).status).toBe('clarify');
+    const recall = await user.turn(conversationId, 'What did I ask?', 'k-2');
+    expect(eventNames(recall.events)).not.toContain('clarification');
+    expect((recall.events.at(-1)?.data as { status: string }).status).toBe('complete');
   });
 });

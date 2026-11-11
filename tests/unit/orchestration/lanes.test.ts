@@ -75,7 +75,7 @@ describe('recall lane', () => {
     if (out.kind !== 'reply') return;
     expect(out.reason).toBe('no_record');
     expect(out.sentences[0]).toMatch(/no record of a conversation/i);
-    expect(out.sentences.join(' ')).toContain('2026-11-10');
+    expect(out.sentences.join(' ')).toContain('Tuesday 10 November');
     expect(out.ctx.memoryHits).toEqual([]);
   });
 
@@ -110,9 +110,9 @@ describe('recall lane', () => {
     expect(out).toMatchObject({ kind: 'clarify', reason: 'ambiguous_conversation' });
   });
 
-  it('asks for the date when none was given or it cannot be worked out', async () => {
+  it('recalls this conversation when no date was given, and asks for the date when it cannot be worked out', async () => {
     const none = await recallLane(laneInput(analysis({ laneHint: 'recall' })).input, laneDeps());
-    expect(none).toMatchObject({ kind: 'clarify', reason: 'no_date' });
+    expect(none).toMatchObject({ kind: 'reply', reason: 'no_record' });
     const bad: TemporalMention = {
       text: 'sometime',
       expr: { kind: 'calendar_date', day: 31, month: 2 },
@@ -372,7 +372,7 @@ describe('audit lane', () => {
     expect(research.calls).toEqual([]);
   });
 
-  it('with a date, audits the conversation the recall found; no record means no audit', async () => {
+  it('with a date, audits the conversation the recall found; no record means research behind a no-record sentence', async () => {
     const day = Date.UTC(2026, 10, 3, 12);
     const found = messageHit(day, 'cnv_nov3', 'what does Notion cost');
     const withDate = analysis({
@@ -408,7 +408,11 @@ describe('audit lane', () => {
         research,
       }),
     );
-    expect(none).toMatchObject({ kind: 'reply', reason: 'no_record' });
+    expect(none).toMatchObject({ kind: 'synthesize', lane: 'research' });
+    if (none.kind !== 'synthesize') return;
+    expect(none.lead).toEqual([
+      'I have no record of a conversation on Tuesday 3 November, so I have nothing earlier to compare with; here is what I found now.',
+    ]);
   });
 
   it('asks which day when the date is ambiguous and which company when the name is', async () => {

@@ -9,18 +9,26 @@ import {
   askedSentences,
   changeNotEstablishedSentence,
   candidateAsHit,
+  dayOf,
   emitContext,
   emitEntityCap,
   emptyContext,
+  FIRST_CONVERSATION,
+  isFirstConversation,
   localTimeOf,
   NO_EARLIER_ANSWER_TO_COMPARE,
   NO_VERIFIED_EARLIER_ANSWER,
+  noRecordSentence,
+  noRecordThenFindings,
   resolveEntities,
   resolveShortlist,
   resolveTemporal,
+  TELL_ME_WHAT_YOU_ASKED,
+  unknownShortlistOutcome,
 } from './common.js';
 import { deriveFromRecall, listNames, recallDay, severalConversations } from './recall-context.js';
 import { runResearch } from './research-core.js';
+import { researchTurn } from './research.js';
 import type { LaneHandler, RecallTexts } from './types.js';
 
 const OFFER = 'If you want, I can look up the current state on the web instead.';
@@ -54,21 +62,14 @@ export const auditLane: LaneHandler = async (input, deps) => {
   let conversationIds: ConversationId[] = [input.conversationId];
   let hits: MemoryCandidate[] = base.memoryHits;
   const asksAboutADay = input.analysis.temporal.some((t) => t.role === 'reference_conversation');
+  // Nothing stored on the day the user pointed at: the one day, in words, for the code-written sentences below.
+  let noRecordDay: string | null = null;
   if (asksAboutADay) {
     const found = recallDay(input, deps, base);
     if (found.kind === 'clarify') return found.outcome;
     if (found.kind === 'none') {
-      emitContext(input, base);
-      return {
-        kind: 'reply',
-        lane: 'audit',
-        ctx: base,
-        reason: 'no_record',
-        sentences: [
-          `I have no record of a conversation on ${found.localDates.join(' or ')}, so I have nothing earlier to check.`,
-          'If you want, I can look up the current state on the web instead.',
-        ],
-      };
+      noRecordDay =
+        dayOf(input, base.temporal, 'reference_conversation') ?? found.localDates[0] ?? '';
     }
     if (found.kind === 'found') {
       conversationIds = found.conversationIds;
@@ -82,6 +83,7 @@ export const auditLane: LaneHandler = async (input, deps) => {
   let unresolved: EntityMention[] = [];
   let decisions: DecisionRecord[] = base.decisions;
   let capped = named.capped;
+  let fromShortlist = false;
   const asksAboutASet = input.analysis.references.some((r) => r.kind === 'entity_set');
   if (asksAboutASet && entities.length === 0 && input.analysis.entities.length === 0) {
     const daysOf = (reference: boolean): DayInterval[] =>
@@ -97,6 +99,7 @@ export const auditLane: LaneHandler = async (input, deps) => {
     );
     if (shortlist.kind === 'clarify') return shortlist.outcome;
     if (shortlist.kind === 'found') {
+      fromShortlist = true;
       entities = shortlist.entities;
       unresolved = shortlist.unresolved;
       decisions = shortlist.decisions;
@@ -124,6 +127,44 @@ export const auditLane: LaneHandler = async (input, deps) => {
         `I took the companies from that earlier message: ${listNames([...entities.map((e) => e.name), ...unresolved.map((m) => m.text)])}.`,
       );
     }
+  }
+
+  // A set of companies the user points at that nothing stored names ("the 5 CRM tools", with no shortlist and no
+  // earlier message found): ask which ones, never search for a guessed set.
+  if (
+    asksAboutASet &&
+    recalledHits.length === 0 &&
+    entities.length === 0 &&
+    unresolved.length === 0 &&
+    input.analysis.entities.length === 0
+  ) {
+    return unknownShortlistOutcome(
+      input,
+      deps,
+      { ...base, memoryHits: hits, decisions },
+      { noRecordDay, asked: [] },
+    );
+  }
+
+  // Nothing stored on that day. With a subject to look up, the turn continues in the research lane (same turn,
+  // same budget) behind one code-written sentence; without one, a fixed reply invites the user to say what it was.
+  if (noRecordDay !== null && !fromShortlist) {
+    const subject = input.analysis.entities.length > 0 || input.analysis.queries.length > 0;
+    if (subject) {
+      return researchTurn(input, deps, { noRecord: noRecordThenFindings(input, noRecordDay) });
+    }
+    emitContext(input, base);
+    return {
+      kind: 'reply',
+      lane: 'audit',
+      ctx: base,
+      reason: 'no_record',
+      sentences: [
+        noRecordSentence(noRecordDay),
+        ...(isFirstConversation(input, deps) ? [FIRST_CONVERSATION] : []),
+        TELL_ME_WHAT_YOU_ASKED,
+      ],
+    };
   }
 
   const query = { userId: input.userId, currentTurnId: input.turnId, conversationIds };
