@@ -304,6 +304,16 @@ describe('unit', () => {
     const ev = run(raw(q('per month'), {}, { unit: 'usage', usageUnit: 'gb-month' }));
     expect(outcome(ev, 'unit')).toBe('fail');
   });
+  it('T-EV-UNIT-12: a usage unit that appears in the text still needs a metered marker', () => {
+    const ev = run(
+      raw(
+        'Acme Pro $90 gb-month storage',
+        {},
+        { unit: 'usage', usageUnit: 'gb-month', billingPeriod: 'unspecified' },
+      ),
+    );
+    expect(outcome(ev, 'unit')).toBe('fail');
+  });
   it('T-EV-UNIT-09: usage without a usage unit fails', () => {
     const ev = run(
       raw(q('per GB'), {}, { unit: 'usage', usageUnit: null, billingPeriod: 'unspecified' }),
@@ -472,6 +482,12 @@ describe('dates and planned prices', () => {
       effectiveFromText: '3 November 2026',
     });
     const ev = run(r, { text });
+    expect(ev.effectiveFrom).toBeNull();
+    expect(outcome(ev, 'date_presence')).toBe('weak');
+  });
+  it('T-EV-DATE-09: a date with no effectiveness cue is not an effective date', () => {
+    const q = 'Acme Pro $90 per user per month, 5 November 2026';
+    const ev = run(raw(q, { effectiveFromText: '5 November 2026' }));
     expect(ev.effectiveFrom).toBeNull();
     expect(outcome(ev, 'date_presence')).toBe('weak');
   });

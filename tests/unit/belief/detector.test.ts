@@ -111,6 +111,13 @@ describe('price verdicts: observed against effective time (T-BEL-20..28)', () =>
     expect(result.verdict).not.toBe('contested');
   });
 
+  it('T-BEL-26b: old and new values bracketed on a page of another locale do not count', () => {
+    const us = 'acme.example/en-us/pricing';
+    const old = ev({ id: 'old', amount: 90, observedAt: T0 + 2 * DAY, urlNorm: us });
+    const nu = ev({ id: 'new', amount: 100, observedAt: T0 + 10 * DAY, urlNorm: us });
+    expect(detectConfirmed(baseline(), [old, nu]).result.verdict).toBe('differs_timing_unknown');
+  });
+
   it('T-BEL-27: an A1 or A2 effective date after the answer establishes changed from that date', () => {
     for (const tier of ['A1', 'A2'] as const) {
       const nu = ev({
@@ -297,6 +304,13 @@ describe('price verdicts: the other rows', () => {
   it('T-BEL-16: the same value with a live A1 observation after the answer is unchanged_confirmed', () => {
     const same = ev({ id: 's', amount: 90, observedAt: T0 + 10 * DAY });
     expect(detect(baseline(), [same]).result.verdict).toBe('unchanged_confirmed');
+  });
+
+  it('T-BEL-17b: a live A2 observation is not enough for unchanged_confirmed', () => {
+    const a2 = ev({ id: 'a2', amount: 90, tier: 'A2', observedAt: T0 + 10 * DAY });
+    expect(detectConfirmed(baseline(), [a2], 90).result.verdict).toBe('no_evidence_of_change');
+    const a1 = ev({ id: 'a1', amount: 90, tier: 'A1', observedAt: T0 + 10 * DAY });
+    expect(detectConfirmed(baseline(), [a1], 90).result.verdict).toBe('unchanged_confirmed');
   });
 
   it('T-BEL-17: the same value without a live A1 observation after the answer is only no_evidence_of_change', () => {
