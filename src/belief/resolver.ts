@@ -66,6 +66,27 @@ function valueOf(e: VerifiedEvidence): NormalizedValue {
   return e.fields.value;
 }
 
+/** One group per distinct value, with its evidence ids and any condition texts the evidence states. */
+function groupByValue(list: VerifiedEvidence[]): NonNullable<Belief['contestedValues']> {
+  const groups = new Map<
+    string,
+    { value: NormalizedValue; evidenceIds: VerifiedEvidence['id'][]; conditions: string[] }
+  >();
+  for (const e of list) {
+    const v = valueOf(e);
+    const g = groups.get(fingerprint(v)) ?? { value: v, evidenceIds: [], conditions: [] };
+    g.evidenceIds.push(e.id);
+    const c = e.fields.conditions;
+    if (c !== null && c.trim().length > 0 && !g.conditions.includes(c)) g.conditions.push(c);
+    groups.set(fingerprint(v), g);
+  }
+  return [...groups.values()].map((g) => ({
+    value: g.value,
+    evidenceIds: g.evidenceIds,
+    ...(g.conditions.length > 0 ? { conditions: g.conditions } : {}),
+  }));
+}
+
 function verifiedAtOf(winners: VerifiedEvidence[]): Ms | null {
   const fresh = winners
     .filter((w) => w.displayedAtBasis === 'fresh_fetch' && w.displayedAt !== null)
@@ -108,17 +129,42 @@ export class RuleBeliefResolver implements BeliefResolver {
         pendingSignals: [],
       };
     } else if (F.length === 0) {
-      const w = [...S].sort(byAuthorityThenTime)[0] as VerifiedEvidence;
-      belief = {
-        key,
-        entityId: decoded.entityId,
-        status: 'stale',
-        value: valueOf(w),
-        displayedAt: w.displayedAt,
-        verifiedAt: verifiedAtOf([w]),
-        winningEvidence: [w.id],
-        pendingSignals: [],
-      };
+      // Nothing is current. The best candidates are the highest tier; among them a strictly later displayedAt
+      // supersedes an earlier one, so only candidates tied on displayedAt (or all untimed) compete. If those
+      // hold more than one distinct value the record is contested: a silent pick would be arbitrary.
+      const topRank = Math.max(...S.map((e) => tierRank(e.authorityTier)));
+      const topSet = S.filter((e) => tierRank(e.authorityTier) === topRank).sort(byTimeDesc);
+      const first = topSet[0] as VerifiedEvidence;
+      const candidates =
+        first.displayedAt === null
+          ? topSet
+          : topSet.filter((e) => e.displayedAt === first.displayedAt);
+      const groups = groupByValue(candidates);
+      if (groups.length > 1) {
+        belief = {
+          key,
+          entityId: decoded.entityId,
+          status: 'contested',
+          value: null,
+          contestedValues: groups,
+          displayedAt: first.displayedAt,
+          verifiedAt: verifiedAtOf(candidates),
+          winningEvidence: candidates.map((e) => e.id),
+          pendingSignals: [],
+        };
+      } else {
+        const w = [...candidates].sort(byAuthorityThenTime)[0] as VerifiedEvidence;
+        belief = {
+          key,
+          entityId: decoded.entityId,
+          status: 'stale',
+          value: valueOf(w),
+          displayedAt: w.displayedAt,
+          verifiedAt: verifiedAtOf([w]),
+          winningEvidence: [w.id],
+          pendingSignals: [],
+        };
+      }
     } else {
       const top0 = [...F].sort(byAuthorityThenTime)[0] as VerifiedEvidence;
       const T = tierRank(top0.authorityTier);
@@ -126,16 +172,7 @@ export class RuleBeliefResolver implements BeliefResolver {
       const lead = top[0] as VerifiedEvidence;
       const leadAt = lead.displayedAt as Ms;
       const near = top.filter((e) => leadAt - (e.displayedAt as Ms) <= policy.contestWindowMs);
-      const groups = new Map<
-        string,
-        { value: NormalizedValue; evidenceIds: VerifiedEvidence['id'][] }
-      >();
-      for (const e of near) {
-        const v = valueOf(e);
-        const g = groups.get(fingerprint(v)) ?? { value: v, evidenceIds: [] };
-        g.evidenceIds.push(e.id);
-        groups.set(fingerprint(v), g);
-      }
+      const groups = groupByValue(near);
       const leadValue = valueOf(lead);
       const lower = F.filter(
         (e) =>
@@ -152,13 +189,13 @@ export class RuleBeliefResolver implements BeliefResolver {
           effectiveFrom: newestLower.effectiveFrom,
           evidenceIds: [newestLower.id],
         });
-      if (groups.size > 1) {
+      if (groups.length > 1) {
         belief = {
           key,
           entityId: decoded.entityId,
           status: 'contested',
           value: null,
-          contestedValues: [...groups.values()],
+          contestedValues: groups,
           displayedAt: leadAt,
           verifiedAt: verifiedAtOf(near),
           winningEvidence: near.map((e) => e.id),

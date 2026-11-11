@@ -136,6 +136,8 @@ const coverageSchema = z.object({
   newestDatedSource: z.number().nullable(),
   freshOfficialFetched: z.boolean(),
   failure: coverageFailure.nullable(),
+  releaseSources: z.number().int().min(0).optional(),
+  newestDatedReleaseSource: z.number().nullable().optional(),
 }) satisfies z.ZodType<Coverage>;
 
 const pendingSignalSchema = z.object({
@@ -171,6 +173,7 @@ const verdictReason = exhaustive<PriceVerdictReason>()([
   'same_source_bracketing',
   'stated_effective_date',
   'listed_differently',
+  'insufficient_coverage',
   'search_timeout',
   'search_unavailable',
   'quota_exhausted',
@@ -206,7 +209,13 @@ export const findingSchema = z.object({
       verifiedAt: z.number().nullable(),
       citations: z.array(srcId),
       contested: z
-        .array(z.object({ value: normalizedValueSchema, evidenceIds: z.array(evId) }))
+        .array(
+          z.object({
+            value: normalizedValueSchema,
+            evidenceIds: z.array(evId),
+            conditions: z.array(z.string()).optional(),
+          }),
+        )
         .optional(),
       pendingSignals: z.array(pendingSignalSchema),
     })
