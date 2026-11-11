@@ -8,6 +8,9 @@ import {
   leadingBreak,
   outcomeNote,
   paragraphStarts,
+  sentenceBasis,
+  sourceLabel,
+  sentenceGap,
   safeHref,
   sentenceMarker,
   splitCitations,
@@ -142,6 +145,7 @@ function fillSentence(span, text, sources) {
 const KIND_TITLE = {
   verified: 'Checked against a verified finding',
   sourced: 'According to the cited source; not independently verified',
+  unconfirmed: 'No verified value for this; my own checks did not confirm it',
 };
 
 /** Sets the visible status of a sentence: classes, a worded marker, and what it rests on. */
@@ -160,8 +164,8 @@ function applyStatus(span, status, issues, kind) {
     return;
   }
   // A sourced sentence reports what a cited page says; a verified one renders a checked finding.
-  const basis = kind ?? span.dataset.kind ?? (status === 'verified' ? 'verified' : null);
-  if (basis === 'sourced' || basis === 'verified') {
+  const basis = sentenceBasis(status, kind, span.dataset.kind);
+  if (basis !== null) {
     span.dataset.kind = basis;
     span.classList.add(`sentence--${basis}`);
     if (!span.classList.contains('sentence--unseen')) span.title = KIND_TITLE[basis];
@@ -216,6 +220,9 @@ function sentenceSpan(msg, index, newParagraph = false) {
       msg.paragraph = el('p', 'para');
       msg.body.append(msg.paragraph);
     }
+    // sentences of one paragraph are separated by one space (the sentence text itself carries none)
+    const gap = sentenceGap(false, msg.paragraph.childNodes.length > 0);
+    if (gap) msg.paragraph.append(document.createTextNode(gap));
     span = el('span', 'sentence');
     span.dataset.index = String(index);
     msg.sentences.set(index, span);
@@ -230,10 +237,11 @@ function addSource(msg, source) {
   const li = el('li');
   li.value = source.n;
   const href = safeHref(source.url);
-  const label = source.title ?? source.domain;
+  const label = sourceLabel(source);
   if (href) li.append(link(href, label));
   else li.append(document.createTextNode(label));
-  li.append(el('span', 'source-domain', source.domain));
+  // the domain is shown beside the label unless the label already is the domain
+  if (label !== source.domain) li.append(el('span', 'source-domain', source.domain));
   msg.sourceList.append(li);
 }
 

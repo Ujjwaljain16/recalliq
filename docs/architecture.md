@@ -977,6 +977,8 @@ This is unchanged, with these additions:
 | `src/answer/answer-pipeline.ts` | Synthesis → render → integrity → T3a → T3b |
 | `src/api/ack.ts` | Ack handler |
 
+*(Added 2026-11-12.)* **Negative finding line and sourced sentence.** When the model writes a finding line that only says there is no verified price, or that the check failed, and then a sourced sentence about the same entity, the two contradicted each other on the page. The release gate now holds such a line (the sentence has kind `unconfirmed`) until the next sentence. If that is a sourced sentence naming the same entity, one sentence is released: the sourced text, then the finding's negative as a short qualifier written in code. The finding placeholder stays in the stored template; its stored rendering is the qualifier. Any other next sentence, or the end of the stream, releases the held line unchanged. Nothing is withheld longer than one sentence, and verification, grounding and numbering rules are untouched.
+
 ### 20. ADR register
 
 ADR-01 to ADR-20 stand, with the following updates and additions.

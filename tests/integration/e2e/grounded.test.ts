@@ -354,13 +354,13 @@ describe('T-E2E a price that fails verification can be quoted, never remembered 
     expect(finding.currentStatus).not.toBe('confirmed');
     expect(finding.current).toBeUndefined();
 
-    expect(first.sentences[1]).toBe(
-      ' The Zeta Cloud pricing page lists Pro at US$25 per user per month [1].',
+    expect(first.sentences[0]).toBe(
+      'The Zeta Cloud pricing page lists Pro at US$25 per user per month [1] — not confirmed by my own checks.',
     );
     const kinds = (eventsOf(first, 'answer.sentence_end') as Array<{ kind?: string }>).map(
       (e) => e.kind,
     );
-    expect(kinds).toEqual(['verified', 'sourced']);
+    expect(kinds).toEqual(['sourced']);
 
     // the sourced sentence is never an assertion, and no assertion carries its value
     const rows = t.app.db

@@ -34,7 +34,7 @@ export function splitCitations(text, sources) {
       text: match[0],
       n,
       href,
-      title: source.title ?? source.domain ?? href,
+      title: sourceLabel({ ...source, domain: source.domain ?? href }),
     });
     last = match.index + match[0].length;
   }
@@ -169,4 +169,95 @@ export function paragraphStarts(content, texts) {
     at = found + t.length;
     return i > 0 && gap.includes('\n');
   });
+}
+
+/**
+ * The text between two sentences of one paragraph: a single space. A sentence that opens a paragraph, or the
+ * first sentence of the answer, has none. The streamed text and the stored text both rely on this, because the
+ * leading whitespace of a sentence is not shown as such (see `leadingBreak`).
+ *
+ * @param {boolean} newParagraph
+ * @param {boolean} paragraphHasText
+ */
+export function sentenceGap(newParagraph, paragraphHasText) {
+  return !newParagraph && paragraphHasText ? ' ' : '';
+}
+
+/**
+ * The paragraphs the page shows for the streamed sentence chunks (each with its leading whitespace), as plain
+ * text: sentences of one paragraph are joined with one space, paragraphs are separate entries.
+ *
+ * @param {string[]} chunks
+ * @returns {string[]}
+ */
+export function paragraphTexts(chunks) {
+  const out = [];
+  for (const chunk of chunks) {
+    const { newParagraph, text } = leadingBreak(chunk);
+    const last = out.length - 1;
+    if (last < 0 || newParagraph) out.push(text);
+    else out[last] += sentenceGap(false, true) + text;
+  }
+  return out;
+}
+
+/**
+ * The paragraphs the page shows for stored sentences, as plain text, in the same shape as `paragraphTexts`.
+ *
+ * @param {string} content  the stored message text
+ * @param {string[]} texts  the sentences in order
+ * @returns {string[]}
+ */
+export function storedParagraphTexts(content, texts) {
+  const starts = paragraphStarts(content, texts);
+  const out = [];
+  texts.forEach((t, i) => {
+    const last = out.length - 1;
+    if (last < 0 || starts[i]) out.push(t);
+    else out[last] += sentenceGap(false, true) + t;
+  });
+  return out;
+}
+
+/**
+ * What a settled sentence rests on, which decides its mark: `verified` (a checked finding: the check mark),
+ * `sourced` (a cited page: dotted underline), `unconfirmed` (a finding that says there is no verified value or
+ * that the check failed: no mark, because nothing was verified) or null. Sentences stored before kinds existed
+ * have none and fall back to their status.
+ *
+ * @param {string} status
+ * @param {string | undefined} kind
+ * @param {string | undefined} previous  the basis the sentence already had
+ * @returns {'verified' | 'sourced' | 'unconfirmed' | null}
+ */
+export function sentenceBasis(status, kind, previous) {
+  const basis = kind ?? previous ?? (status === 'verified' ? 'verified' : null);
+  return basis === 'verified' || basis === 'sourced' || basis === 'unconfirmed' ? basis : null;
+}
+
+/**
+ * The visible label of a source: its title, else the last path segment of its URL made readable, else the
+ * domain. Never empty, and never the same text twice.
+ *
+ * @param {{ title?: string | null, url?: string, domain?: string }} source
+ * @returns {string}
+ */
+export function sourceLabel(source) {
+  const title = (source.title ?? '').trim();
+  if (title !== '') return title;
+  try {
+    const segments = new URL(source.url ?? '').pathname.split('/').filter((s) => s !== '');
+    const last = segments[segments.length - 1];
+    if (last !== undefined) {
+      const words = decodeURIComponent(last)
+        .replace(/\.[a-z0-9]{1,5}$/i, '')
+        .replace(/[-_+]+/g, ' ')
+        .trim();
+      if (words !== '' && !/^\d+$/.test(words))
+        return words.charAt(0).toUpperCase() + words.slice(1);
+    }
+  } catch {
+    // an unparsable URL has no path to read
+  }
+  return (source.domain ?? '').trim() || 'Source';
 }

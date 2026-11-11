@@ -337,8 +337,8 @@ describe('defect 4: one paragraph per entity in a comparison', () => {
       'Compare Vercel and Netlify pricing',
     );
     expect(r.rendered).toBe(
-      'Vercel: I could not confirm a price through my checks. According to activepieces.com, Vercel Pro is listed at $20 per user per month [1].' +
-        '\n\nNetlify: I could not confirm a price through my checks. Netlify Pro costs $19 per member per month [2].' +
+      'According to activepieces.com, Vercel Pro is listed at $20 per user per month [1] — not confirmed by my own checks.' +
+        '\n\nNetlify Pro costs $19 per member per month [2] — not confirmed by my own checks.' +
         ' Both are popular.',
     );
     expect(r.rendered).not.toMatch(/ \n/);

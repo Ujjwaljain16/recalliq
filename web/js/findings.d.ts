@@ -30,3 +30,8 @@ export function findingRow(
   }>,
   opts: { now: number; timeZone: string },
 ): FindingRow;
+export function groupedFindingRows(
+  findings: Finding[],
+  sources: Parameters<typeof findingRow>[1],
+  opts: { now: number; timeZone: string },
+): FindingRow[];

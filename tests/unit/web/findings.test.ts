@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findingRow, formatValue } from '../../../web/js/findings.js';
+import { findingRow, formatValue, groupedFindingRows } from '../../../web/js/findings.js';
 import type { Finding } from '../../../src/shared/findings.js';
 import type { NormalizedValue } from '../../../src/shared/evidence.js';
 
@@ -210,5 +210,47 @@ describe('finding rows', () => {
       { title: 'New API', date: null, major: false },
     ]);
     expect(row.citations.map((c) => c.n)).toEqual([1]);
+  });
+});
+
+describe('one card row per entity', () => {
+  const tier = (ord: number, plan: string, amount: number, extra: Partial<Finding> = {}) =>
+    finding({
+      id: `fnd_${ord}`,
+      ord,
+      entityId: 'ent_pd',
+      entityName: 'Pipedrive',
+      beliefKey: `price:v1|e=ent_pd|p=${plan}|a=list|c=-|u=per_seat|uu=-|b=monthly|cur=unknown|loc=en-US|vk=exact`,
+      currentStatus: 'stale',
+      current: current(usd(amount, { currency: 'unknown', currencySymbol: null }), {
+        displayedAt: null,
+        verifiedAt: null,
+      }),
+      ...extra,
+    });
+
+  it('lists the four Pipedrive plans in one row with the notes said once', () => {
+    const rows = groupedFindingRows(
+      [tier(1, 'lite', 19), tier(2, 'growth', 34), tier(3, 'premium', 64), tier(4, 'ultimate', 89)],
+      sources,
+      opts,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.name).toBe('Pipedrive');
+    expect(rows[0]?.value).toBe(
+      'Lite 19 · Growth 34 · Premium 64 · Ultimate 89 per user per month · currency not stated',
+    );
+    expect(rows[0]?.status?.label).toBe('not seen recently');
+  });
+
+  it('keeps single findings and different entities apart, in order', () => {
+    const other = finding({ id: 'fnd_9', ord: 9, entityId: 'ent_x', entityName: 'Other' });
+    const rows = groupedFindingRows(
+      [other, tier(1, 'lite', 19), tier(2, 'growth', 34)],
+      sources,
+      opts,
+    );
+    expect(rows.map((r) => r.name)).toEqual(['Pipedrive', 'Other']);
+    expect(rows[1]?.value).toBe('no verified price');
   });
 });

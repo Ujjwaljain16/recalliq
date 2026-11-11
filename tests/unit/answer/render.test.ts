@@ -71,7 +71,23 @@ describe('rendering of findings by code', () => {
 
   it('stale values say when they were last seen', () => {
     const f = finding(1, { currentStatus: 'stale' });
-    expect(render(f, 'F1')).toBe('US$90 per user per month (pro) (last seen 3 Nov 2026) [1]');
+    expect(render(f, 'F1')).toBe('US$90 per user per month (pro, last seen 3 Nov 2026) [1]');
+  });
+
+  it('an unknown currency and an unknown last-seen date share one parenthesis', () => {
+    const f = finding(1, {
+      currentStatus: 'stale',
+      current: {
+        value: { ...USD, currency: 'unknown', currencySymbol: null },
+        displayedAt: null,
+        verifiedAt: null,
+        citations: [SRC_1],
+        pendingSignals: [],
+      },
+    });
+    expect(render(f, 'F1')).toBe(
+      '90 per user per month (pro, currency not stated, last seen date unknown) [1]',
+    );
   });
 
   it('a finding with no value says so instead of inventing one', () => {

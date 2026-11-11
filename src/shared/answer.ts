@@ -45,9 +45,10 @@ export type SentenceIssue =
  * What a released sentence rests on. `verified`: it renders at least one finding placeholder, so its facts were
  * verified by code (T0 to T3) and only it may become an assertion. `sourced`: it cites sources of this turn and
  * passed the grounding check against one cited excerpt; it reports what a page says, never a verified value or a
- * change. Absent on sentences that rest on neither (conversation, quoted messages) and on older stored sentences.
+ * change. `unconfirmed`: it renders findings only to say there is no verified value or that the check could not
+ * run, so it carries no verified fact. Absent on sentences that rest on neither (conversation, quoted messages) and on older stored sentences.
  */
-export type SentenceKind = 'verified' | 'sourced';
+export type SentenceKind = 'verified' | 'sourced' | 'unconfirmed';
 
 export interface PersistedSentence {
   index: number;

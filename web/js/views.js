@@ -3,7 +3,7 @@
 
 import { activeStep, summaryOf } from './trail.js';
 import { duration, localTimeLabel } from './time.js';
-import { findingRow } from './findings.js';
+import { groupedFindingRows } from './findings.js';
 
 export function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -153,8 +153,7 @@ export function findingsCard(findings, sources, opts) {
   const card = el('section', 'findings');
   card.setAttribute('aria-label', 'Findings');
   const list = el('ul', 'findings-list');
-  for (const f of [...findings].sort((a, b) => a.ord - b.ord)) {
-    const row = findingRow(f, sources, opts);
+  for (const row of groupedFindingRows(findings, sources, opts)) {
     const li = el('li', 'finding');
     const main = el('div', 'finding-main');
     main.append(el('span', 'finding-name', row.name), el('span', 'finding-value', row.value));

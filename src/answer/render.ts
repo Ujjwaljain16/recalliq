@@ -100,7 +100,7 @@ function cites(ids: readonly SnapshotId[], records: AnswerRecords): string {
 const withCites = (text: string, c: string): string => (c ? `${text} ${c}` : text);
 
 /** `US$90 per user per month (professional, promotional, currency not stated)` without citations. */
-function valueText(v: NormalizedValue, beliefKey: string | null): string {
+function valueText(v: NormalizedValue, beliefKey: string | null, lastNote?: string): string {
   const bound =
     v.valueKind === 'lower_bound' ? 'from ' : v.valueKind === 'upper_bound' ? 'up to ' : '';
   const { plan, arrangement } = keyHints(beliefKey);
@@ -108,6 +108,7 @@ function valueText(v: NormalizedValue, beliefKey: string | null): string {
     plan === null ? null : pageLine(plan, MAX_PLAN_CHARS),
     arrangement && arrangement !== 'list' ? arrangement : null,
     v.currency === 'unknown' ? 'currency not stated' : null,
+    lastNote ?? null,
   ].filter((x): x is string => x !== null);
   const unit = unitPhrase(v);
   return `${bound}${money(v.amount, v.currency, v.currencySymbol)}${unit ? ` ${unit}` : ''}${notes.length ? ` (${notes.join(', ')})` : ''}`;
@@ -125,6 +126,24 @@ const REASON_TEXT: Record<string, string> = {
 
 /** A finding whose check ran but produced no verified value: said as what it is, not as "no price exists". */
 export const NO_VERIFIED_PRICE_TEXT = 'I could not confirm a price through my checks';
+/** True when a finding rendering says there is no verified value, or that the check could not run. */
+export function isNegativeRendering(rendered: string): boolean {
+  return (
+    rendered === NO_VERIFIED_PRICE_TEXT ||
+    rendered === NO_TIME_WINDOW_TEXT ||
+    rendered.startsWith("couldn't be checked this time")
+  );
+}
+
+/**
+ * The short qualifier that follows a sourced sentence about the same entity when a finding line renders one of
+ * the negative statements above, or null when the rendering is not one of them.
+ */
+export function negativeQualifier(rendered: string): string | null {
+  if (rendered === NO_VERIFIED_PRICE_TEXT) return 'not confirmed by my own checks';
+  const m = /^couldn't be checked this time \((.+)\)$/.exec(rendered);
+  return m ? `my own check of the page failed (${m[1] ?? ''})` : null;
+}
 /** A releases finding with no interval to look in: there is nothing to report releases against. */
 export const NO_TIME_WINDOW_TEXT = 'I can only report releases for a period you name';
 
@@ -170,15 +189,13 @@ function currentText(f: Finding, records: AnswerRecords): string {
     return `listed as ${joined}${extra}${tiered ? ' depending on the conditions shown' : ' — official sources disagree'}`;
   }
   if (!cur?.value) return NO_VERIFIED_PRICE_TEXT;
-  const text = valueText(cur.value, f.beliefKey);
-  if (f.currentStatus === 'stale') {
-    const seen = cur.displayedAt ?? cur.verifiedAt;
-    return withCites(
-      `${text} (last seen ${seen === null ? 'date unknown' : formatDate(seen, records.tz)})`,
-      c,
-    );
-  }
-  return withCites(text, c);
+  // the staleness note joins the other notes in ONE parenthesis, so several plans do not repeat "(...) (...)"
+  const seen = cur.displayedAt ?? cur.verifiedAt;
+  const stale =
+    f.currentStatus === 'stale'
+      ? `last seen ${seen === null ? 'date unknown' : formatDate(seen, records.tz)}`
+      : undefined;
+  return withCites(valueText(cur.value, f.beliefKey, stale), c);
 }
 
 function releasesText(f: Finding, records: AnswerRecords): string {
