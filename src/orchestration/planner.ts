@@ -167,6 +167,50 @@ function specsFor(
   return drafts;
 }
 
+/** Results per entity-less query of the general research path. */
+const GENERAL_RESULTS = 5;
+/** At most this many analysis queries are searched when no entity is named. */
+const MAX_GENERAL_QUERIES = 3;
+
+/**
+ * The general research path: a question about the world with no entity to plan around ("what is new in a
+ * runtime", "who won the last race"). The analysis queries are searched as they are, with no entity and no
+ * domain filter, as cached highlights; the first alternate query is a round-2 fallback. These specs carry the
+ * `general` intent, so the research service runs no price or release extraction for them. When the analysis
+ * resolved a day the question is about (an event time or a "since"), results published before it are left out.
+ */
+function generalDrafts(ctx: ResolvedContext, a: TurnAnalysis): Draft[] {
+  const starts = ctx.temporal
+    .filter((t) => t.mention.role !== 'reference_conversation' && t.status === 'resolved')
+    .flatMap((t) => t.candidates.map((c) => c.startMs));
+  const since = starts.length > 0 ? { startPublishedDate: Math.min(...starts) } : {};
+  const request = (query: string): SearchRequest => ({
+    query,
+    numResults: GENERAL_RESULTS,
+    ...since,
+    freshness: 'cached',
+    contentMode: 'highlights',
+    contentChars: 1_500,
+  });
+  const spec = (id: string, round: 1 | 2, query: string): QuerySpec => ({
+    id,
+    entityId: null,
+    intent: 'general',
+    round,
+    request: request(query),
+  });
+  const drafts: Draft[] = a.queries
+    .map((q) => q.trim())
+    .filter((q) => q.length > 0)
+    .slice(0, MAX_GENERAL_QUERIES)
+    .map((q, i) => ({ priority: 0, spec: spec(`general:q${i}:1`, 1, q) }));
+  const alternate = a.alternateQueries.map((q) => q.trim()).find((q) => q.length > 0);
+  if (drafts.length > 0 && alternate !== undefined) {
+    drafts.push({ priority: 1, spec: spec('general:alt:2', 2, alternate) });
+  }
+  return drafts;
+}
+
 /**
  * Pure, deterministic planning (architecture section 9): what to search, never how. Round 1 specs run first;
  * `fallback` holds the round-2 specs for keys without good evidence and runs only if the budget admits it.
@@ -174,6 +218,10 @@ function specsFor(
  * Caps: at most 6 entities, 4 searches per entity, 16 searches per turn (round 1 and fallback together, cut by
  * priority so that every entity keeps its round-1 search before anyone gets a fallback). Queries are
  * de-duplicated within the turn. An entity beyond the cap is dropped; the orchestrator tells the user.
+ *
+ * With no entity at all and no pricing or releases intent, the analysis queries are planned on the general
+ * research path (see `generalDrafts`). A price or release question with no entity has nothing to verify against
+ * and plans nothing, so the lane asks which company is meant; so does a turn with neither an entity nor a query.
  */
 export class DefaultResearchPlanner implements ResearchPlanner {
   plan(ctx: ResolvedContext, a: TurnAnalysis, now: Ms): ResearchPlan {
@@ -182,11 +230,19 @@ export class DefaultResearchPlanner implements ResearchPlanner {
     const perEntity = new Map<string, number>();
     const seenQueries = new Set<string>();
 
-    for (const target of targetsOf(ctx, a)) {
-      const key = String(target.id ?? normalizeEntityName(target.name));
-      const candidates = intents
-        .flatMap((intent) => specsFor(target, intent, ctx, a, now))
-        .sort((x, y) => x.priority - y.priority);
+    const targets = targetsOf(ctx, a);
+    const generalOnly = !intents.includes('pricing') && !intents.includes('releases');
+    const groups: Array<{ key: string; candidates: Draft[] }> =
+      targets.length > 0 || !generalOnly
+        ? targets.map((target) => ({
+            key: String(target.id ?? normalizeEntityName(target.name)),
+            candidates: intents
+              .flatMap((intent) => specsFor(target, intent, ctx, a, now))
+              .sort((x, y) => x.priority - y.priority),
+          }))
+        : [{ key: '', candidates: generalDrafts(ctx, a) }];
+
+    for (const { key, candidates } of groups) {
       for (const d of candidates) {
         const domains = (d.spec.request.includeDomains ?? []).join(',');
         const dedupe = `${d.spec.request.query.toLowerCase()}|${domains}`;
