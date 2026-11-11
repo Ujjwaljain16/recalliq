@@ -1,13 +1,18 @@
 import type { AppMode } from '../../src/config/env.js';
 import {
+  AssertionRepository,
   ConversationRepository,
   IN_MEMORY,
   initializeDatabase,
+  loadMigrations,
   MessageRepository,
   openDatabase,
+  SqliteTurnRepository,
   UserRepository,
+  type BeliefRebuilder,
   type Db,
 } from '../../src/db/index.js';
+import type { PersistedSentence } from '../../src/shared/answer.js';
 import {
   newId,
   type AssertionId,
@@ -32,20 +37,51 @@ export interface TestDb {
   users: UserRepository;
   conversations: ConversationRepository;
   messages: MessageRepository;
+  turns: SqliteTurnRepository;
+  assertions: AssertionRepository;
 }
 
-/** A fresh in-memory database, migrated, in the given mode. */
-export function openTestDb(mode: AppMode = 'real'): TestDb {
-  const db = openDatabase(IN_MEMORY);
-  const clock = new FixedClock(T0);
-  initializeDatabase(db, { mode, clock });
+/** Stands in for the belief resolver, which does not exist until milestone 4. */
+export const noopRebuilder: BeliefRebuilder = {
+  rebuild() {
+    /* nothing to rebuild: no beliefs are written yet */
+  },
+};
+
+/** Repositories over a migrated database, wherever it lives (memory, or a file shared with other connections). */
+export function reposFor(db: Db, clock: FixedClock): Omit<TestDb, 'db'> {
   return {
-    db,
     clock,
     users: new UserRepository(db, clock),
     conversations: new ConversationRepository(db, clock),
     messages: new MessageRepository(db, clock),
+    turns: new SqliteTurnRepository(db, clock, { beliefs: noopRebuilder }),
+    assertions: new AssertionRepository(db),
   };
+}
+
+/**
+ * A fresh in-memory database, migrated, in the given mode. `upToMigration` stops early, so a test can show
+ * that one migration alone is what enforces an invariant (later triggers cannot mask its error message).
+ */
+export function openTestDb(mode: AppMode = 'real', upToMigration?: number): TestDb {
+  const db = openDatabase(IN_MEMORY);
+  const clock = new FixedClock(T0);
+  const migrations = loadMigrations();
+  initializeDatabase(db, {
+    mode,
+    clock,
+    migrations: upToMigration === undefined ? migrations : migrations.slice(0, upToMigration),
+  });
+  return { db, ...reposFor(db, clock) };
+}
+
+/** A migrated database in a file, for tests that need several connections (worker threads) to share it. */
+export function openTestDbAt(file: string, mode: AppMode = 'real'): TestDb {
+  const db = openDatabase(file);
+  const clock = new FixedClock(T0);
+  initializeDatabase(db, { mode, clock });
+  return { db, ...reposFor(db, clock) };
 }
 
 /**
@@ -66,20 +102,67 @@ export function insertTurn(
   },
 ): TurnId {
   const id = newId('trn');
+  const status = p.status ?? 'complete';
+  const startedAt = p.startedAt ?? T0;
+  // Migration 004: a running turn starts in RECEIVED unfinished; a finished one carries finished_at.
   db.prepare(
     `INSERT INTO turns (id, conversation_id, user_id, user_message_id, idempotency_key, state, status,
-       deadline_at, started_at) VALUES (?, ?, ?, ?, ?, 'RECEIVED', ?, ?, ?)`,
+       deadline_at, started_at, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     p.conversationId,
     p.userId,
     p.userMessageId,
     p.idempotencyKey ?? newId('trn'),
-    p.status ?? 'complete',
-    (p.startedAt ?? T0) + 60_000,
-    p.startedAt ?? T0,
+    status === 'running' ? 'RECEIVED' : 'COMPLETED',
+    status,
+    startedAt + 60_000,
+    startedAt,
+    status === 'running' ? null : startedAt + 1_000,
   );
   return id;
+}
+
+/** `n` plain sentences with no placeholders. */
+export function plainSentences(n: number): PersistedSentence[] {
+  return Array.from({ length: n }, (_, index) => ({
+    index,
+    text: `Sentence ${index}.`,
+    template: `Sentence ${index}.`,
+    status: 'no_claims' as const,
+    issues: [],
+    placeholders: [],
+  }));
+}
+
+/**
+ * An assistant message bound to `turnId`, as turn completion would store it. Assertions must hang off one
+ * (migration 005), and its streamed/rendered extents drive delivery state.
+ */
+export function insertAssistantMessage(
+  t: TestDb,
+  p: {
+    userId: UserId;
+    conversationId: ConversationId;
+    turnId: TurnId;
+    sentences?: number;
+    streamedThrough?: number;
+    status?: 'complete' | 'interrupted';
+  },
+): MessageId {
+  const sentences = plainSentences(p.sentences ?? 3);
+  return t.messages.insert({
+    userId: p.userId,
+    conversationId: p.conversationId,
+    role: 'assistant',
+    content: sentences.map((s) => s.text).join(' '),
+    template: sentences.map((s) => s.template).join(' '),
+    sentences,
+    status: p.status ?? 'complete',
+    streamedThrough: p.streamedThrough ?? sentences.length - 1,
+    tz: 'UTC',
+    turnId: p.turnId,
+  }).id;
 }
 
 export function insertEntity(db: Db, p: { userId: UserId; norm: string }): EntityId {

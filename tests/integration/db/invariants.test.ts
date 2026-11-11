@@ -3,6 +3,7 @@ import { newId } from '../../../src/shared/ids.js';
 import {
   count,
   insertAssertion,
+  insertAssistantMessage,
   insertAssertionEvent,
   insertEntity,
   insertEvidence,
@@ -57,17 +58,21 @@ describe('T-DB-03: append-only tables reject UPDATE', () => {
   function world() {
     const t = openTestDb();
     const user = t.users.create();
-    const { turnId, userMessageId } = seedConversation(t, user);
+    const { conversationId, turnId } = seedConversation(t, user);
+    const assistantId = insertAssistantMessage(t, { userId: user, conversationId, turnId });
     const entityId = insertEntity(t.db, { userId: user, norm: 'hubspot' });
     const snapshotId = insertSnapshot(t.db, { userId: user });
     const evidenceId = insertEvidence(t.db, { userId: user, snapshotId, turnId, entityId });
     const findingId = insertFinding(t.db, { turnId, entityId });
     const assertionId = insertAssertion(t.db, {
       userId: user,
-      messageId: userMessageId,
+      messageId: assistantId,
       turnId,
       findingId,
     });
+    // a verdict event needs a presented assertion (migration 005)
+    t.db.prepare('UPDATE messages SET rendered_through = 0 WHERE id = ?').run(assistantId);
+    t.db.prepare('UPDATE assertions SET presented_at = ? WHERE id = ?').run(T0, assertionId);
     const eventId = insertAssertionEvent(t.db, { assertionId, status: 'reaffirmed' });
     t.db
       .prepare(
@@ -169,16 +174,34 @@ describe('T-DB-05: an assertion can be presented once, and nothing else about it
   function world() {
     const t = openTestDb();
     const user = t.users.create();
-    const { turnId, userMessageId } = seedConversation(t, user);
+    const { conversationId, turnId } = seedConversation(t, user);
+    // 3 sentences, 2 streamed (0 and 1); sentence 0 will be acknowledged, sentence 2 never streamed
+    const assistantId = insertAssistantMessage(t, {
+      userId: user,
+      conversationId,
+      turnId,
+      sentences: 3,
+      streamedThrough: 1,
+    });
     const entityId = insertEntity(t.db, { userId: user, norm: 'hubspot' });
     const findingId = insertFinding(t.db, { turnId, entityId });
     const assertionId = insertAssertion(t.db, {
       userId: user,
-      messageId: userMessageId,
+      messageId: assistantId,
       turnId,
       findingId,
+      sentenceIndex: 0,
     });
-    return { t, assertionId };
+    const neverStreamedId = insertAssertion(t.db, {
+      userId: user,
+      messageId: assistantId,
+      turnId,
+      findingId,
+      sentenceIndex: 2,
+    });
+    // the browser acknowledged sentence 0 (migration 005 requires this before presented_at can be set)
+    t.db.prepare('UPDATE messages SET rendered_through = 0 WHERE id = ?').run(assistantId);
+    return { t, assertionId, neverStreamedId };
   }
 
   it('allows presented_at to be set from NULL', () => {
@@ -216,17 +239,18 @@ describe('T-DB-05: an assertion can be presented once, and nothing else about it
     ).toThrow(/immutable except presented_at once/);
   });
 
-  it('records at most one presented and one not_presented event per assertion', () => {
-    const { t, assertionId } = world();
+  it('records at most one presented event, and at most one not_presented event, per assertion', () => {
+    const { t, assertionId, neverStreamedId } = world();
+    t.db.prepare('UPDATE assertions SET presented_at = ? WHERE id = ?').run(T0 + 1, assertionId);
     insertAssertionEvent(t.db, { assertionId, status: 'presented' });
     expect(() => insertAssertionEvent(t.db, { assertionId, status: 'presented' })).toThrow(
       /UNIQUE/,
     );
-    insertAssertionEvent(t.db, { assertionId, status: 'not_presented' });
-    expect(() => insertAssertionEvent(t.db, { assertionId, status: 'not_presented' })).toThrow(
-      /UNIQUE/,
-    );
-    // other statuses may repeat: the history is append-only and a claim can be re-examined
+    insertAssertionEvent(t.db, { assertionId: neverStreamedId, status: 'not_presented' });
+    expect(() =>
+      insertAssertionEvent(t.db, { assertionId: neverStreamedId, status: 'not_presented' }),
+    ).toThrow(/UNIQUE/);
+    // verdict events may repeat on a presented assertion: the history is append-only and a claim can be re-examined
     insertAssertionEvent(t.db, { assertionId, status: 'reaffirmed' });
     insertAssertionEvent(t.db, { assertionId, status: 'reaffirmed' });
   });
@@ -236,19 +260,10 @@ describe('T-DB-06: rendered_through never decreases', () => {
   function assistantMessage() {
     const t = openTestDb();
     const user = t.users.create();
-    const { conversationId } = seedConversation(t, user);
-    const message = t.messages.insert({
-      userId: user,
-      conversationId,
-      role: 'assistant',
-      content: 'a. b. c.',
-      template: 'a. b. c.',
-      sentences: [],
-      status: 'complete',
-      streamedThrough: 2,
-      tz: 'UTC',
-    });
-    return { t, id: message.id };
+    const { conversationId, turnId } = seedConversation(t, user);
+    // 3 sentences, all streamed, so rendered_through may rise to 2
+    const id = insertAssistantMessage(t, { userId: user, conversationId, turnId, sentences: 3 });
+    return { t, id };
   }
 
   it('starts at -1 and can move forward or stay put', () => {
@@ -284,10 +299,33 @@ describe('T-DB-06: rendered_through never decreases', () => {
   });
 });
 
-// Partial by design of the shipped schema: only users, conversations and snapshots are guarded, and only on
-// INSERT. See docs/questions.md Q-002 and demo-isolation-gap.test.ts for what is NOT covered.
-describe('T-DB-07: a real database rejects fixture users, non-live conversations and non-live snapshots (partial: Q-002)', () => {
-  it('rejects fixture users, non-live conversations and non-live snapshots in real mode', () => {
+/// Migration 002 (Q-002): the database itself refuses non-live data, and relabelling, in a real database.
+describe('T-DB-07: demo data cannot enter a real database', () => {
+  type Test = ReturnType<typeof openTestDb>;
+
+  function withConversation(t: Test) {
+    const user = t.users.create();
+    const { conversationId, userMessageId } = seedConversation(t, user);
+    return { user, conversationId, userMessageId };
+  }
+  const insertDecision = (
+    t: Test,
+    p: { user: string; conversationId: string; messageId: string; origin: string },
+  ) =>
+    t.db
+      .prepare(
+        `INSERT INTO decisions (id, user_id, conversation_id, message_id, kind, payload_json, user_quote, origin, created_at)
+         VALUES (?, ?, ?, ?, 'shortlist', '{}', 'q', ?, ?)`,
+      )
+      .run(newId('dec'), p.user, p.conversationId, p.messageId, p.origin, T0);
+  const insertRawEntity = (t: Test, user: string, origin: string) =>
+    t.db
+      .prepare(
+        "INSERT INTO entities (id, user_id, canonical, norm, origin, created_at) VALUES (?, ?, 'x', 'x', ?, ?)",
+      )
+      .run(newId('ent'), user, origin, T0);
+
+  it('rejects fixture users, non-live conversations and non-live snapshots', () => {
     const t = openTestDb('real');
     const user = t.users.create('real');
     expect(() => t.users.create('fixture')).toThrow(/fixture user in real db/);
@@ -303,18 +341,114 @@ describe('T-DB-07: a real database rejects fixture users, non-live conversations
     expect(count(t.db, 'users')).toBe(1);
   });
 
-  it('accepts the same data in a demo database', () => {
+  it('rejects a non-live message, through the repository and through raw SQL', () => {
+    const t = openTestDb('real');
+    const { user, conversationId } = withConversation(t);
+    expect(() =>
+      t.messages.insert({
+        userId: user,
+        conversationId,
+        role: 'user',
+        content: 'x',
+        tz: 'UTC',
+        origin: 'recorded',
+      }),
+    ).toThrow(/non-live message in real db/);
+    expect(() =>
+      t.db
+        .prepare(
+          `INSERT INTO messages (id, conversation_id, user_id, seq, role, content, tz, origin, created_at)
+           VALUES (?, ?, ?, 50, 'user', 'x', 'UTC', 'synthetic', ?)`,
+        )
+        .run(newId('msg'), conversationId, user, T0),
+    ).toThrow(/non-live message in real db/);
+    expect(count(t.db, 'messages', "origin <> 'live'")).toBe(0);
+  });
+
+  it('rejects a non-live entity on insert and on relabel', () => {
+    const t = openTestDb('real');
+    const user = t.users.create();
+    expect(() => insertRawEntity(t, user, 'synthetic')).toThrow(/non-live entity in real db/);
+    const live = insertEntity(t.db, { userId: user, norm: 'acme crm' });
+    expect(() =>
+      t.db.prepare("UPDATE entities SET origin = 'recorded' WHERE id = ?").run(live),
+    ).toThrow(/non-live entity in real db/);
+    expect(count(t.db, 'entities', "origin <> 'live'")).toBe(0);
+  });
+
+  it('rejects a non-live decision on insert and on relabel', () => {
+    const t = openTestDb('real');
+    const { user, conversationId, userMessageId } = withConversation(t);
+    const base = { user, conversationId, messageId: userMessageId };
+    expect(() => insertDecision(t, { ...base, origin: 'recorded' })).toThrow(
+      /non-live decision in real db/,
+    );
+    insertDecision(t, { ...base, origin: 'live' });
+    expect(() => t.db.prepare("UPDATE decisions SET origin = 'synthetic'").run()).toThrow(
+      /non-live decision in real db/,
+    );
+    expect(count(t.db, 'decisions', "origin <> 'live'")).toBe(0);
+  });
+
+  it('rejects relabelling an existing user or conversation', () => {
+    const t = openTestDb('real');
+    const user = t.users.create();
+    const conversation = t.conversations.create({ userId: user });
+    expect(() => t.db.prepare("UPDATE users SET kind = 'fixture' WHERE id = ?").run(user)).toThrow(
+      /fixture user in real db/,
+    );
+    expect(() =>
+      t.db
+        .prepare("UPDATE conversations SET origin = 'recorded' WHERE id = ?")
+        .run(conversation.id),
+    ).toThrow(/non-live conversation in real db/);
+  });
+
+  it('makes db_mode immutable, so the isolation triggers cannot be switched off', () => {
+    const t = openTestDb('real');
+    expect(() =>
+      t.db.prepare("UPDATE meta SET value = 'demo' WHERE key = 'db_mode'").run(),
+    ).toThrow(/db_mode is immutable/);
+    expect(() => t.db.prepare("DELETE FROM meta WHERE key = 'db_mode'").run()).toThrow(
+      /db_mode is immutable/,
+    );
+    expect(() => t.users.create('fixture')).toThrow(/fixture user in real db/);
+  });
+
+  it('still accepts live data, and still allows schema_version to be updated', () => {
+    const t = openTestDb('real');
+    const { user, conversationId, userMessageId } = withConversation(t);
+    insertEntity(t.db, { userId: user, norm: 'hubspot' });
+    insertDecision(t, { user, conversationId, messageId: userMessageId, origin: 'live' });
+    expect(() =>
+      t.db.prepare("UPDATE meta SET value = '99' WHERE key = 'schema_version'").run(),
+    ).not.toThrow();
+  });
+
+  it('accepts non-live data in a demo database: the triggers are keyed on db_mode', () => {
     const t = openTestDb('demo');
     const fixtureUser = t.users.create('fixture');
     const conv = t.conversations.create({ userId: fixtureUser, origin: 'recorded' });
-    expect(conv.origin).toBe('recorded');
+    const message = t.messages.insert({
+      userId: fixtureUser,
+      conversationId: conv.id,
+      role: 'user',
+      content: 'x',
+      tz: 'UTC',
+      origin: 'recorded',
+    });
+    insertRawEntity(t, fixtureUser, 'synthetic');
+    insertDecision(t, {
+      user: fixtureUser,
+      conversationId: conv.id,
+      messageId: message.id,
+      origin: 'recorded',
+    });
     expect(() => insertSnapshot(t.db, { userId: fixtureUser, origin: 'synthetic' })).not.toThrow();
+    expect(count(t.db, 'messages', "origin = 'recorded'")).toBe(1);
+    expect(count(t.db, 'entities', "origin = 'synthetic'")).toBe(1);
+    expect(count(t.db, 'decisions', "origin = 'recorded'")).toBe(1);
   });
-
-  // Open, not passing: the shipped schema does not enforce this. See docs/questions.md Q-002.
-  it.todo(
-    'Q-002 (open): messages, entities and decisions with non-live origin are rejected in real mode',
-  );
 });
 
 describe('T-DB-09: rebuild after deletion equals a fresh rebuild', () => {
@@ -338,7 +472,9 @@ describe('schema invariants without a contract test ID', () => {
     expect(() =>
       insertTurn(t.db, { conversationId, userId: user, userMessageId, status: 'running' }),
     ).toThrow(/UNIQUE/);
-    t.db.prepare("UPDATE turns SET status = 'complete' WHERE id = ?").run(running);
+    t.db
+      .prepare("UPDATE turns SET status = 'complete', finished_at = ? WHERE id = ?")
+      .run(T0 + 1, running);
     expect(() =>
       insertTurn(t.db, { conversationId, userId: user, userMessageId, status: 'running' }),
     ).not.toThrow();

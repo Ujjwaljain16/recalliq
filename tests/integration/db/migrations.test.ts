@@ -35,27 +35,70 @@ const EXPECTED_TRIGGERS = [
   'users_no_fixture_in_real',
 ];
 
+const LATEST = loadMigrations().length;
+
+function installedTriggers(db: ReturnType<typeof openDatabase>): string[] {
+  return (
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name")
+      .all() as Array<{ name: string }>
+  ).map((r) => r.name);
+}
+
+function declaredTriggers(sql: string): string[] {
+  return [...sql.matchAll(/CREATE TRIGGER (\w+)/g)].map((m) => m[1] as string);
+}
+
 describe('migrations: fresh database', () => {
   it('creates the schema, stamps db_mode, and reports creation', () => {
     const db = openDatabase(IN_MEMORY);
     const result = initializeDatabase(db, { mode: 'real', clock });
-    expect(result).toEqual({ schemaVersion: 1, created: true });
+    expect(result).toEqual({ schemaVersion: LATEST, created: true });
     expect(getMeta(db, 'db_mode')).toBe('real');
-    expect(getMeta(db, 'schema_version')).toBe('1');
+    expect(getMeta(db, 'schema_version')).toBe(String(LATEST));
     expect(getMeta(db, 'created_at')).toBe(String(T0));
   });
 
-  it('installs every integrity trigger from the contract', () => {
+  it('ships migrations 001 to 005, numbered contiguously', () => {
+    expect(loadMigrations().map((m) => `${m.version}_${m.name}`)).toEqual([
+      '1_init',
+      '2_demo_isolation',
+      '3_ownership_consistency',
+      '4_turn_lifecycle',
+      '5_delivery_acknowledgement',
+    ]);
+  });
+
+  it('installs every integrity trigger from the contract (migration 001)', () => {
     const db = openDatabase(IN_MEMORY);
     initializeDatabase(db, { mode: 'real', clock });
-    const names = (
-      db
-        .prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name")
-        .all() as Array<{
-        name: string;
-      }>
-    ).map((r) => r.name);
-    expect(names).toEqual(EXPECTED_TRIGGERS);
+    expect(installedTriggers(db)).toEqual(expect.arrayContaining(EXPECTED_TRIGGERS));
+  });
+
+  it('installs exactly the triggers the shipped migrations declare', () => {
+    const db = openDatabase(IN_MEMORY);
+    initializeDatabase(db, { mode: 'real', clock });
+    const declared = loadMigrations().flatMap((m) => declaredTriggers(m.sql));
+    expect(new Set(declared).size).toBe(declared.length); // no duplicate names
+    expect(installedTriggers(db)).toEqual([...declared].sort());
+  });
+
+  it('upgrades a version-1 database to the latest schema without losing its data', () => {
+    const [v1] = loadMigrations() as [Migration, ...Migration[]];
+    const db = openDatabase(IN_MEMORY);
+    initializeDatabase(db, { mode: 'real', clock, migrations: [v1] });
+    db.prepare("INSERT INTO users (id, kind, created_at) VALUES ('usr_old', 'real', 1)").run();
+    expect(installedTriggers(db)).toHaveLength(EXPECTED_TRIGGERS.length);
+
+    expect(initializeDatabase(db, { mode: 'real', clock })).toEqual({
+      schemaVersion: LATEST,
+      created: false,
+    });
+    expect(getMeta(db, 'schema_version')).toBe(String(LATEST));
+    expect(db.prepare("SELECT count(*) AS n FROM users WHERE id = 'usr_old'").get()).toEqual({
+      n: 1,
+    });
+    expect(installedTriggers(db).length).toBeGreaterThan(EXPECTED_TRIGGERS.length);
   });
 
   it('creates the FTS5 index and enforces foreign keys on the connection', () => {
@@ -71,7 +114,7 @@ describe('migrations: fresh database', () => {
     const db = openDatabase(IN_MEMORY);
     initializeDatabase(db, { mode: 'real', clock });
     expect(initializeDatabase(db, { mode: 'real', clock })).toEqual({
-      schemaVersion: 1,
+      schemaVersion: LATEST,
       created: false,
     });
   });

@@ -12,5 +12,6 @@ export * from './research.js';
 export * from './answer.js';
 export * from './delivery.js';
 export * from './turn.js';
+export * from './turn-state-machine.js';
 export * from './sse.js';
 export * from './repositories.js';

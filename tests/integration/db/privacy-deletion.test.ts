@@ -5,6 +5,7 @@ import {
   count,
   insertAssertion,
   insertAssertionEvent,
+  insertAssistantMessage,
   insertEntity,
   insertEvidence,
   insertFinding,
@@ -79,19 +80,33 @@ function world() {
   });
 
   // A's own assertion cites evOnly and evShared; B's assertion also cites evShared.
+  // (assertions belong to an assistant message of their own turn: migration 005)
+  const answerA = insertAssistantMessage(t, {
+    userId: alice,
+    conversationId: a.conversationId,
+    turnId: a.turnId,
+  });
+  const answerB = insertAssistantMessage(t, {
+    userId: alice,
+    conversationId: b.conversationId,
+    turnId: b.turnId,
+  });
   const findingA = insertFinding(t.db, { turnId: a.turnId, entityId: hubspot });
   const assertionA = insertAssertion(t.db, {
     userId: alice,
-    messageId: a.userMessageId,
+    messageId: answerA,
     turnId: a.turnId,
     findingId: findingA,
     evidenceIds: [evOnly, evShared],
   });
+  // A's claim was acknowledged by the browser, so it is presented and carries a presented event
+  t.db.prepare('UPDATE messages SET rendered_through = 0 WHERE id = ?').run(answerA);
+  t.db.prepare('UPDATE assertions SET presented_at = ? WHERE id = ?').run(1, assertionA);
   insertAssertionEvent(t.db, { assertionId: assertionA, status: 'presented' });
   const findingB = insertFinding(t.db, { turnId: b.turnId, entityId: hubspot });
   const assertionB = insertAssertion(t.db, {
     userId: alice,
-    messageId: b.userMessageId,
+    messageId: answerB,
     turnId: b.turnId,
     findingId: findingB,
     evidenceIds: [evShared],
