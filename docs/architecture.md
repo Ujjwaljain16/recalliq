@@ -292,6 +292,16 @@ resolve(key, S_all, prev, now, policy):
 
 - **Partial display is represented accurately.** If sentences 0–3 were acked before a disconnect, those assertions are `presented` and the rest are not.
 
+**Note (2026-11-12, [ADR-42](adr/ADR-42.md), Proposed): verified and sourced statements.** An answer carries two kinds of factual sentence, and they stay distinct in code, storage and the interface.
+
+- **Verified** (`kind: 'verified'`): a sentence that renders at least one finding placeholder `[[F..]]`. Its facts were extracted and verified by code (T0 to T3, belief resolution, the change detector). Only it may become an assertion, and so a belief input, a baseline (ADR-38) or a verdict; only its verdict placeholder may speak about change (ADR-40). A sentence with a finding placeholder may contain no number of its own.
+- **Sourced** (`kind: 'sourced'`): a sentence the model writes from the text of a source, which cites at least one source of this turn `[[S:src_..]]` and renders no finding. Before release it must pass, besides the render-integrity check and T3a (whose change and comparison wording rules apply to it unchanged), the deterministic checks of `src/answer/sourced.ts` and `src/answer/grounding.ts`: every cited id is a source shown to the model with an excerpt in this turn (any other id fails closed, `ungrounded_source`); the sentence contains no link or email address (`sourced_link`); it quotes at most 200 characters, and the sourced sentences of one answer at most 1,200 (`sourced_too_long`); and ONE of the excerpts it cites contains every number, amount, percentage, version, date and capitalised name it states (`ungrounded_number`, `ungrounded_name`). Normalisation is the same on both sides and folds nothing: full-width digits or currency signs never match ASCII ones. A sourced sentence that names none of its sources is opened in code with "According to <domain>: ". It never becomes an assertion, a belief, a baseline or a verdict, and a later audit treats it as no claim at all.
+- A sentence with a number and no citation is withheld as before (`free_number` and its siblings).
+
+What the model sees: per source of the turn, its id, domain, title, provider publication date and a bounded excerpt (at most 6 sources, 1,200 characters each, 8,000 in all; sources matching the query terms first), with links, email addresses and markdown removed and the text defused (NFKC, invisible and bidi characters removed, `[[` broken, fence tags of any spacing or case neutralised) inside `<data kind="sources">`. Conversation history is defused and fenced in `<data kind="history">` too, never passed as conversation turns. The excerpt the model saw is exactly the text a sourced sentence is checked against.
+
+General research path: when the turn names no entity, the planner searches the analysis queries (at most 3, 5 results each, cached highlights) with no entity and the `general` intent, and the research service runs no extraction for general specs: search, snapshots and `source` events only, then synthesis. Pricing and release turns extract and verify as before, and the sources of the turn that no finding cites (at most 6) are offered for quoting after the finding sources.
+
 ### R5. Evaluation data classes
 
 This is unchanged from Stage 3.
