@@ -190,7 +190,10 @@ describe('(d) the lead sentence quotes the retrieved message and nothing else', 
     w.message(w.seedConversation(), HOSTING_TEXT, TUESDAY - 86_400_000, 'UTC', 'neon supabase');
     const { reply } = await w.ask(S3_MESSAGE);
     expect(reply).not.toMatch(/you asked|you wrote/);
-    expect(w.research.calls).toHaveLength(0);
+    // nothing names a company, so only the analysis query is searched, as a general query with no entity
+    expect(
+      w.research.calls[0]?.plan.specs.every((x) => x.entityId === null && x.intent === 'general'),
+    ).toBe(true);
   });
 });
 

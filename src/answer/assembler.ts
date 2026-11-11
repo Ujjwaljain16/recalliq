@@ -1,7 +1,13 @@
-import type { PersistedSentence, PlaceholderRef, SentenceIssue } from '../shared/answer.js';
+import type {
+  PersistedSentence,
+  PlaceholderRef,
+  SentenceIssue,
+  SentenceKind,
+} from '../shared/answer.js';
 import type { Finding } from '../shared/findings.js';
 import type { Logger } from '../shared/infrastructure.js';
 import { repeatsRenderedText } from './duplicate.js';
+import { attribute, checkSourced, type SourcedContext } from './sourced.js';
 import { parsePlaceholderBody, type StreamItem } from './placeholders.js';
 import { resolveRef, type AnswerRecords } from './records.js';
 import type { Renderer } from './render.js';
@@ -40,12 +46,19 @@ export interface Candidate {
   issues: SentenceIssue[];
   /** When it passed and compares several findings: the facts the judge must be shown. Otherwise null. */
   judgeFacts: string[] | null;
+  /** `verified` when it renders a finding, `sourced` when it cites sources and renders none, else absent. */
+  kind?: SentenceKind;
 }
 
 export interface AssemblerDeps {
   records: AnswerRecords;
   renderer: Renderer;
   t3a: T3aContext;
+  /**
+   * What a sourced sentence may rest on: the excerpts shown this turn, the user's message and the entity names.
+   * Default: nothing shown, so every sourced sentence is withheld (fail closed).
+   */
+  sourced?: SourcedContext;
   /** Receives each sentence the moment it ends. Never called for a sentence that is still open. */
   onCandidate: (c: Candidate) => void;
   logger?: Logger;
@@ -63,6 +76,8 @@ export class SentenceAssembler {
   private seenAny = false;
   private endCandidate = false;
   private carry: SentenceIssue[] = [];
+  /** Characters quoted by the sourced sentences that passed so far (the per-answer cap). */
+  private sourcedChars = 0;
 
   constructor(private readonly deps: AssemblerDeps) {}
 
@@ -185,11 +200,36 @@ export class SentenceAssembler {
         'render integrity check failed: rendered text differs from the record',
       );
     }
-    for (const i of checkFreeText({ template: open.template, refs: open.refs }, this.deps.t3a)) {
+    // A sourced sentence cites at least one source and renders no finding: its numbers and names must be in
+    // the text of the sources it cites (grounding.ts), and T3a still checks its change and comparison words.
+    const rendersFinding = open.refs.some((r) => r.finding !== null);
+    const sourced = !rendersFinding && open.refs.some((r) => r.ref.kind === 'source');
+    for (const i of checkFreeText(
+      { template: open.template, refs: open.refs, sourced },
+      this.deps.t3a,
+    )) {
       issues.add(i);
+    }
+    const ctx: SourcedContext = this.deps.sourced ?? {
+      userMessage: this.deps.t3a.userMessage,
+      entityNames: [],
+      shown: new Map(),
+    };
+    const cited = open.placeholders.flatMap((p) => (p.snapshotId ? [p.snapshotId] : []));
+    let quoted = 0;
+    if (sourced) {
+      const checked = checkSourced(open.template, cited, ctx, this.sourcedChars);
+      for (const i of checked.issues) issues.add(i);
+      quoted = checked.chars;
     }
 
     if (repeatsRenderedText(open.template, open.placeholders)) issues.add('duplicate_text');
+    if (sourced && issues.size === 0) {
+      this.sourcedChars += quoted;
+      const attributed = attribute(open, cited, ctx);
+      open.template = attributed.template;
+      open.text = attributed.text;
+    }
 
     let judgeFacts: string[] | null = null;
     if (issues.size === 0) {
@@ -207,6 +247,11 @@ export class SentenceAssembler {
       placeholders: open.placeholders,
       issues: [...issues],
       judgeFacts,
+      ...(rendersFinding
+        ? { kind: 'verified' as const }
+        : sourced
+          ? { kind: 'sourced' as const }
+          : {}),
     });
   }
 

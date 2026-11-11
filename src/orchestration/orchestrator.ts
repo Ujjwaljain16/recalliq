@@ -363,6 +363,7 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
             index: s.index,
             status: s.status,
             issues: s.issues,
+            ...(s.kind ? { kind: s.kind } : {}),
           })),
           citations: citationsOf(ending.answer.sentences, ending.findings),
         },

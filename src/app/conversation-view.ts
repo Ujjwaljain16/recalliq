@@ -158,6 +158,7 @@ export class SqliteConversationView implements ConversationView {
               text: s.text,
               status: s.status,
               issues: s.issues,
+              ...(s.kind ? { kind: s.kind } : {}),
               delivery: deliveryState(s.index, m),
             }));
       const extras = m.role === 'assistant' && m.turnId !== null ? extrasFor(m.turnId) : undefined;
@@ -223,6 +224,7 @@ export class SqliteConversationView implements ConversationView {
               index: s.index,
               status: s.status,
               issues: s.issues,
+              ...(s.kind ? { kind: s.kind } : {}),
             })),
             citations: citationsOf(message.sentences, set),
           },

@@ -1,10 +1,17 @@
 import path from 'node:path';
-import type { Components } from '../../../src/app/components.js';
+import type { ComponentFactory, Components } from '../../../src/app/components.js';
+import { buildRealComponents } from '../../../src/app/live/pipeline.js';
+import { FixtureLlm, FixtureSearchPort, MissLog } from '../../../src/app/live/replay-providers.js';
+import type { LlmPort } from '../../../src/shared/llm.js';
 import { startApplication, type Application } from '../../../src/app/application.js';
 import { loadAppEnv, type AppEnv } from '../../../src/app/env.js';
 import { replayFactoryFromFixture } from '../../../src/app/live.js';
 import { OfficialDomains } from '../../../src/app/live/registry.js';
-import { parseReplayFixture, type ReplayFixtureInput } from '../../../src/app/live/fixture.js';
+import {
+  parseReplayFixture,
+  type ReplayFixture,
+  type ReplayFixtureInput,
+} from '../../../src/app/live/fixture.js';
 import { FixedClock } from '../../../src/temporal/clock.js';
 import { Client, SECRET, type RawSse, type SseRead } from '../server/harness.js';
 
@@ -34,6 +41,8 @@ export interface E2eOptions {
   decorate?: (c: Components) => Components;
   /** The owner's official-domain registry. Default: the synthetic example registry (`.example` domains). */
   registry?: OfficialDomains;
+  /** Wraps the replay model, e.g. to count calls per role. */
+  wrapLlm?: (inner: LlmPort) => LlmPort;
 }
 
 /**
@@ -52,11 +61,13 @@ export async function startE2e(o: E2eOptions): Promise<E2eApp> {
   const env: AppEnv = { ...base, config: { ...base.config, dbPath: o.dbPath ?? ':memory:' } };
   const app = await startApplication({
     env,
-    factory: replayFactoryFromFixture(
-      parseReplayFixture(o.fixture),
-      undefined,
-      o.registry ?? EXAMPLE_REGISTRY(),
-    ),
+    factory: o.wrapLlm
+      ? wrappedFactory(parseReplayFixture(o.fixture), o.registry ?? EXAMPLE_REGISTRY(), o.wrapLlm)
+      : replayFactoryFromFixture(
+          parseReplayFixture(o.fixture),
+          undefined,
+          o.registry ?? EXAMPLE_REGISTRY(),
+        ),
     clock,
     port: 0,
     ...(o.decorate ? { decorate: o.decorate } : {}),
@@ -71,6 +82,25 @@ export async function startE2e(o: E2eOptions): Promise<E2eApp> {
     stop: async () => {
       await app.stop();
     },
+  };
+}
+
+/** The replay component set with the model wrapped: the same parts replayFactoryFromFixture assembles. */
+function wrappedFactory(
+  fixture: ReplayFixture,
+  registry: OfficialDomains,
+  wrap: (inner: LlmPort) => LlmPort,
+): ComponentFactory {
+  return (c) => {
+    const log = new MissLog();
+    return buildRealComponents(c, {
+      kind: 'replay',
+      llm: wrap(new FixtureLlm(fixture.llm, log)),
+      search: new FixtureSearchPort({ entries: fixture.search, clock: c.clock, log }),
+      origin: 'synthetic',
+      missLog: log,
+      registry,
+    });
   };
 }
 

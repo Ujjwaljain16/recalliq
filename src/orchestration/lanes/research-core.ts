@@ -21,7 +21,10 @@ function uniqueNames(input: LaneInput, deps: LaneDeps, ctx: ResolvedContext): st
  * budget, check what comes back, and advance the turn.
  *
  * The coordinator does not see the service's inner stages, so the extraction and verification states are
- * entered after the service returns, and only when it returned sources. Every transition is an edge of the state
+ * entered after the service returns, and only when it returned sources and the plan asked for extraction (a plan
+ * of general queries only is search and synthesis). The plan is empty only when the turn names no entity and the
+ * analysis gave no query: then, and only then, the user is asked what to look into (routing normally sends that
+ * case to chat; this is the backstop). Every transition is an edge of the state
  * machine table; an unexpected error from any step is finalised by the coordinator (ADR-39), not here.
  *
  * `ResearchService.run` does not throw for provider, extraction or deadline failure (those arrive as
@@ -40,7 +43,7 @@ export async function runResearch(
       input,
       ctx,
       'nothing_to_research',
-      'Which company or product should I look into?',
+      "I need something to look up: which company, product or topic should I search for? I'll check current sources and cite them.",
       [],
     );
   }
@@ -68,7 +71,9 @@ export async function runResearch(
   });
   assertFindingSetConsistent(findings, input.turnId);
 
-  if (Object.keys(findings.sources).length > 0) {
+  // The general research path runs no extraction, so it never enters the extraction and verification states.
+  const extracted = [...plan.specs, ...plan.fallback].some((s) => s.intent !== 'general');
+  if (extracted && Object.keys(findings.sources).length > 0) {
     input.progress('EXTRACTING', 'Reading the sources');
     input.progress('VERIFYING', 'Checking the evidence');
   }

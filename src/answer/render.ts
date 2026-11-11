@@ -2,6 +2,11 @@ import type { NormalizedValue } from '../shared/evidence.js';
 import type { Finding, PriceVerdictReason } from '../shared/findings.js';
 import type { Ms, SnapshotId } from '../shared/ids.js';
 import type { AnswerRecords, PlaceholderRecord } from './records.js';
+import { pageLine } from './excerpts.js';
+
+/** Page-derived strings in a rendering are capped and carry no link or email address. */
+const MAX_TITLE_CHARS = 120;
+const MAX_PLAN_CHARS = 60;
 
 /**
  * Turns an authorised record into the text the user sees. The only writer of prices, dates and verdict phrases:
@@ -100,7 +105,7 @@ function valueText(v: NormalizedValue, beliefKey: string | null): string {
     v.valueKind === 'lower_bound' ? 'from ' : v.valueKind === 'upper_bound' ? 'up to ' : '';
   const { plan, arrangement } = keyHints(beliefKey);
   const notes = [
-    plan,
+    plan === null ? null : pageLine(plan, MAX_PLAN_CHARS),
     arrangement && arrangement !== 'list' ? arrangement : null,
     v.currency === 'unknown' ? 'currency not stated' : null,
   ].filter((x): x is string => x !== null);
@@ -129,8 +134,9 @@ function unableText(f: Finding): string {
 
 /** The first condition text of a contested value, trimmed to stay readable; null when there is none. */
 function conditionText(conditions: readonly string[] | undefined): string | null {
-  const c = conditions?.find((x) => x.trim() !== '')?.trim();
-  if (c === undefined) return null;
+  const raw = conditions?.find((x) => x.trim() !== '');
+  const c = raw === undefined ? '' : pageLine(raw, 10_000);
+  if (c === '') return null;
   return c.length > 90 ? `${c.slice(0, 87).trimEnd()}...` : c;
 }
 
@@ -177,7 +183,7 @@ function releasesText(f: Finding, records: AnswerRecords): string {
     .map((r) => {
       const when = r.eventDate ?? r.providerPublishedAt;
       return withCites(
-        `"${r.title}" (${r.kind}, ${when === null ? 'date unknown' : formatDate(when, records.tz)})`,
+        `"${pageLine(r.title, MAX_TITLE_CHARS)}" (${r.kind}, ${when === null ? 'date unknown' : formatDate(when, records.tz)})`,
         cites(r.citations, records),
       );
     })

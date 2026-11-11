@@ -27,7 +27,25 @@ export type SentenceIssue =
   | 'duplicate_text'
   | 'judge_unsupported'
   | 'judge_partial'
-  | 'judge_unavailable';
+  | 'judge_unavailable'
+  /** A sourced sentence states a number, amount, percentage, version or date its cited sources do not contain. */
+  | 'ungrounded_number'
+  /** A sourced sentence names something (a capitalised name) its cited sources, the user and the entities do not. */
+  | 'ungrounded_name'
+  /** A sourced sentence cites a source that was not shown with an excerpt in this turn (fail closed). */
+  | 'ungrounded_source'
+  /** A sourced sentence contains a link or an email address. */
+  | 'sourced_link'
+  /** A sourced sentence quotes more than the per-sentence or per-answer cap. */
+  | 'sourced_too_long';
+
+/**
+ * What a released sentence rests on. `verified`: it renders at least one finding placeholder, so its facts were
+ * verified by code (T0 to T3) and only it may become an assertion. `sourced`: it cites sources of this turn and
+ * passed the grounding check against one cited excerpt; it reports what a page says, never a verified value or a
+ * change. Absent on sentences that rest on neither (conversation, quoted messages) and on older stored sentences.
+ */
+export type SentenceKind = 'verified' | 'sourced';
 
 export interface PersistedSentence {
   index: number;
@@ -35,6 +53,7 @@ export interface PersistedSentence {
   template: string;
   status: SentenceStatus;
   issues: SentenceIssue[];
+  kind?: SentenceKind;
   placeholders: Array<{
     token: string;
     findingId?: FindingId;

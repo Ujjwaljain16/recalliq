@@ -20,6 +20,9 @@ import { PlaceholderParser } from './placeholders.js';
 import { buildRecords, resolveRef, type AnswerRecords } from './records.js';
 import { defaultRenderer, recordCitations, type Renderer } from './render.js';
 import type { T3aContext } from './t3a.js';
+import { selectExcerpts } from './excerpts.js';
+import type { SourcedContext } from './sourced.js';
+import { termsOf } from '../shared/terms.js';
 import type { SnapshotId } from '../shared/ids.js';
 
 type RunInput = Parameters<AnswerPipeline['run']>[0];
@@ -104,6 +107,21 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       findings,
       nameNumerals: nameNumerals(input.ctx.entities),
     };
+    // The excerpts the model is shown are also the only text a sourced sentence may rest on.
+    const excerpts = selectExcerpts(
+      records.sources,
+      termsOf(input.userMessage, ...input.ctx.entities.map((e) => e.name)),
+    );
+    const sourced: SourcedContext = {
+      userMessage: input.userMessage,
+      entityNames: [
+        ...input.ctx.entities.flatMap((e) => [e.name, ...e.aliases]),
+        ...findings.map((f) => f.entityName),
+      ],
+      shown: new Map(
+        excerpts.map((x) => [x.id, { title: x.title, domain: x.domain, text: x.excerpt }]),
+      ),
+    };
 
     // ── the release gate: candidates pass through it one at a time, in order ──
     const released: PersistedSentence[] = [];
@@ -154,6 +172,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         status,
         issues: [],
         placeholders: c.placeholders,
+        ...(c.kind ? { kind: c.kind } : {}),
       });
       seps.push(sep);
       const sentDelta = safeEmit({
@@ -162,7 +181,10 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       });
       const sentEnd =
         sentDelta &&
-        safeEmit({ event: 'answer.sentence_end', data: { index, status, issues: [] } });
+        safeEmit({
+          event: 'answer.sentence_end',
+          data: { index, status, issues: [], ...(c.kind ? { kind: c.kind } : {}) },
+        });
       if (sentEnd && streamedThrough === index - 1) streamedThrough = index;
     };
 
@@ -170,6 +192,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       records,
       renderer: this.renderer,
       t3a,
+      sourced,
       logger: log,
       onCandidate: (c) => {
         gate = gate.then(() => release(c));
@@ -194,6 +217,14 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       const signal = budget.signalFor('synthesis', budget.remaining());
       const messages = buildSynthesisMessages({
         ...promptData(findings, records, this.renderer, input),
+        sources: excerpts.map((x) => ({
+          id: x.id,
+          domain: x.domain,
+          title: x.title,
+          published:
+            x.publishedAt === null ? null : new Date(x.publishedAt).toISOString().slice(0, 10),
+          excerpt: x.excerpt,
+        })),
         compact,
       });
       const stream = this.deps.llm.stream({

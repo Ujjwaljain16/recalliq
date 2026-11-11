@@ -106,7 +106,12 @@ function fillSentence(span, text, sources) {
 }
 
 /** Sets the visible status of a sentence: classes plus a worded marker. */
-function applyStatus(span, status, issues) {
+function applyStatus(span, status, issues, kind) {
+  // A sourced sentence reports what a cited page says; it was checked against that page, not verified.
+  if (kind === 'sourced') {
+    span.dataset.kind = 'sourced';
+    span.title = 'Quoted from the cited source, not independently verified';
+  }
   for (const cls of [...span.classList]) {
     if (cls.startsWith('sentence--') && cls !== 'sentence--unseen') span.classList.remove(cls);
   }
@@ -224,7 +229,7 @@ function handleEvent(msg, { event, data }) {
     case 'answer.sentence_end': {
       const span = sentenceSpan(msg, data.index);
       fillSentence(span, span.textContent ?? '', msg.sources);
-      applyStatus(span, data.status, data.issues);
+      applyStatus(span, data.status, data.issues, data.kind);
       msg.sawSentenceEnd.add(data.index);
       tracker.sentenceStreamed(msg.turnId, data.index);
       void markRendered(msg, data.index);
@@ -238,7 +243,7 @@ function handleEvent(msg, { event, data }) {
     case 'answer.completed': {
       for (const s of data.sentences) {
         const span = msg.sentences.get(s.index);
-        if (span) applyStatus(span, s.status, s.issues);
+        if (span) applyStatus(span, s.status, s.issues, s.kind);
       }
       tracker.answerStored(msg.turnId);
       scheduler.notify(msg.turnId);
@@ -305,7 +310,7 @@ function renderStored(messages) {
     for (const s of m.sentences ?? []) {
       const span = sentenceSpan(msg, s.index);
       fillSentence(span, s.text, m.sources);
-      applyStatus(span, s.status, s.issues);
+      applyStatus(span, s.status, s.issues, s.kind);
       if (s.delivery === 'not_streamed') {
         span.classList.add('sentence--unseen');
         span.title = 'This sentence was written but never shown to you before';

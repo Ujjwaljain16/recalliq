@@ -29,6 +29,8 @@ import type {
   SourceSnapshot,
   VerifiedEvidence,
 } from '../shared/index.js';
+import { termsOf } from '../shared/terms.js';
+import { withTurnSources } from './turn-sources.js';
 
 /** Default release look-back when neither a baseline nor a temporal mention gives the start of the interval. */
 export const DEFAULT_RELEASE_LOOKBACK_MS = 30 * 86_400_000;
@@ -81,6 +83,13 @@ const isTierA = (e: VerifiedEvidence) => e.authorityTier === 'A1' || e.authority
 /**
  * Search, snapshots, extraction, T0 to T3, belief resolution, verdicts, findings.
  *
+ * The general research path: when every spec of the plan has the `general` intent, the service only searches,
+ * stores the snapshots and returns them as sources with their content. It makes no extraction call, verifies
+ * nothing, touches no belief and returns no finding. In a pricing or releases turn, specs with the `general`
+ * intent are searched the same way and never extracted, and the sources of the turn that no finding cites are
+ * added after the finding sources (see `withTurnSources`), so the answer can quote what a page says when
+ * verification did not succeed.
+ *
  * Failures of the world (a search outcome that failed, an extraction that failed, the deadline) become
  * `Coverage.failure` and `unable_to_verify` findings. Everything else propagates: a database error (including
  * an ownership or immutability trigger rejecting a write), a thrown error from the executor, or a bug. Only
@@ -115,11 +124,39 @@ export class PipelineResearchService implements ResearchService {
       ]),
     );
     const allSnapshots = new Map<SnapshotId, SourceSnapshot>();
+    /** Every snapshot this turn's searches returned, in search order. */
+    const turnSnapshots = new Map<SnapshotId, SourceSnapshot>();
 
     const round = async (n: 1 | 2, plan: ResearchRequest['plan']) => {
       const outcomes = await this.d.executor.execute(plan, n, budget, req.emit);
-      await this.process(req, states, allSnapshots, outcomes);
+      await this.process(req, states, allSnapshots, turnSnapshots, outcomes);
     };
+    const terms = termsOf(
+      ...req.analysis.queries,
+      ...req.analysis.topicTerms,
+      ...req.analysis.entities.map((e) => e.text),
+      ...ctx.entities.map((e) => e.name),
+    );
+    const turnSources = (sources: FindingSet['sources']): FindingSet['sources'] =>
+      withTurnSources(sources, turnSnapshots, terms, (snap) =>
+        this.d.classifier.classify(snap, []),
+      );
+
+    const general = [...req.plan.specs, ...req.plan.fallback].every((s) => s.intent === 'general');
+    if (general) {
+      await round(1, req.plan);
+      if (
+        turnSnapshots.size === 0 &&
+        req.plan.fallback.length > 0 &&
+        !budget.signal.aborted &&
+        budget.admit('fallback_round')
+      ) {
+        await round(2, req.plan);
+      }
+      const set: FindingSet = { turnId, createdAt: now, findings: [], sources: turnSources({}) };
+      this.emitAll(req, set, turnSnapshots);
+      return set;
+    }
 
     await round(1, req.plan);
     if (req.plan.fallback.length > 0 && !budget.signal.aborted && budget.admit('fallback_round')) {
@@ -176,12 +213,13 @@ export class PipelineResearchService implements ResearchService {
       });
     }
 
-    const set = this.d.assembler.assemble({
+    const assembled = this.d.assembler.assemble({
       turnId,
       createdAt: now,
       entities: inputs,
       snapshots: allSnapshots,
     });
+    const set: FindingSet = { ...assembled, sources: turnSources(assembled.sources) };
     this.emitAll(req, set, allSnapshots);
     return set;
   }
@@ -201,11 +239,24 @@ export class PipelineResearchService implements ResearchService {
     req: ResearchRequest,
     states: Map<EntityId, EntityState>,
     allSnapshots: Map<SnapshotId, SourceSnapshot>,
+    turnSnapshots: Map<SnapshotId, SourceSnapshot>,
     outcomes: SearchOutcome[],
   ): Promise<void> {
     const { userId, turnId, now, budget, ctx } = req;
+    const returned = [
+      ...new Set(outcomes.flatMap((o) => (o.status === 'failed' ? [] : o.snapshotIds))),
+    ];
+    const got = new Map(this.d.snapshots.getMany(userId, returned).map((s) => [s.id, s]));
+    for (const id of returned) {
+      const snap = got.get(id);
+      if (!snap) continue;
+      turnSnapshots.set(id, snap);
+      allSnapshots.set(id, snap);
+    }
     const ids = new Map<EntityId, SnapshotId[]>();
     for (const o of outcomes) {
+      // A general query is searched and stored, never extracted: its sources are only quoted by the answer.
+      if (o.spec.intent === 'general') continue;
       const st = o.spec.entityId ? states.get(o.spec.entityId) : undefined;
       if (!st) continue;
       if (o.status === 'failed') {

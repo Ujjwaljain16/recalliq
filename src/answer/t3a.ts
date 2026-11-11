@@ -20,6 +20,12 @@ export interface T3aContext {
 
 export interface T3aSentence {
   template: string;
+  /**
+   * A sourced sentence (it cites a source of the turn and renders no finding). Its numbers, amounts, percentages
+   * and dates are not refused here: the grounding check (grounding.ts) requires each of them in the text of the
+   * sources it cites. Its change and comparison words are checked here exactly like any other sentence's.
+   */
+  sourced?: boolean;
   /** The valid placeholders of this sentence, with their findings where they have one. */
   refs: ReadonlyArray<{ ref: PlaceholderRef; finding: Finding | null }>;
 }
@@ -40,16 +46,16 @@ const MONTH_INDEX: Record<string, number> = {
   nov: 11,
   dec: 12,
 };
-const monthNumber = (s: string): number => MONTH_INDEX[s.slice(0, 3).toLowerCase()] ?? 0;
+export const monthNumber = (s: string): number => MONTH_INDEX[s.slice(0, 3).toLowerCase()] ?? 0;
 
-const NUMWORD =
+export const NUMWORD =
   '(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|dozen)';
-const NUMWORDS = `${NUMWORD}(?:[\\s-]+(?:and\\s+)?${NUMWORD})*`;
+export const NUMWORDS = `${NUMWORD}(?:[\\s-]+(?:and\\s+)?${NUMWORD})*`;
 const QUANTITY_NOUN =
   '(?:seats?|users?|people|licen[cs]es?|plans?|tiers?|months?|years?|days?|weeks?|hours?|requests?|calls?|tokens?|employees?|gb|tb|mb)';
-const DIGITS = '\\d[\\d,]*(?:\\.\\d+)?';
+export const DIGITS = '\\d[\\d,]*(?:\\.\\d+)?';
 
-const DATE_PATTERNS: Array<{ re: RegExp; kind: 'dmy' | 'mdy' | 'my' | 'iso' | 'slash' }> = [
+export const DATE_PATTERNS: Array<{ re: RegExp; kind: 'dmy' | 'mdy' | 'my' | 'iso' | 'slash' }> = [
   {
     re: new RegExp(
       `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH})\\b(?:,?\\s+(\\d{4}))?`,
@@ -66,7 +72,7 @@ const DATE_PATTERNS: Array<{ re: RegExp; kind: 'dmy' | 'mdy' | 'my' | 'iso' | 's
   { re: /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g, kind: 'slash' },
 ];
 
-const CURRENCY_PATTERNS: RegExp[] = [
+export const CURRENCY_PATTERNS: RegExp[] = [
   new RegExp(
     `(?:US\\$|CA\\$|A\\$|[$€£¥₹]|\\b(?:USD|EUR|GBP|CAD|AUD|JPY|INR)\\b)\\s?${DIGITS}(?:\\s?(?:k|m|bn|million|billion|thousand)\\b)?`,
     'gi',
@@ -74,12 +80,12 @@ const CURRENCY_PATTERNS: RegExp[] = [
   new RegExp(`${DIGITS}\\s?(?:USD|EUR|GBP|dollars?|euros?|pounds?|bucks|cents?)\\b`, 'gi'),
   new RegExp(`\\b${NUMWORDS}\\s+(?:dollars?|euros?|pounds?|bucks|cents?)\\b`, 'gi'),
 ];
-const PERCENT_PATTERNS: RegExp[] = [
+export const PERCENT_PATTERNS: RegExp[] = [
   new RegExp(`${DIGITS}\\s?(?:%|(?:percent|per cent|pct)\\b)`, 'gi'),
   new RegExp(`\\b${NUMWORDS}\\s+(?:percent|per cent)\\b`, 'gi'),
 ];
-const WORD_QUANTITY = new RegExp(`\\b${NUMWORDS}\\s+${QUANTITY_NOUN}\\b`, 'gi');
-const FREE_DIGITS = new RegExp(`(?<![\\p{L}\\d])${DIGITS}`, 'gu');
+export const WORD_QUANTITY = new RegExp(`\\b${NUMWORDS}\\s+${QUANTITY_NOUN}\\b`, 'gi');
+export const FREE_DIGITS = new RegExp(`(?<![\\p{L}\\d])${DIGITS}`, 'gu');
 
 const NOSIGN = /\bno (?:sign|evidence|indication)s? of (?:any |a )?changes?\b/gi;
 const GLOBAL_NEGATIVE =
@@ -522,20 +528,23 @@ export function checkFreeText(sentence: T3aSentence, ctx: T3aContext): SentenceI
   const userText = ctx.userMessage;
   const userLower = userText.toLowerCase();
   const userNumerals = numeralsOf(userText);
+  /** A sourced sentence's numbers are left to the grounding check; they are still masked out of the text here. */
+  const free = (verdict: 'flag' | 'allow'): 'flag' | 'allow' =>
+    sentence.sourced ? 'allow' : verdict;
 
   // Dates first, so their digits are not read as free numbers.
   for (const { re, kind } of DATE_PATTERNS) {
     text = sweep(
       text,
       re,
-      (m) => (dateAllowed(kind, m, ctx.localDates) ? 'allow' : 'flag'),
+      (m) => free(dateAllowed(kind, m, ctx.localDates) ? 'allow' : 'flag'),
       issues,
       'free_date',
     );
   }
   // Amounts and percentages are exempt only when the user typed the very same token.
   const echoed = (m: RegExpExecArray): 'flag' | 'allow' =>
-    userLower.includes(m[0].trim().toLowerCase()) ? 'allow' : 'flag';
+    free(userLower.includes(m[0].trim().toLowerCase()) ? 'allow' : 'flag');
   for (const re of CURRENCY_PATTERNS) text = sweep(text, re, echoed, issues, 'free_currency');
   for (const re of PERCENT_PATTERNS) text = sweep(text, re, echoed, issues, 'free_percent');
 
@@ -547,7 +556,9 @@ export function checkFreeText(sentence: T3aSentence, ctx: T3aContext): SentenceI
     WORD_QUANTITY,
     (m) => {
       const words = m[0].toLowerCase().match(new RegExp(NUMWORD, 'g')) ?? [];
-      return words.every((w) => new RegExp(`\\b${w}\\b`, 'i').test(userText)) ? 'allow' : 'flag';
+      return free(
+        words.every((w) => new RegExp(`\\b${w}\\b`, 'i').test(userText)) ? 'allow' : 'flag',
+      );
     },
     issues,
     'free_number',
@@ -557,7 +568,7 @@ export function checkFreeText(sentence: T3aSentence, ctx: T3aContext): SentenceI
     FREE_DIGITS,
     (m) => {
       const n = m[0].replace(/,/g, '');
-      return userNumerals.has(n) || ctx.nameNumerals?.has(n) ? 'allow' : 'flag';
+      return free(userNumerals.has(n) || ctx.nameNumerals?.has(n) ? 'allow' : 'flag');
     },
     issues,
     'free_number',

@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import type { PersistedSentence, SentenceIssue, SentenceStatus } from '../shared/answer.js';
+import type {
+  PersistedSentence,
+  SentenceIssue,
+  SentenceKind,
+  SentenceStatus,
+} from '../shared/answer.js';
 import type { AckRequest } from '../shared/delivery.js';
 import type {
   BillingPeriod,
@@ -73,6 +78,11 @@ const sentenceIssue = exhaustive<SentenceIssue>()([
   'judge_unsupported',
   'judge_partial',
   'judge_unavailable',
+  'ungrounded_number',
+  'ungrounded_name',
+  'ungrounded_source',
+  'sourced_link',
+  'sourced_too_long',
 ]);
 
 export const persistedSentenceSchema = z.object({
@@ -81,6 +91,7 @@ export const persistedSentenceSchema = z.object({
   template: z.string(),
   status: sentenceStatus,
   issues: z.array(sentenceIssue),
+  kind: exhaustive<SentenceKind>()(['verified', 'sourced']).optional(),
   placeholders: z.array(
     z.object({
       token: z.string(),
