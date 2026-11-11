@@ -284,7 +284,9 @@ describe('T-DB-06: rendered_through never decreases', () => {
   });
 });
 
-describe('T-DB-07: demo data cannot enter a real database', () => {
+// Partial by design of the shipped schema: only users, conversations and snapshots are guarded, and only on
+// INSERT. See docs/questions.md Q-002 and demo-isolation-gap.test.ts for what is NOT covered.
+describe('T-DB-07: a real database rejects fixture users, non-live conversations and non-live snapshots (partial: Q-002)', () => {
   it('rejects fixture users, non-live conversations and non-live snapshots in real mode', () => {
     const t = openTestDb('real');
     const user = t.users.create('real');
@@ -309,8 +311,10 @@ describe('T-DB-07: demo data cannot enter a real database', () => {
     expect(() => insertSnapshot(t.db, { userId: fixtureUser, origin: 'synthetic' })).not.toThrow();
   });
 
-  // Gap in the contract, not in this implementation: see docs/questions.md Q-002.
-  it.todo('Q-002: messages, entities and decisions with non-live origin are rejected in real mode');
+  // Open, not passing: the shipped schema does not enforce this. See docs/questions.md Q-002.
+  it.todo(
+    'Q-002 (open): messages, entities and decisions with non-live origin are rejected in real mode',
+  );
 });
 
 describe('T-DB-09: rebuild after deletion equals a fresh rebuild', () => {

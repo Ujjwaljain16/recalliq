@@ -103,6 +103,50 @@ describe('migrations: guards', () => {
     db.close();
   });
 
+  // Q-003 (approved): connection-level PRAGMAs live in openDatabase(), outside migration transactions.
+  it('Q-003: openDatabase configures the connection before any migration runs', () => {
+    const memory = openDatabase(IN_MEMORY);
+    expect(memory.pragma('foreign_keys', { simple: true })).toBe(1);
+    expect(memory.pragma('busy_timeout', { simple: true })).toBe(5000);
+
+    const file = openDatabase(path.join(dir, 'conn.db'));
+    expect(file.pragma('foreign_keys', { simple: true })).toBe(1);
+    expect(file.pragma('busy_timeout', { simple: true })).toBe(5000);
+    expect(file.pragma('journal_mode', { simple: true })).toBe('wal');
+    expect(file.prepare('SELECT count(*) AS n FROM sqlite_master').get()).toEqual({ n: 0 });
+    file.close();
+  });
+
+  it('Q-003: no shipped migration contains a PRAGMA statement', () => {
+    for (const migration of loadMigrations()) {
+      expect(migration.sql, `migration ${migration.version}_${migration.name}`).not.toMatch(
+        /^\s*PRAGMA\b/im,
+      );
+    }
+  });
+
+  it('Q-003: each migration runs in its own transaction, together with its version stamp', () => {
+    const v1 = loadMigrations()[0] as Migration;
+    const probe: Migration = {
+      version: 2,
+      name: 'probe',
+      sql: "CREATE TABLE probe (x TEXT); INSERT INTO probe VALUES ('ran');",
+    };
+    const db = openDatabase(IN_MEMORY);
+    initializeDatabase(db, { mode: 'real', clock, migrations: [v1] });
+    // an SQL function that records whether a transaction was open while the migration ran
+    let openDuring: boolean | undefined;
+    db.function('in_tx', () => {
+      openDuring = db.inTransaction;
+      return 1;
+    });
+    const watched: Migration = { ...probe, sql: `${probe.sql} SELECT in_tx();` };
+    initializeDatabase(db, { mode: 'real', clock, migrations: [v1, watched] });
+    expect(openDuring).toBe(true);
+    expect(db.inTransaction).toBe(false);
+    expect(getMeta(db, 'schema_version')).toBe('2');
+  });
+
   it('refuses a non-empty database that this application did not create', () => {
     const db = openDatabase(IN_MEMORY);
     db.exec('CREATE TABLE stranger (x TEXT)');

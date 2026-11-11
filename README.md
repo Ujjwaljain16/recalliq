@@ -23,5 +23,10 @@ npm test                 # tests only (offline, no network)
 npm run db:migrate       # create or open the database for APP_MODE (data/app.db or data/demo.db)
 ```
 
-`APP_MODE=demo` uses a separate database file, and the database itself refuses fixture data when it was
-created in `real` mode (and refuses to be opened in the other mode).
+`APP_MODE=demo` uses a separate database file, and a database refuses to be opened in the other mode.
+A `real` database also rejects fixture users, non-live conversations and non-live snapshots on insert,
+**but demo isolation is incomplete**: messages, entities and decisions are not guarded, and the checks
+can be bypassed by updates. See [docs/questions.md](docs/questions.md) (Q-002) and
+[docs/proposals/q-002-demo-isolation.md](docs/proposals/q-002-demo-isolation.md).
+
+Test documentation: [docs/testing.md](docs/testing.md).
