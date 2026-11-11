@@ -2,16 +2,17 @@ import path from 'node:path';
 import { z } from 'zod';
 
 /**
- * The model used when GEMINI_MODEL is unset, so a reviewer only has to supply keys. It is a choice, not a
- * measurement: compare models with the benchmark harness before changing it.
+ * The model used when GEMINI_MODEL is unset, so a reviewer only has to supply keys. It was chosen because a
+ * larger model (gemini-3.5-flash) failed most live turns on a free-tier key (503 and 429); compare models with the
+ * benchmark harness before changing it.
  */
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 /**
  * The model asked once when the main model is rate limited, overloaded or too slow (GEMINI_FALLBACK_MODEL;
- * "none" turns it off). A lighter model, because free-tier limits are per model.
+ * "none" turns it off). A sibling lite model, because free-tier limits are per model.
  */
-export const DEFAULT_GEMINI_FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+export const DEFAULT_GEMINI_FALLBACK_MODEL = 'gemini-3.1-flash-lite';
 
 export type AppMode = 'real' | 'demo';
 

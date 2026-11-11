@@ -145,11 +145,11 @@ describe('model fallback', () => {
 
 describe('fallback model configuration', () => {
   it('defaults to a lighter model, can be changed or turned off, and is never the main model', () => {
-    expect(loadConfig({}).gemini.fallbackModel).toBe('gemini-3.5-flash-lite');
+    expect(loadConfig({}).gemini.fallbackModel).toBe('gemini-3.1-flash-lite');
     expect(loadConfig({ GEMINI_FALLBACK_MODEL: 'other' }).gemini.fallbackModel).toBe('other');
     expect(loadConfig({ GEMINI_FALLBACK_MODEL: 'none' }).gemini.fallbackModel).toBeUndefined();
     expect(
-      loadConfig({ GEMINI_MODEL: 'gemini-3.5-flash-lite' }).gemini.fallbackModel,
+      loadConfig({ GEMINI_MODEL: 'gemini-3.1-flash-lite' }).gemini.fallbackModel,
     ).toBeUndefined();
   });
 });
