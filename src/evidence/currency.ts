@@ -104,6 +104,24 @@ export function markerFor(text: string, tok: AmountToken): MarkerResult {
     const m = p.re.exec(before);
     if (m) {
       const bare = p.code === 'unknown';
+      if (bare) {
+        // "$ 25 USD": a code written right after the amount names the currency of the bare symbol, provided
+        // it is a currency that symbol can stand for. A bare symbol on its own stays unknown.
+        const next = text.slice(tok.end, tok.end + 20);
+        for (const s of SUFFIX) {
+          const sm = s.re.exec(next);
+          if (sm && declarationFitsSymbol(s.code, p.symbol)) {
+            return {
+              code: s.code,
+              symbol: p.symbol,
+              start: tok.start - m[0].length,
+              end: tok.end + sm[0].length,
+              hasMarker: true,
+              bare: false,
+            };
+          }
+        }
+      }
       return {
         code: p.code,
         symbol: p.symbol,

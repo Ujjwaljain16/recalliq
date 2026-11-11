@@ -1,0 +1,114 @@
+{
+  "pageId": "linear-pricing",
+  "vendor": "Linear",
+  "categories": ["per_seat", "tiered_billing", "conditions"],
+  "entity": {
+    "name": "Linear",
+    "aliases": ["Linear"],
+    "knownPlans": ["free", "basic", "business", "enterprise"],
+    "officialDomains": ["linear.app"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "basic",
+      "plan": "Basic",
+      "planNorm": "basic",
+      "value": {
+        "amount": 10,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$10 per user/month\n\nBilled yearly",
+      "contextQuote": "### Basic",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "business",
+      "plan": "Business",
+      "planNorm": "business",
+      "value": {
+        "amount": 16,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$16 per user/month\n\nBilled yearly",
+      "contextQuote": "### Business",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "free",
+      "plan": "Free",
+      "planNorm": "free",
+      "value": {
+        "amount": 0,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "### Free\n\n$0\n\nFree for everyone",
+      "contextQuote": null,
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); plan_binding: weak (the plan appears, but not with the value)"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "traps": [
+    {
+      "id": "monthly-billing-implied",
+      "kind": "annual_shown_per_month",
+      "description": "The $10 and $16 are per-month prices BILLED YEARLY; presenting them as plain monthly-billing prices is wrong.",
+      "match": {
+        "amount": 10,
+        "billingPeriod": ["monthly", "annual"]
+      }
+    },
+    {
+      "id": "enterprise-invented",
+      "kind": "other_plan",
+      "description": "Enterprise is \"Custom\": no amount may be attached to it.",
+      "match": {
+        "planNorm": "enterprise"
+      }
+    },
+    {
+      "id": "basic-price-on-business",
+      "kind": "other_plan",
+      "description": "$10 is Basic, not Business.",
+      "match": {
+        "amount": 10,
+        "planNorm": "business"
+      }
+    }
+  ],
+  "ignorable": [],
+  "notes": "Card layout: \"$10 per user/month\" then, on the next line, \"Billed yearly\". The vendor name only appears in an agent-instruction line at the very top (\"connect to the Linear MCP server\") and in the page title, not near the prices. Enterprise is \"Custom\", annual billing only, contact sales."
+}

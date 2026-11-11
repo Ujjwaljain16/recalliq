@@ -1,0 +1,230 @@
+{
+  "pageId": "supabase-pricing",
+  "vendor": "Supabase",
+  "categories": ["usage_based", "tiered_billing", "conditions"],
+  "entity": {
+    "name": "Supabase",
+    "aliases": ["Supabase"],
+    "knownPlans": ["free", "pro", "team", "enterprise", "micro", "small", "medium", "large"],
+    "officialDomains": ["supabase.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "free-from",
+      "plan": "Free",
+      "planNorm": "free",
+      "value": {
+        "amount": 0,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "### Free - from $0/month",
+      "contextQuote": "## Plan Tiers",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "pro-from",
+      "plan": "Pro",
+      "planNorm": "pro",
+      "value": {
+        "amount": 25,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "### Pro - from $25/month",
+      "contextQuote": "## Plan Tiers",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "team-from",
+      "plan": "Team",
+      "planNorm": "team",
+      "value": {
+        "amount": 599,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "### Team - from $599/month",
+      "contextQuote": "## Plan Tiers",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "micro-compute",
+      "plan": "Micro",
+      "planNorm": "micro",
+      "value": {
+        "amount": 10,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| Micro | $10 | Shared compute | 1 GB | 60 | 200 |",
+      "contextQuote": "| Size | $/month | Compute | RAM | Direct Connections | Pooler Connections |",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "note": "Compute add-on size; the price column header is \"$/month\"."
+    },
+    {
+      "id": "pro-disk-overage",
+      "plan": "Pro",
+      "planNorm": "pro",
+      "value": {
+        "amount": 0.125,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "gb",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "8 GB disk size per project (then $0.125 per GB)",
+      "contextQuote": "### Pro - from $25/month",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "pro-egress-overage",
+      "plan": "Pro",
+      "planNorm": "pro",
+      "value": {
+        "amount": 0.09,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "gb",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "250 GB egress (then $0.09 per GB)",
+      "contextQuote": "### Pro - from $25/month",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "traps": [
+    {
+      "id": "worked-example-35",
+      "kind": "other",
+      "description": "\"$25 (plan) + $10 + $10 - $10 = $35/month\" is a worked example total.",
+      "match": {
+        "amount": 35
+      }
+    },
+    {
+      "id": "compute-credits-10",
+      "kind": "other",
+      "description": "\"$10/month in compute credits\" is a credit included in Pro/Team, not a plan price.",
+      "match": {
+        "quoteContains": ["compute credits"],
+        "amount": 10,
+        "planNorm": "pro"
+      }
+    },
+    {
+      "id": "mau-rate-no-unit",
+      "kind": "usage_without_unit",
+      "description": "A per-MAU rate must not be turned into a flat price.",
+      "match": {
+        "amount": 0.00325,
+        "unit": ["flat", "unspecified", "per_seat"]
+      }
+    },
+    {
+      "id": "pro-price-on-free",
+      "kind": "other_plan",
+      "description": "$25 belongs to Pro.",
+      "match": {
+        "amount": 25,
+        "planNorm": "free"
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "compute-sizes",
+      "description": "The remaining compute sizes (Small to 16XL) are true but not enumerated.",
+      "match": {
+        "quoteContains": ["Shared compute"]
+      }
+    },
+    {
+      "id": "compute-dedicated",
+      "description": "Dedicated compute sizes.",
+      "match": {
+        "quoteContains": ["Dedicated"]
+      }
+    },
+    {
+      "id": "add-ons",
+      "description": "Add-on prices (PITR, custom domain, branching, log drains...).",
+      "match": {
+        "quoteContains": ["per month"]
+      }
+    },
+    {
+      "id": "disk-storage",
+      "description": "Disk storage and IOPS rates.",
+      "match": {
+        "quoteContains": ["IOPS"]
+      }
+    },
+    {
+      "id": "other-usage-rates",
+      "description": "Other usage rates in the feature lists.",
+      "match": {
+        "quoteContains": ["then $"]
+      }
+    }
+  ],
+  "notes": "Plan headings carry the price (\"### Pro - from $25/month\"); a compute table with column header \"$/month\"; usage overage rates in bullets (\"then $0.125 per GB\"). Worked example arithmetic ($35/month) and \"$10/month in compute credits\" are not plan prices."
+}

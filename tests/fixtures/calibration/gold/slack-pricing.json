@@ -1,0 +1,72 @@
+{
+  "pageId": "slack-pricing",
+  "vendor": "Slack",
+  "categories": ["conditions", "tiered_billing"],
+  "entity": {
+    "name": "Slack",
+    "aliases": ["Slack"],
+    "knownPlans": ["free", "pro", "business+", "enterprise+"],
+    "officialDomains": ["slack.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "free",
+      "plan": "Free",
+      "planNorm": "free",
+      "value": {
+        "amount": 0,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$0 USD free forever",
+      "contextQuote": "Free A simpler way to chat and collaborate",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium",
+      "note": "The code USD follows the amount; the $ prefix and the USD suffix together are explicit.",
+      "bestAchievable": {
+        "quote": "$0 USD free forever",
+        "contextQuote": "The world's leading businesses rely on Slack",
+        "status": "pass"
+      }
+    }
+  ],
+  "traps": [
+    {
+      "id": "paid-plan-invented",
+      "kind": "other_plan",
+      "description": "No amount for Pro, Business+ or Enterprise+ is in the text; any such price is invented.",
+      "match": {
+        "planNorm": "pro"
+      }
+    },
+    {
+      "id": "paid-plan-invented-business",
+      "kind": "other_plan",
+      "description": "No amount for Business+ is in the text.",
+      "match": {
+        "planNorm": "business+"
+      }
+    },
+    {
+      "id": "paid-plan-invented-enterprise",
+      "kind": "other_plan",
+      "description": "No amount for Enterprise+ is in the text.",
+      "match": {
+        "planNorm": "enterprise+"
+      }
+    }
+  ],
+  "ignorable": [],
+  "notes": "The captured text of a pricing page contains exactly one price (\"$0 USD free forever\" for the Free plan); the paid plans have names and feature lists but their amounts are not in the text. Any price for Pro, Business+ or Enterprise+ would have to come from outside the page."
+}

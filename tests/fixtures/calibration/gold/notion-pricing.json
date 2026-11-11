@@ -1,0 +1,154 @@
+{
+  "pageId": "notion-pricing",
+  "vendor": "Notion",
+  "categories": ["per_seat", "tiered_billing", "conditions"],
+  "entity": {
+    "name": "Notion",
+    "aliases": ["Notion"],
+    "knownPlans": ["free", "plus", "business", "enterprise", "custom agents"],
+    "officialDomains": ["notion.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "plus",
+      "plan": "Plus",
+      "planNorm": "plus",
+      "value": {
+        "amount": 10,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$10 per member / month",
+      "contextQuote": "### Plus",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "business",
+      "plan": "Business",
+      "planNorm": "business",
+      "value": {
+        "amount": 20,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$20 per member / month",
+      "contextQuote": "### Business Recommended",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "free",
+      "plan": "Free",
+      "planNorm": "free",
+      "value": {
+        "amount": 0,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$0 per member / month",
+      "contextQuote": "### Free",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "custom-agents-credits",
+      "plan": "Custom Agents",
+      "planNorm": "custom agents",
+      "value": {
+        "amount": 10,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "notion credits",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Free to try, then $10 per 1,000 monthly Notion credits.",
+      "contextQuote": "### Custom Agents",
+      "expected": {
+        "status": "fail",
+        "reason": "plan_binding: fail (the value is attached to another plan); intervening_tier: fail (another known plan of the entity is closer to the value)"
+      },
+      "confidence": "medium",
+      "note": "$10 per 1,000 monthly Notion credits; \"Free to try\" is the introductory condition.",
+      "bestAchievable": {
+        "quote": "then $10 per 1,000 monthly Notion credits.",
+        "contextQuote": "### Custom Agents",
+        "status": "pass"
+      }
+    }
+  ],
+  "traps": [
+    {
+      "id": "credits-price-as-plus",
+      "kind": "usage_without_unit",
+      "description": "The $10 credit price must not be attached to the Plus seat plan, and vice versa.",
+      "match": {
+        "amount": 10,
+        "planNorm": "plus",
+        "unit": ["usage"]
+      }
+    },
+    {
+      "id": "credits-price-as-seat",
+      "kind": "usage_without_unit",
+      "description": "The $10 per 1,000 credits must carry its usage unit.",
+      "match": {
+        "amount": 10,
+        "planNorm": "custom agents",
+        "unit": ["per_seat", "flat", "unspecified"]
+      }
+    },
+    {
+      "id": "enterprise-invented",
+      "kind": "other_plan",
+      "description": "Enterprise is \"Custom pricing\": no amount may be attached to it.",
+      "match": {
+        "planNorm": "enterprise"
+      }
+    },
+    {
+      "id": "student-plus-free",
+      "kind": "promotional",
+      "description": "Plus is free for students and educators; that is an eligibility condition, not the Plus price.",
+      "match": {
+        "amount": 0,
+        "planNorm": "plus"
+      }
+    }
+  ],
+  "ignorable": [],
+  "notes": "Seat prices as \"$10 per member / month\" under plan headings. The page has no annual-versus-monthly toggle text, so the billing period cannot be anything but monthly. Custom Agents are priced per 1,000 Notion credits (usage). Enterprise is \"Custom pricing\"."
+}

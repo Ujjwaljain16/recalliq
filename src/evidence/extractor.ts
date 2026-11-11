@@ -19,6 +19,7 @@ import {
   buildExtractionMessage,
   extractionOutputSchema,
   type ExtractedStatement,
+  type ExtractionPrompt,
   type PromptEntity,
   type PromptSource,
 } from './prompts/extraction.js';
@@ -54,6 +55,8 @@ export interface ExtractorDeps {
   tierOf?: (s: SourceSnapshot, entityId: EntityId) => AuthorityTier;
   maxSnapshotChars?: number;
   extractionCapMs?: number;
+  /** The system prompt to use; defaults to the one in use (v1). Lets an evaluation compare prompt versions. */
+  prompt?: ExtractionPrompt;
 }
 
 export interface ExtractionDetail {
@@ -108,7 +111,7 @@ export class LlmEvidenceExtractor implements EvidenceExtractor {
     try {
       const out = await this.deps.llm.structured({
         role: 'extraction',
-        system: EXTRACTION_SYSTEM_PROMPT,
+        system: this.deps.prompt?.system ?? EXTRACTION_SYSTEM_PROMPT,
         messages: [
           { role: 'user', content: buildExtractionMessage(promptEntities, promptSources) },
         ],

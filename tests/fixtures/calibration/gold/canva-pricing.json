@@ -1,0 +1,114 @@
+{
+  "pageId": "canva-pricing",
+  "vendor": "Canva",
+  "categories": ["per_seat", "tiered_billing", "conditions"],
+  "entity": {
+    "name": "Canva",
+    "aliases": ["Canva"],
+    "knownPlans": ["free", "pro", "business", "enterprise"],
+    "officialDomains": ["canva.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "low",
+  "claims": [
+    {
+      "id": "free",
+      "plan": "Free",
+      "planNorm": "free",
+      "value": {
+        "amount": 0,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "annual",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "US$0\n\n/year for one person",
+      "contextQuote": "## Free",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); billing_period: fail (annual claimed without an annual marker)"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "pro",
+      "plan": "Pro",
+      "planNorm": "pro",
+      "value": {
+        "amount": 120,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "annual",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "US$120\n\n/year for one person",
+      "contextQuote": "## Pro",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); billing_period: fail (annual claimed without an annual marker)"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "business",
+      "plan": "Business",
+      "planNorm": "business",
+      "value": {
+        "amount": 200,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "annual",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "US$200/year per person",
+      "contextQuote": "## Business",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker)"
+      },
+      "confidence": "medium",
+      "note": "\"per person\" is read as per seat."
+    }
+  ],
+  "traps": [
+    {
+      "id": "save-16",
+      "kind": "other",
+      "description": "\"Save from 16%\" is a discount percentage.",
+      "match": {
+        "amount": 16
+      }
+    },
+    {
+      "id": "annual-as-monthly",
+      "kind": "annual_shown_per_month",
+      "description": "The yearly prices (US$120, US$200) must not be reported as monthly.",
+      "match": {
+        "amount": 120,
+        "billingPeriod": ["monthly"]
+      }
+    },
+    {
+      "id": "enterprise-seats",
+      "kind": "other",
+      "description": "\"Minimum 100 seats\" is a condition, not a price.",
+      "match": {
+        "amount": 100
+      }
+    }
+  ],
+  "ignorable": [],
+  "notes": "Prices are \"US$120 /year for one person\" (explicit US$, annual, per person). The Monthly/Yearly toggle text is flattened, so it is not visible which toggle state the captured prices correspond to (\"Save from 16%\"). An \"Intro price\" label appears after the Pro card without an amount: the reviewer did not label it. \"Minimum 100 seats\" is a condition of Enterprise."
+}

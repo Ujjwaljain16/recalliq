@@ -1,0 +1,24 @@
+{
+  "pageId": "jira-pricing",
+  "vendor": "Atlassian",
+  "categories": ["per_seat", "negative_control"],
+  "entity": {
+    "name": "Jira",
+    "aliases": ["Jira", "Atlassian"],
+    "knownPlans": ["free", "standard", "premium", "enterprise"],
+    "officialDomains": ["atlassian.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "high",
+  "claims": [],
+  "traps": [
+    {
+      "id": "any-price",
+      "kind": "other",
+      "description": "The captured text holds no price; every price statement is wrong. Team size 300, 150 automation steps, 250 GB are not prices.",
+      "match": {}
+    }
+  ],
+  "ignorable": [],
+  "notes": "NEGATIVE CONTROL. A real vendor pricing page whose captured text names Free/Standard/Premium/Enterprise and \"Free forever for 10 users\" but states no amount (prices are driven by a team-size slider). \"99.9% uptime SLA\", \"9/5 regional support\" and \"Team Size: 300\" contain numbers that are not prices."
+}

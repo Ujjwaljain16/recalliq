@@ -1,0 +1,186 @@
+{
+  "pageId": "close-plans-and-billing",
+  "vendor": "Close",
+  "categories": ["per_seat", "tiered_billing", "usage_based"],
+  "entity": {
+    "name": "Close",
+    "aliases": ["Close", "Close CRM"],
+    "knownPlans": ["essentials", "growth", "scale"],
+    "officialDomains": ["close.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "high",
+  "claims": [
+    {
+      "id": "essentials-monthly",
+      "plan": "Essentials",
+      "planNorm": "essentials",
+      "value": {
+        "amount": 49,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
+      "contextQuote": "## Close Plans & Pricing",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "high",
+      "note": "Rates are described as \"approximately\"."
+    },
+    {
+      "id": "essentials-annual",
+      "plan": "Essentials",
+      "planNorm": "essentials",
+      "value": {
+        "amount": 35,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
+      "contextQuote": "## Close Plans & Pricing",
+      "expected": {
+        "status": "fail",
+        "reason": "billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "medium",
+      "note": "Rates are described as \"approximately\". \"(annual)\" read as the monthly rate when billed annually."
+    },
+    {
+      "id": "growth-monthly",
+      "plan": "Growth",
+      "planNorm": "growth",
+      "value": {
+        "amount": 109,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
+      "contextQuote": "## Close Plans & Pricing",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "high",
+      "note": "Rates are described as \"approximately\"."
+    },
+    {
+      "id": "growth-annual",
+      "plan": "Growth",
+      "planNorm": "growth",
+      "value": {
+        "amount": 99,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
+      "contextQuote": "## Close Plans & Pricing",
+      "expected": {
+        "status": "fail",
+        "reason": "billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "medium",
+      "note": "Rates are described as \"approximately\". \"(annual)\" read as the monthly rate when billed annually."
+    },
+    {
+      "id": "scale-monthly",
+      "plan": "Scale",
+      "planNorm": "scale",
+      "value": {
+        "amount": 149,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
+      "contextQuote": "## Close Plans & Pricing",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "high",
+      "note": "Rates are described as \"approximately\"."
+    },
+    {
+      "id": "scale-annual",
+      "plan": "Scale",
+      "planNorm": "scale",
+      "value": {
+        "amount": 139,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
+      "contextQuote": "## Close Plans & Pricing",
+      "expected": {
+        "status": "fail",
+        "reason": "billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "medium",
+      "note": "Rates are described as \"approximately\". \"(annual)\" read as the monthly rate when billed annually."
+    }
+  ],
+  "traps": [
+    {
+      "id": "essentials-monthly-as-annual",
+      "kind": "annual_shown_per_month",
+      "description": "The $49 monthly-billing rate must not be labelled as an annual-billing price.",
+      "match": {
+        "amount": 49,
+        "billingPeriod": ["annual", "monthly_billed_annually"]
+      }
+    },
+    {
+      "id": "essentials-annual-as-monthly",
+      "kind": "annual_shown_per_month",
+      "description": "The $35 annual-billing rate must not be labelled as a plain monthly price.",
+      "match": {
+        "amount": 35,
+        "billingPeriod": ["monthly"]
+      }
+    },
+    {
+      "id": "affiliate-30",
+      "kind": "other",
+      "description": "The 30% affiliate commission is not a price.",
+      "match": {
+        "amount": 30
+      }
+    }
+  ],
+  "ignorable": [],
+  "notes": "Help-center page that states all six per-seat list rates in one sentence, monthly and annual side by side, flagged as approximate. Calling and SMS are described as usage-based but have no price on this page."
+}
