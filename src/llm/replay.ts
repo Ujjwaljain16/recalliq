@@ -66,7 +66,12 @@ export class ReplayLlm implements LlmPort {
     if (!parsed.success) {
       return Promise.reject(new LlmError('invalid_output', 'recorded value fails the schema'));
     }
-    return Promise.resolve({ value: parsed.data, usage: entry.usage, model: entry.model, latencyMs: 0 });
+    return Promise.resolve({
+      value: parsed.data,
+      usage: entry.usage,
+      model: entry.model,
+      latencyMs: 0,
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await -- an async generator keeps the port's shape

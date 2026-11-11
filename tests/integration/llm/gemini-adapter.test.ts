@@ -136,7 +136,10 @@ describe('Gemini adapter: structured output', () => {
     expect(r.value.count).toBe(2);
     expect(calls).toHaveLength(2);
     expect(r.usage.inputTokens).toBe(20);
-    const contents = calls[1]?.body.contents as Array<{ role: string; parts: Array<{ text: string }> }>;
+    const contents = calls[1]?.body.contents as Array<{
+      role: string;
+      parts: Array<{ text: string }>;
+    }>;
     expect(contents.map((c) => c.role)).toEqual(['user', 'model', 'user']);
     expect(contents[2]?.parts[0]?.text).toContain('count');
   });
@@ -156,7 +159,10 @@ describe('Gemini adapter: structured output', () => {
       candidates: [
         {
           content: {
-            parts: [{ text: 'thinking...', thought: true }, { text: '```json\n{"label":"x","count":1}\n```' }],
+            parts: [
+              { text: 'thinking...', thought: true },
+              { text: '```json\n{"label":"x","count":1}\n```' },
+            ],
           },
           finishReason: 'STOP',
         },
@@ -168,7 +174,9 @@ describe('Gemini adapter: structured output', () => {
 
   it('MAX_TOKENS is a distinct failure and is not repaired by repeating the same limit', async () => {
     const { llm, calls } = make(() =>
-      jsonResponse({ candidates: [{ content: { parts: [{ text: '{"lab' }] }, finishReason: 'MAX_TOKENS' }] }),
+      jsonResponse({
+        candidates: [{ content: { parts: [{ text: '{"lab' }] }, finishReason: 'MAX_TOKENS' }],
+      }),
     );
     const e = await rejection(llm.structured(sreq()));
     expect(e.code).toBe('invalid_output');
@@ -179,9 +187,7 @@ describe('Gemini adapter: structured output', () => {
   it('maps a blocked prompt and safety finishes to refused', async () => {
     const blocked = make(() => jsonResponse({ promptFeedback: { blockReason: 'SAFETY' } }));
     expect((await rejection(blocked.llm.structured(sreq()))).code).toBe('refused');
-    const safety = make(() =>
-      jsonResponse({ candidates: [{ finishReason: 'SAFETY' }] }),
-    );
+    const safety = make(() => jsonResponse({ candidates: [{ finishReason: 'SAFETY' }] }));
     expect((await rejection(safety.llm.structured(sreq()))).code).toBe('refused');
     expect(safety.calls).toHaveLength(1);
   });
@@ -197,7 +203,9 @@ describe('Gemini adapter: structured output', () => {
 describe('Gemini adapter: retries, quota and backoff', () => {
   it('retries a 503 with exponential backoff and jitter, then succeeds', async () => {
     const { llm, calls, sleeps } = make((_c, n) =>
-      n === 1 ? jsonResponse({ error: { code: 503, status: 'UNAVAILABLE' } }, 503) : jsonResponse(reply('{"label":"a","count":1}')),
+      n === 1
+        ? jsonResponse({ error: { code: 503, status: 'UNAVAILABLE' } }, 503)
+        : jsonResponse(reply('{"label":"a","count":1}')),
     );
     await llm.structured(sreq());
     expect(calls).toHaveLength(2);
@@ -239,7 +247,16 @@ describe('Gemini adapter: retries, quota and backoff', () => {
     expect(long.sleeps).toEqual([]);
 
     const daily = make(() =>
-      jsonResponse({ error: { code: 429, message: 'Quota exceeded: requests per day', status: 'RESOURCE_EXHAUSTED' } }, 429),
+      jsonResponse(
+        {
+          error: {
+            code: 429,
+            message: 'Quota exceeded: requests per day',
+            status: 'RESOURCE_EXHAUSTED',
+          },
+        },
+        429,
+      ),
     );
     expect((await rejection(daily.llm.structured(sreq()))).code).toBe('rate_limited');
     expect(daily.calls).toHaveLength(1);
@@ -345,14 +362,17 @@ describe('Gemini adapter: streaming', () => {
     const f = fakeFetch(
       () =>
         new Response(
-          new ReadableStream<Uint8Array>({
-            pull(controller) {
-              clock.advance(100);
-              const p = parts[i++];
-              if (p === undefined) controller.close();
-              else controller.enqueue(enc.encode(p));
+          new ReadableStream<Uint8Array>(
+            {
+              pull(controller) {
+                clock.advance(100);
+                const p = parts[i++];
+                if (p === undefined) controller.close();
+                else controller.enqueue(enc.encode(p));
+              },
             },
-          }, { highWaterMark: 0 }),
+            { highWaterMark: 0 },
+          ),
         ),
     );
     const llm = new GeminiLlm({
@@ -423,9 +443,7 @@ describe('Gemini adapter: streaming', () => {
   });
 
   it('a safety stop mid-stream is refused; a blocked prompt chunk is refused', async () => {
-    const a = make(() =>
-      sseResponse(['data: {"candidates":[{"finishReason":"SAFETY"}]}\n\n']),
-    );
+    const a = make(() => sseResponse(['data: {"candidates":[{"finishReason":"SAFETY"}]}\n\n']));
     expect((await rejection(collect(a.llm.stream(streq())))).code).toBe('refused');
     const b = make(() => sseResponse(['data: {"promptFeedback":{"blockReason":"OTHER"}}\n\n']));
     expect((await rejection(collect(b.llm.stream(streq())))).code).toBe('refused');

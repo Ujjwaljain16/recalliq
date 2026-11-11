@@ -15,19 +15,28 @@ const model = process.env.GEMINI_MODEL;
 const enabled = Boolean(key && model);
 
 describe.skipIf(!enabled)('Gemini live (SYNTHETIC prompts, 2 calls)', () => {
-  const llm = new GeminiLlm({
-    config: geminiConfigFromApp({ gemini: { model }, secrets: { geminiApiKey: key } }),
-    fetch,
-    clock: { now: () => Date.now() },
-    limiter: new ClientLimiter(DEFAULT_LIMITER, { clock: { now: () => Date.now() }, sleep: realSleep }),
-  });
+  // Built lazily: a skipped suite still runs its body, and the config throws without a key.
+  const build = (): GeminiLlm =>
+    new GeminiLlm({
+      config: geminiConfigFromApp({ gemini: { model }, secrets: { geminiApiKey: key } }),
+      fetch,
+      clock: { now: () => Date.now() },
+      limiter: new ClientLimiter(DEFAULT_LIMITER, {
+        clock: { now: () => Date.now() },
+        sleep: realSleep,
+      }),
+    });
+  let shared: GeminiLlm | undefined;
+  const get = (): GeminiLlm => (shared ??= build());
   const signal = (): AbortSignal => AbortSignal.timeout(60_000);
 
   it('structured: returns JSON that passes the zod schema', async () => {
-    const r = await llm.structured({
+    const r = await get().structured({
       role: 'analysis',
       system: 'Extract the product name and whether the price is flat. Reply as JSON.',
-      messages: [{ role: 'user', content: '[SYNTHETIC] ExampleCo Widget costs a flat fee each month.' }],
+      messages: [
+        { role: 'user', content: '[SYNTHETIC] ExampleCo Widget costs a flat fee each month.' },
+      ],
       schema: z.object({ product: z.string(), flat: z.boolean() }),
       schemaName: 'LiveProbe',
       maxTokens: 200,
@@ -40,7 +49,7 @@ describe.skipIf(!enabled)('Gemini live (SYNTHETIC prompts, 2 calls)', () => {
   it('stream: yields at least one delta and a done event', async () => {
     let deltas = 0;
     let done = false;
-    for await (const e of llm.stream({
+    for await (const e of get().stream({
       role: 'synthesis',
       system: 'Answer in one short sentence.',
       messages: [{ role: 'user', content: '[SYNTHETIC] Say hello to ExampleCo.' }],

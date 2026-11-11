@@ -83,7 +83,8 @@ export function toContents(
       if (part) part.text = `${part.text}\n\n${m.content}`;
     } else out.push({ role, parts: [{ text: m.content }] });
   }
-  if (out[0]?.role === 'model') out.unshift({ role: 'user', parts: [{ text: '(conversation start)' }] });
+  if (out[0]?.role === 'model')
+    out.unshift({ role: 'user', parts: [{ text: '(conversation start)' }] });
   return out;
 }
 
@@ -170,7 +171,9 @@ const responseSchema = z.object({
         content: z
           .object({
             parts: z
-              .array(z.object({ text: z.string().optional(), thought: z.boolean().optional() }).loose())
+              .array(
+                z.object({ text: z.string().optional(), thought: z.boolean().optional() }).loose(),
+              )
               .optional(),
           })
           .loose()
@@ -240,7 +243,8 @@ export interface Interpreted {
  */
 export function interpretResponse(body: unknown, requireCandidate: boolean): Interpreted {
   const parsed = responseSchema.safeParse(body);
-  if (!parsed.success) throw new LlmError('unavailable', 'provider returned an unrecognised response');
+  if (!parsed.success)
+    throw new LlmError('unavailable', 'provider returned an unrecognised response');
   const r = parsed.data;
   const block = r.promptFeedback?.blockReason;
   if (block && block !== 'BLOCK_REASON_UNSPECIFIED') {

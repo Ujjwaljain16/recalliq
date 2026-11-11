@@ -10,7 +10,10 @@ export function abortToError(signal: AbortSignal): LlmError {
 }
 
 /** A promise that rejects when `signal` aborts, so a fetch or reader that ignores the signal cannot hang us. */
-export function abortPromise(signal: AbortSignal): { promise: Promise<never>; dispose: () => void } {
+export function abortPromise(signal: AbortSignal): {
+  promise: Promise<never>;
+  dispose: () => void;
+} {
   let onAbort: () => void = () => undefined;
   const promise = new Promise<never>((_, reject) => {
     onAbort = () => reject(abortToError(signal));

@@ -214,7 +214,11 @@ export function errorFromType(
     return new LlmError('rate_limited', message, retryAfterMs);
   if (type === 'timeout_error' || status === 408 || status === 504)
     return new LlmError('timeout', message);
-  if (type === 'overloaded_error' || type === 'api_error' || (status !== undefined && status >= 500))
+  if (
+    type === 'overloaded_error' ||
+    type === 'api_error' ||
+    (status !== undefined && status >= 500)
+  )
     return new LlmError('unavailable', message);
   if (
     type === 'authentication_error' ||
@@ -236,7 +240,11 @@ export function parseRetryAfter(header: string | null): number | undefined {
 }
 
 /** Builds the error for a non-2xx response. `bodyText` is read by the caller, at most a bounded prefix. */
-export function errorFromHttp(status: number, bodyText: string, retryAfter: string | null): LlmError {
+export function errorFromHttp(
+  status: number,
+  bodyText: string,
+  retryAfter: string | null,
+): LlmError {
   let type: string | undefined;
   let message = `provider returned HTTP ${status}`;
   try {
@@ -298,13 +306,21 @@ export function parseStreamEvent(m: SseMessage): ProviderStreamEvent {
   const e = parsed.data;
   switch (e.type) {
     case 'message_start':
-      return { type: 'start', model: e.message.model ?? null, usage: partialUsage(e.message.usage) };
+      return {
+        type: 'start',
+        model: e.message.model ?? null,
+        usage: partialUsage(e.message.usage),
+      };
     case 'content_block_delta':
       return e.delta.type === 'text_delta' && e.delta.text
         ? { type: 'text', text: e.delta.text }
         : { type: 'ignored' };
     case 'message_delta':
-      return { type: 'finish', stopReason: e.delta.stop_reason ?? null, usage: partialUsage(e.usage) };
+      return {
+        type: 'finish',
+        stopReason: e.delta.stop_reason ?? null,
+        usage: partialUsage(e.usage),
+      };
     case 'message_stop':
       return { type: 'stop' };
     case 'error':

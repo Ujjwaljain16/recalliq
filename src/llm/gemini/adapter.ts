@@ -331,7 +331,12 @@ export class GeminiLlm implements LlmPort {
   private async generateOnce(
     req: GeminiRequest,
     caller: AbortSignal,
-  ): Promise<{ text: string; finish: 'stop' | 'max_tokens' | null; usage: LlmUsage; model: string | null }> {
+  ): Promise<{
+    text: string;
+    finish: 'stop' | 'max_tokens' | null;
+    usage: LlmUsage;
+    model: string | null;
+  }> {
     const release = await this.deps.limiter?.acquire(caller);
     const attempt = startAttempt(caller, this.deps.config.requestTimeoutMs);
     const aborted = abortPromise(attempt.signal);
@@ -342,7 +347,12 @@ export class GeminiLlm implements LlmPort {
         body = await Promise.race([response.json(), aborted.promise]);
       } catch (e) {
         if (e instanceof LlmError) throw e;
-        throw new CallError('unavailable', 'provider response body was not valid JSON', undefined, true);
+        throw new CallError(
+          'unavailable',
+          'provider response body was not valid JSON',
+          undefined,
+          true,
+        );
       }
       const r = interpretResponse(body, true);
       return { text: r.text, finish: r.finish, usage: r.usage ?? ZERO_USAGE, model: r.model };
@@ -372,7 +382,8 @@ export class GeminiLlm implements LlmPort {
     try {
       const response = await this.post(req, true, attempt, connect);
       attempt.settle();
-      if (!response.body) throw new CallError('unavailable', 'provider sent no response body', undefined, true);
+      if (!response.body)
+        throw new CallError('unavailable', 'provider sent no response body', undefined, true);
       reader = response.body.getReader();
       const decoder = new TextDecoder();
       const parser = new SseParser();
@@ -399,7 +410,12 @@ export class GeminiLlm implements LlmPort {
         if (r.finish) finish = r.finish;
       }
       if (finish === null) {
-        throw new CallError('unavailable', 'provider stream ended without a finish reason', undefined, true);
+        throw new CallError(
+          'unavailable',
+          'provider stream ended without a finish reason',
+          undefined,
+          true,
+        );
       }
       if (finish === 'max_tokens') {
         throw new LlmError('invalid_output', 'the answer was cut off at maxOutputTokens');

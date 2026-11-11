@@ -3,7 +3,10 @@ import { fileURLToPath } from 'node:url';
 import type { Clock } from '../../../src/shared/infrastructure.js';
 
 export function fixture(name: string): string {
-  return readFileSync(fileURLToPath(new URL(`../../fixtures/llm/${name}`, import.meta.url)), 'utf8');
+  return readFileSync(
+    fileURLToPath(new URL(`../../fixtures/llm/${name}`, import.meta.url)),
+    'utf8',
+  );
 }
 
 export interface RecordedCall {
@@ -32,7 +35,11 @@ export function fakeFetch(handler: Handler): { fetch: typeof fetch; calls: Recor
   return { fetch: impl as typeof fetch, calls };
 }
 
-export function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
+export function jsonResponse(
+  body: unknown,
+  status = 200,
+  headers: Record<string, string> = {},
+): Response {
   return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json', ...headers },

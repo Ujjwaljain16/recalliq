@@ -8,7 +8,12 @@ import type {
   StructuredResult,
 } from '../shared/llm.js';
 
-const NO_USAGE: LlmUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+const NO_USAGE: LlmUsage = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+};
 
 /** What a scripted stream does after (or instead of) its deltas. */
 export interface StreamScript {

@@ -25,7 +25,9 @@ const streq = (content: string): StreamRequest => ({
 
 describe('FakeLlm', () => {
   it('replays queued values validated by the request schema, and queued errors', async () => {
-    const fake = new FakeLlm().queueStructured({ a: 1 }, new LlmError('unavailable', 'down'), { a: 'x' });
+    const fake = new FakeLlm().queueStructured({ a: 1 }, new LlmError('unavailable', 'down'), {
+      a: 'x',
+    });
     expect((await fake.structured(sreq('q'))).value).toEqual({ a: 1 });
     await expect(fake.structured(sreq('q'))).rejects.toMatchObject({ code: 'unavailable' });
     await expect(fake.structured(sreq('q'))).rejects.toMatchObject({ code: 'invalid_output' });
@@ -33,7 +35,10 @@ describe('FakeLlm', () => {
   });
 
   it('streams scripted deltas and fails or hangs as scripted', async () => {
-    const fake = new FakeLlm().queueStream({ deltas: ['a', 'b'] }, { deltas: ['c'], failWith: new LlmError('timeout', 't') });
+    const fake = new FakeLlm().queueStream(
+      { deltas: ['a', 'b'] },
+      { deltas: ['c'], failWith: new LlmError('timeout', 't') },
+    );
     const got: string[] = [];
     for await (const e of fake.stream(streq('q'))) if (e.type === 'delta') got.push(e.text);
     expect(got).toEqual(['a', 'b']);
@@ -65,7 +70,12 @@ describe('ReplayLlm / RecordingLlm', () => {
   });
 
   it('keys differ by kind, role, system, messages and limits but not by signal', () => {
-    const base = { role: 'judge', system: 's', messages: [{ role: 'user', content: 'x' }], maxTokens: 1 };
+    const base = {
+      role: 'judge',
+      system: 's',
+      messages: [{ role: 'user', content: 'x' }],
+      maxTokens: 1,
+    };
     const k = requestKey('structured', base);
     expect(requestKey('stream', base)).not.toBe(k);
     expect(requestKey('structured', { ...base, system: 't' })).not.toBe(k);

@@ -38,7 +38,9 @@ describe('SseParser', () => {
   });
 
   it('drops one leading space only, and tolerates a field without a colon', () => {
-    expect(parseAll(['data:  two spaces\n\n'])).toEqual([{ event: 'message', data: ' two spaces' }]);
+    expect(parseAll(['data:  two spaces\n\n'])).toEqual([
+      { event: 'message', data: ' two spaces' },
+    ]);
     expect(parseAll(['data\n\n'])).toEqual([{ event: 'message', data: '' }]);
   });
 
