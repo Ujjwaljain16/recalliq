@@ -1,15 +1,23 @@
-import type { AnswerPipeline, PersistedSentence, SentenceIssue } from '../shared/answer.js';
+import type {
+  AnswerPipeline,
+  AnswerResult,
+  PersistedSentence,
+  QuickAnswerInput,
+  SentenceIssue,
+} from '../shared/answer.js';
 import type { Finding } from '../shared/findings.js';
 import type { Logger, TurnBudget } from '../shared/infrastructure.js';
 import { LlmError, type LlmPort } from '../shared/llm.js';
-import type { SseEvent } from '../shared/sse.js';
+import type { EventSink, SseEvent } from '../shared/sse.js';
 import {
   JUDGE_SCHEMA_NAME,
   JUDGE_SYSTEM,
   buildJudgeMessages,
   judgeSchema,
 } from '../llm/prompts/judge.js';
+import { QUICK_PREFACE, QUICK_SYSTEM, buildQuickMessages } from '../llm/prompts/quick.js';
 import {
+  SYNTHESIS_CONTINUATION_RULES,
   SYNTHESIS_PROMPT_VERSION,
   SYNTHESIS_SYSTEM,
   buildSynthesisMessages,
@@ -26,7 +34,7 @@ import { termsOf } from '../shared/terms.js';
 import type { SnapshotId } from '../shared/ids.js';
 
 type RunInput = Parameters<AnswerPipeline['run']>[0];
-type RunResult = Awaited<ReturnType<AnswerPipeline['run']>>;
+type RunResult = AnswerResult;
 
 export interface AnswerPipelineOptions {
   /** Below this much remaining time, synthesis runs in compact mode (architecture §H). Default 12000. */
@@ -39,6 +47,12 @@ export interface AnswerPipelineOptions {
   judge?: boolean;
   /** Cap for one judge call. Default 4000. */
   judgeCapMs?: number;
+  /** Write the quick sourced section (`quick()`). Default true; replay sets it false so fixtures stay valid. */
+  quick?: boolean;
+  /** Cap for the quick section. Default 8000. */
+  quickCapMs?: number;
+  /** Output limit of the quick section. Default 400. */
+  quickMaxTokens?: number;
 }
 
 export interface AnswerPipelineDeps {
@@ -80,6 +94,57 @@ export class LlmAnswerPipeline implements AnswerPipeline {
   }
 
   async run(input: RunInput, budget: TurnBudget, emit: (e: SseEvent) => void): Promise<RunResult> {
+    return this.produce(input, budget, emit, null);
+  }
+
+  /**
+   * The quick sourced section. It is the same release machinery as `run` (same sentence assembler, same
+   * sourced-sentence validation against the excerpts the model was shown) over a records set that holds sources
+   * and no findings, so only sourced sentences can pass. Differences: its own prompt, its own cap, no judge, and
+   * no `error` or `deadline_compacted` event: it is an optional first part and its failure is silent. One
+   * sentence written in code opens it, released together with the first sourced sentence.
+   */
+  async quick(input: QuickAnswerInput, budget: TurnBudget, emit: EventSink): Promise<RunResult> {
+    const none: RunResult = {
+      sentences: [],
+      streamedThrough: -1,
+      interrupted: false,
+      template: '',
+      rendered: '',
+    };
+    const opts = this.deps.options ?? {};
+    if (opts.quick === false || input.cut.aborted) return none;
+    if (budget.remaining() < (opts.compactBelowMs ?? SYNTH_COMPACT_BELOW_MS)) return none;
+    const own = budget.signalFor('quick', opts.quickCapMs ?? 8_000);
+    if (own.aborted) return none;
+    return this.produce(
+      {
+        findings: {
+          turnId: input.turnId,
+          createdAt: input.createdAt,
+          findings: [],
+          sources: input.sources,
+        },
+        recall: new Map(),
+        ctx: input.ctx,
+        userMessage: input.userMessage,
+        window: [],
+        tz: input.tz,
+      },
+      budget,
+      emit,
+      AbortSignal.any([own, input.cut]),
+    );
+  }
+
+  /** `quickSignal` is null for the full answer, the stop signal of the quick section otherwise. */
+  private async produce(
+    input: RunInput,
+    budget: TurnBudget,
+    emit: (e: SseEvent) => void,
+    quickSignal: AbortSignal | null,
+  ): Promise<RunResult> {
+    const quick = quickSignal !== null;
     const opts = this.deps.options ?? {};
     const records = buildRecords(input);
     const log = this.deps.logger;
@@ -145,6 +210,8 @@ export class LlmAnswerPipeline implements AnswerPipeline {
 
     const release = async (c: Candidate): Promise<void> => {
       if (c.issues.length > 0) return withhold(c.issues);
+      // The quick section holds sourced sentences only: no citation, no release.
+      if (quick && c.kind !== 'sourced') return withhold(['ungrounded_source']);
       if (c.judgeFacts) {
         if (!judgeOn || !budget.admit('judge')) {
           if (!judgeSkippedWarned) {
@@ -164,6 +231,20 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         if (verdict === 'unsupported') return withhold(['judge_unsupported']);
         if (verdict === 'unavailable') return withhold(['judge_unavailable']);
       }
+      if (quick && released.length === 0) {
+        emitReleased({
+          sep: '',
+          template: QUICK_PREFACE,
+          text: QUICK_PREFACE,
+          placeholders: [],
+          issues: [],
+          judgeFacts: null,
+        });
+      }
+      emitReleased(c);
+    };
+
+    const emitReleased = (c: Candidate): void => {
       const index = released.length;
       const sep = layout.separator(c, index);
       const status = c.placeholders.length > 0 ? 'verified' : 'no_claims';
@@ -202,7 +283,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
     });
 
     // ── synthesis ──
-    const compact = budget.remaining() < (opts.compactBelowMs ?? SYNTH_COMPACT_BELOW_MS);
+    const compact = !quick && budget.remaining() < (opts.compactBelowMs ?? SYNTH_COMPACT_BELOW_MS);
     if (compact) {
       safeEmit({
         event: 'warning',
@@ -214,26 +295,39 @@ export class LlmAnswerPipeline implements AnswerPipeline {
     const parser = new PlaceholderParser();
     if (budget.remaining() <= 0) {
       interrupted = true;
-      safeEmit(errorEvent(new LlmError('timeout', 'no time left')));
+      if (!quick) safeEmit(errorEvent(new LlmError('timeout', 'no time left')));
     } else {
-      const signal = budget.signalFor('synthesis', budget.remaining());
-      const messages = buildSynthesisMessages({
-        ...promptData(findings, records, this.renderer, input),
-        sources: excerpts.map((x) => ({
-          id: x.id,
-          domain: x.domain,
-          title: x.title,
-          published:
-            x.publishedAt === null ? null : new Date(x.publishedAt).toISOString().slice(0, 10),
-          excerpt: x.excerpt,
-        })),
-        compact,
-      });
+      const signal = quickSignal ?? budget.signalFor('synthesis', budget.remaining());
+      const sourceViews = excerpts.map((x) => ({
+        id: x.id,
+        domain: x.domain,
+        title: x.title,
+        published:
+          x.publishedAt === null ? null : new Date(x.publishedAt).toISOString().slice(0, 10),
+        excerpt: x.excerpt,
+      }));
+      const earlier = input.earlier ?? [];
+      const messages = quick
+        ? buildQuickMessages({ sources: sourceViews, userMessage: input.userMessage })
+        : buildSynthesisMessages({
+            ...promptData(findings, records, this.renderer, input),
+            sources: sourceViews,
+            compact,
+            ...(earlier.length > 0 ? { earlier } : {}),
+          });
       const stream = this.deps.llm.stream({
         role: 'synthesis',
-        system: SYNTHESIS_SYSTEM,
+        system: quick
+          ? QUICK_SYSTEM
+          : earlier.length > 0
+            ? SYNTHESIS_SYSTEM + SYNTHESIS_CONTINUATION_RULES
+            : SYNTHESIS_SYSTEM,
         messages,
-        maxTokens: compact ? (opts.compactMaxTokens ?? 600) : (opts.maxTokens ?? 1200),
+        maxTokens: quick
+          ? (opts.quickMaxTokens ?? 400)
+          : compact
+            ? (opts.compactMaxTokens ?? 600)
+            : (opts.maxTokens ?? 1200),
         signal,
       });
       const iterator = stream[Symbol.asyncIterator]();
@@ -253,7 +347,9 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         assembler.finish();
       } catch (e) {
         interrupted = true;
-        safeEmit(errorEvent(e));
+        if (quick)
+          log?.warn({ error: String(e) }, 'quick section stopped; what was released stays');
+        else safeEmit(errorEvent(e));
         // Do not wait for a stream that may never end: ask it to stop and move on.
         void Promise.resolve(iterator.return?.()).catch(() => undefined);
         assembler.discardOpen(); // the incomplete trailing sentence is never released
@@ -261,7 +357,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
     }
 
     await gate; // sentences already complete finish their checks (and judge) in order
-    if (!interrupted && released.length === 0) {
+    if (!quick && !interrupted && released.length === 0) {
       safeEmit({
         event: 'error',
         data: {

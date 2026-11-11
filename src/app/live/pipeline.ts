@@ -58,6 +58,11 @@ export interface ProviderPorts {
   missLog?: MissLog;
   /** The owner's official-domain registry. Without one nothing is official. */
   registry?: OfficialDomains;
+  /**
+   * Whether the answer pipeline writes the quick sourced section while extraction runs. Default: on for the live
+   * providers, off for replay (a fixture scripts the full answer only, and a quick call would be a fixture miss).
+   */
+  quick?: boolean;
 }
 
 /**
@@ -74,7 +79,11 @@ export function buildRealComponents(env: ComponentEnv, ports: ProviderPorts): Co
     clock: env.clock,
   });
   const analyzer = new LlmTurnAnalyzer({ llm: ports.llm, logger: env.logger });
-  const answer = new LlmAnswerPipeline({ llm: ports.llm, logger: env.logger });
+  const answer = new LlmAnswerPipeline({
+    llm: ports.llm,
+    logger: env.logger,
+    options: { quick: ports.quick ?? ports.kind === 'live' },
+  });
   return {
     kind: ports.kind,
     analyzer: ports.missLog ? new StrictTurnAnalyzer(analyzer, ports.missLog) : analyzer,
