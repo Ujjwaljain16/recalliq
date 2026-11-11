@@ -81,13 +81,13 @@ extraction, no model) and runs them through the real `RuleEvidenceVerifier`.
 | | Claims |
 |---|---|
 | Gold claims | 80 |
-| Pass T0 to T2 with the labelled quote and context | 12 |
+| Pass T0 to T2 with the labelled quote and context | 15 |
 | Weak | 38 |
-| Fail | 30 |
-| Pass with the best context found | 23 |
+| Fail | 27 |
+| Pass with the best context found | 26 |
 
-So even a perfect extractor cannot get more than about 29% of these claims (23 of 80) past the verifier with the
-contexts found, and 15% (12 of 80) with the nearest heading. The gaps, with the claims they affect (`page/claim`):
+So even a perfect extractor cannot get more than about 33% of these claims (26 of 80) past the verifier with the
+contexts found, and 19% (15 of 80) with the nearest heading. The gaps, with the claims they affect (`page/claim`):
 
 1. **The vendor is not named near the price (61 claims have a weak `subject_binding`).** `subject_binding` is weak when no alias of the
    vendor is in the amount's line or in the context. Price cards and tables head their rows with plan names, and
@@ -107,9 +107,9 @@ contexts found, and 15% (12 of 80) with the nearest heading. The gaps, with the 
 3. **Metered vocabulary (7 claims).** `usage` needs one of a fixed list of metered markers. "per CU-hour" (Neon, four
    claims), "/GiB/mo" (DigitalOcean storage) and "/100 sessions" (Freshsales add-on) fail, and a usage unit must appear
    in the text as one token sequence: `gb-month` does not match "GB / month" (Railway RAM).
-4. **Billing-period phrasing (13 claims fail `monthly_billed_annually`).** "$35/month (annual)" and "$9/seat (annual)" do
-   not read as "billed annually", a "Billed yearly" line below the price is another line, and the captured Freshsales
-   text glued "billed annuallyFor", which the word-boundary match misses. Close (three), HubSpot, Freshsales (three),
+4. **Billing-period phrasing (10 claims fail `monthly_billed_annually`).** "$9/seat (annual)" does
+   not read as "billed annually" ("$35/month (annual)" now does, see below), a "Billed yearly" line below the price is another line, and the captured Freshsales
+   text glued "billed annuallyFor", which the word-boundary match misses. HubSpot, Freshsales (three),
    Linear (two), Pipedrive (four, with the unit gap above).
 5. **A cue on the previous line (4 claims).** "Starts at" on its own line above "$100/month": the lower-bound cue is
    out of the amount's line, so `lower_bound` is judged inconsistent (HubSpot teaser).
@@ -131,6 +131,22 @@ as an explicit marker, and a bare `$` only stays unknown when nothing else state
 code the symbol cannot stand for (`$ 25 EUR`), still resolve to unknown. Regression tests:
 `tests/unit/evidence/currency-explicit-code.test.ts`. It affects Salesforce (five claims), Slack, and a structured-data
 line on the Freshsales page. It is not a relaxation of the bare-`$` rule.
+
+### A second verifier defect found, and fixed
+
+A quote that holds several prices ("Essentials $49/month (monthly) or $35/month (annual), Growth ...") was checked
+for unit and billing period against the whole line, so a cue that belonged to another price satisfied the claim for
+this one: `{Essentials, 35, monthly}` passed on the "monthly" next to $49, and `{Essentials, 35,
+monthly_billed_annually}` failed. The cues are now bound to the amount (`src/evidence/binding.ts`): its own head
+(the text after it up to the next separator, with its billing clauses), a cue-only label right before it, and the
+text that belongs to no price (the lead-in, "Current list rates (per seat) are approximately:"). For the period
+check, "$35/month (annual)" is a monthly price billed annually, so it fails as `monthly` and as `annual` and passes
+as `monthly_billed_annually`; an amount with no cue of its own while another price in the quote has one is weak,
+and a cue-only piece between two prices that could belong to either is weak. Quotes with one price are judged
+exactly as before. Effect on the oracle: three claims move from fail to pass, the annual rates of Close's Essentials,
+Growth and Scale plans (their gold claim is `monthly_billed_annually`, which the quote supports); the pins in
+`close-plans-and-billing.json` were changed for those three and for nothing else. Regression tests:
+`tests/unit/evidence/billing-binding.test.ts`.
 
 ## The evaluation
 

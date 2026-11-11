@@ -52,8 +52,7 @@
       "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
       "contextQuote": "## Close Plans & Pricing",
       "expected": {
-        "status": "fail",
-        "reason": "billing_period: fail (needs both a monthly marker and \"billed annually\")"
+        "status": "pass"
       },
       "confidence": "medium",
       "note": "Rates are described as \"approximately\". \"(annual)\" read as the monthly rate when billed annually."
@@ -99,8 +98,7 @@
       "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
       "contextQuote": "## Close Plans & Pricing",
       "expected": {
-        "status": "fail",
-        "reason": "billing_period: fail (needs both a monthly marker and \"billed annually\")"
+        "status": "pass"
       },
       "confidence": "medium",
       "note": "Rates are described as \"approximately\". \"(annual)\" read as the monthly rate when billed annually."
@@ -146,8 +144,7 @@
       "quote": "Current list rates (per seat) are approximately: Essentials $49/month (monthly) or $35/month (annual), Growth $109/month (monthly) or $99/month (annual), and Scale $149/month (monthly) or $139/month (annual).",
       "contextQuote": "## Close Plans & Pricing",
       "expected": {
-        "status": "fail",
-        "reason": "billing_period: fail (needs both a monthly marker and \"billed annually\")"
+        "status": "pass"
       },
       "confidence": "medium",
       "note": "Rates are described as \"approximately\". \"(annual)\" read as the monthly rate when billed annually."
