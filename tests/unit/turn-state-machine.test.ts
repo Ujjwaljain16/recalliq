@@ -29,26 +29,33 @@ describe('turn state machine (architecture §4)', () => {
     );
   });
 
-  it('has exactly the nineteen edges of the diagram', () => {
+  it('has exactly the 26 edges: the 19 of the diagram plus the failure edges of ADR-39', () => {
     const edges = TURN_STATES.flatMap((from) =>
       TURN_TRANSITIONS[from].map((to) => `${from}>${to}`),
     );
     expect(edges.sort()).toEqual(
       [
         'RECEIVED>ANALYZING',
+        'RECEIVED>PERSISTING',
         'ANALYZING>RESOLVING_CONTEXT',
         'ANALYZING>PERSISTING',
         'RESOLVING_CONTEXT>CLARIFYING',
         'RESOLVING_CONTEXT>SYNTHESIZING',
         'RESOLVING_CONTEXT>PLANNING',
+        'RESOLVING_CONTEXT>PERSISTING',
         'CLARIFYING>PERSISTING',
         'PLANNING>SEARCHING',
+        'PLANNING>PERSISTING',
         'SEARCHING>EXTRACTING',
         'SEARCHING>RESOLVING_BELIEFS',
+        'SEARCHING>PERSISTING',
         'EXTRACTING>VERIFYING',
+        'EXTRACTING>PERSISTING',
         'VERIFYING>SEARCHING',
         'VERIFYING>RESOLVING_BELIEFS',
+        'VERIFYING>PERSISTING',
         'RESOLVING_BELIEFS>SYNTHESIZING',
+        'RESOLVING_BELIEFS>PERSISTING',
         'SYNTHESIZING>POST_VERIFYING',
         'SYNTHESIZING>PERSISTING',
         'POST_VERIFYING>PERSISTING',
@@ -66,6 +73,17 @@ describe('turn state machine (architecture §4)', () => {
         );
       }
     }
+  });
+
+  it('every non-final state has a direct edge to PERSISTING, and only PERSISTING reaches a final state', () => {
+    for (const state of TURN_STATES) {
+      if (isFinalState(state) || state === 'PERSISTING') continue;
+      expect(canTransition(state, 'PERSISTING'), state).toBe(true);
+      expect(canTransition(state, 'COMPLETED'), state).toBe(false);
+      expect(canTransition(state, 'FAILED'), state).toBe(false);
+    }
+    expect(TURN_STATES.filter((s) => canTransition(s, 'COMPLETED')).sort()).toEqual(['PERSISTING']);
+    expect(TURN_STATES.filter((s) => canTransition(s, 'FAILED')).sort()).toEqual(['PERSISTING']);
   });
 
   it('allows no self-transitions and no way back out of a final state', () => {

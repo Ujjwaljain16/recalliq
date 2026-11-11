@@ -20,7 +20,9 @@ import type { Lane, TurnAnalysis } from '../shared/understanding.js';
 import { DEFAULT_TURN_BUDGET_CONFIG, TURN_LIMITS, type TurnBudgetConfig } from './config.js';
 import {
   classifyError,
+  clientCodeFor,
   errorCodeFor,
+  failureCodeFor,
   isDatabaseBusy,
   propagates,
   TurnStillRunningError,
@@ -105,18 +107,23 @@ interface Ending {
  * one lane handler, call the answer pipeline, prepare the completion and persist it. It contains no search,
  * extraction, verification, belief or prompt logic.
  *
- * State progression uses only the 19 existing edges and only `setState`, `complete` and `fail`:
+ * State progression uses only edges of the table in src/shared/turn-state-machine.ts, and only `setState`,
+ * `complete` and `fail`:
  *   chat/recall:  RECEIVED, ANALYZING, RESOLVING_CONTEXT, SYNTHESIZING, POST_VERIFYING, PERSISTING
  *   research/audit: ... RESOLVING_CONTEXT, PLANNING, SEARCHING, [EXTRACTING, VERIFYING,] RESOLVING_BELIEFS,
  *                   SYNTHESIZING, POST_VERIFYING, PERSISTING
  *   clarify:      ... RESOLVING_CONTEXT, CLARIFYING, PERSISTING
  *   fixed reply:  ... RESOLVING_CONTEXT, SYNTHESIZING, PERSISTING
  *   analysis down: ANALYZING, PERSISTING
+ *   unexpected error: any non-final state, PERSISTING (ADR-39)
  *
- * Errors: a provider failure inside the analyzer or the answer pipeline becomes a fixed reply with status
- * `failed`. A persistence failure or a programmer error is never turned into an answer: it propagates. Only a
- * failure of `complete()` itself, with the turn in PERSISTING, goes through `fail()`; an unexpected error in an
- * earlier state leaves the turn running for `recoverRunning` (no failure edge is invented).
+ * Errors (ADR-39). A provider failure inside the analyzer or the answer pipeline becomes a fixed reply with
+ * status `failed`. Any other error thrown before persistence (a replay fixture miss, a programmer error, a
+ * database failure outside the final write) is never turned into an answer: the coordinator moves the turn to
+ * PERSISTING, finalises it through `complete()` with status `failed`, an error code naming the class and no
+ * assistant message, tells the client with an SSE error event, logs it and rethrows the original error. If the
+ * finalising write fails, `fail()` is used when the turn reached PERSISTING; if the turn could not even be moved
+ * there, it stays running for `recoverRunning`. A failure of the final `complete()` goes through `fail()`.
  */
 export class DefaultTurnOrchestrator implements TurnOrchestrator {
   private readonly laneDeps: LaneDeps;
@@ -216,85 +223,111 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
       emit({ event: 'progress', data: { stage: state, text } });
     };
 
-    emit({ event: 'turn.started', data: { turnId, userMessageId } });
-    const tz = isValidTimeZone(req.tz) ? req.tz : 'UTC';
-    progress(
-      'ANALYZING',
-      tz === req.tz ? 'Understanding your message' : `Unknown time zone "${req.tz}"; using UTC`,
-    );
-
-    const window = this.deps.window
-      .recent(userId, req.conversationId, userMessageId, TURN_LIMITS.windowMessages)
-      .map((m) => ({ role: m.role, content: m.content.slice(0, TURN_LIMITS.windowMessageChars) }));
-
-    // 1. Analysis. The contract returns `degraded: true` instead of throwing; a thrown provider failure is
-    //    treated the same way, anything else is a defect and propagates.
     let analysis: TurnAnalysis | null = null;
-    try {
-      analysis = await this.deps.analyzer.analyze(
-        { userMessage: req.text, window, tz, now: startedAt },
-        budget,
-      );
-    } catch (error) {
-      if (propagates(classifyError(error, budget.signal))) throw error;
-      logger?.warn({ turnId, error: String(error) }, 'analysis failed; replying deterministically');
-    }
-
     let ending: Ending;
-    if (analysis === null || analysis.degraded) {
-      emit({
-        event: 'warning',
-        data: { code: 'analysis_degraded', text: 'I could not fully understand the request.' },
+    let metrics: TurnMetrics;
+    let completedEvent: SseEvent;
+    let completion: TurnCompletion;
+    try {
+      emit({ event: 'turn.started', data: { turnId, userMessageId } });
+      const tz = isValidTimeZone(req.tz) ? req.tz : 'UTC';
+      progress(
+        'ANALYZING',
+        tz === req.tz ? 'Understanding your message' : `Unknown time zone "${req.tz}"; using UTC`,
+      );
+
+      const window = this.deps.window
+        .recent(userId, req.conversationId, userMessageId, TURN_LIMITS.windowMessages)
+        .map((m) => ({
+          role: m.role,
+          content: m.content.slice(0, TURN_LIMITS.windowMessageChars),
+        }));
+
+      // 1. Analysis. The contract returns `degraded: true` instead of throwing; a thrown provider failure is
+      //    treated the same way, anything else is a defect and propagates.
+      try {
+        analysis = await this.deps.analyzer.analyze(
+          { userMessage: req.text, window, tz, now: startedAt },
+          budget,
+        );
+      } catch (error) {
+        if (propagates(classifyError(error, budget.signal))) throw error;
+        logger?.warn(
+          { turnId, error: String(error) },
+          'analysis failed; replying deterministically',
+        );
+      }
+
+      if (analysis === null || analysis.degraded) {
+        emit({
+          event: 'warning',
+          data: { code: 'analysis_degraded', text: 'I could not fully understand the request.' },
+        });
+        // ANALYZING -> PERSISTING: the edge for an LLM outage (architecture section 4).
+        ending = this.fixedEnding(emit, OUTAGE_REPLY, 'failed', null, null, 'analysis_degraded');
+      } else {
+        progress('RESOLVING_CONTEXT', 'Looking at what is stored');
+        ending = await this.runLane({
+          req,
+          turnId,
+          userId,
+          tz,
+          analysis,
+          startedAt,
+          budget,
+          emit,
+          progress,
+          setState,
+          window,
+        });
+      }
+      // 2. Persistence. The only work allowed past the deadline. Moving to PERSISTING and building the
+      //    completion are inside the same guard: a failure here still ends in a terminal turn.
+      setState('PERSISTING');
+      const ttcMs = clock.now() - startedAt;
+      metrics = buildMetrics({
+        ttfpMs,
+        ttftMs,
+        ttcMs,
+        deadlineHit: budget.remaining() === 0,
+        findings: ending.findings,
+        sentences: ending.answer?.sentences ?? [],
+        statesVisited,
       });
-      // ANALYZING -> PERSISTING: the edge for an LLM outage (architecture section 4).
-      ending = this.fixedEnding(emit, OUTAGE_REPLY, 'failed', null, null, 'analysis_degraded');
-    } else {
-      progress('RESOLVING_CONTEXT', 'Looking at what is stored');
-      ending = await this.runLane({
-        req,
+      completedEvent = {
+        event: 'turn.completed',
+        data: { status: ending.status, metrics: { ttfpMs, ttftMs, ttcMs } },
+      };
+      completion = {
+        status: ending.status,
+        assistant: ending.answer,
+        findings: ending.findings,
+        assertions: ending.answer ? buildAssertions(ending.answer.sentences, ending.findings) : [],
+        baselineEvents: buildBaselineEvents(ending.findings),
+        touchedBeliefKeys: [],
+        enrichment: buildEnrichment(analysis, req.text),
+        analysis,
+        context: ending.ctx,
+        events: [...events, completedEvent],
+        metrics,
+        ...(ending.errorCode !== undefined ? { errorCode: ending.errorCode } : {}),
+      };
+    } catch (error) {
+      this.abandon(error, {
         turnId,
         userId,
-        tz,
-        analysis,
         startedAt,
         budget,
         emit,
-        progress,
+        events,
+        statesVisited,
         setState,
-        window,
+        analysis,
+        ttfpMs,
+        ttftMs,
       });
+      throw error;
     }
-
-    // 2. Persistence. The only work allowed past the deadline.
-    setState('PERSISTING');
-    const ttcMs = clock.now() - startedAt;
-    const metrics = buildMetrics({
-      ttfpMs,
-      ttftMs,
-      ttcMs,
-      deadlineHit: budget.remaining() === 0,
-      findings: ending.findings,
-      sentences: ending.answer?.sentences ?? [],
-      statesVisited,
-    });
-    const completedEvent: SseEvent = {
-      event: 'turn.completed',
-      data: { status: ending.status, metrics: { ttfpMs, ttftMs, ttcMs } },
-    };
-    const completion: TurnCompletion = {
-      status: ending.status,
-      assistant: ending.answer,
-      findings: ending.findings,
-      assertions: ending.answer ? buildAssertions(ending.answer.sentences, ending.findings) : [],
-      baselineEvents: buildBaselineEvents(ending.findings),
-      touchedBeliefKeys: [],
-      enrichment: buildEnrichment(analysis, req.text),
-      analysis,
-      context: ending.ctx,
-      events: [...events, completedEvent],
-      metrics,
-      ...(ending.errorCode !== undefined ? { errorCode: ending.errorCode } : {}),
-    };
 
     try {
       withBoundedRetry(() => turns.complete(userId, turnId, completion), busy);
@@ -337,6 +370,92 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
     }
     clientEmitSafe(clientEmit, completedEvent);
     return { turnId, status: ending.status, assistantMessageId, metrics };
+  }
+
+  /**
+   * An unexpected error before persistence (ADR-39): finalise the turn as failed so it never stays running.
+   * Writes no assistant message and invents no answer. Never throws: the caller rethrows the original error.
+   */
+  private abandon(
+    error: unknown,
+    c: {
+      turnId: TurnId;
+      userId: UserId;
+      startedAt: Ms;
+      budget: TurnBudget;
+      emit: EventSink;
+      events: SseEvent[];
+      statesVisited: TurnState[];
+      setState: (s: TurnState) => void;
+      analysis: TurnAnalysis | null;
+      ttfpMs: number | null;
+      ttftMs: number | null;
+    },
+  ): void {
+    const { turns, clock, logger } = this.deps;
+    const busy = { maxAttempts: TURN_LIMITS.persistenceAttempts, shouldRetry: isDatabaseBusy };
+    const code = failureCodeFor(error, c.budget.signal);
+    logger?.error(
+      { turnId: c.turnId, code, error: String(error) },
+      'unexpected error; finalising the turn as failed',
+    );
+    c.emit({
+      event: 'error',
+      data: {
+        code: clientCodeFor(code),
+        text: 'The request could not be completed.',
+        recoverable: false,
+      },
+    });
+
+    // Any non-final state has an edge to PERSISTING. If that move fails (the database is the failing
+    // component) the finalising write is still attempted once, because the move may have been applied before
+    // the error surfaced; if it is refused too, the turn stays running and the next restart marks it
+    // interrupted.
+    try {
+      if (c.statesVisited[c.statesVisited.length - 1] !== 'PERSISTING') c.setState('PERSISTING');
+    } catch (stateError) {
+      logger?.error(
+        { turnId: c.turnId, error: String(stateError) },
+        'could not move the failed turn to PERSISTING',
+      );
+    }
+
+    const metrics = buildMetrics({
+      ttfpMs: c.ttfpMs,
+      ttftMs: c.ttftMs,
+      ttcMs: clock.now() - c.startedAt,
+      deadlineHit: c.budget.remaining() === 0,
+      findings: null,
+      sentences: [],
+      statesVisited: c.statesVisited,
+    });
+    const completion: TurnCompletion = {
+      status: 'failed',
+      assistant: null,
+      findings: null,
+      assertions: [],
+      baselineEvents: [],
+      touchedBeliefKeys: [],
+      enrichment: { tags: [], entities: [], decisions: [] },
+      analysis: c.analysis,
+      context: null,
+      events: [...c.events],
+      metrics,
+      errorCode: code,
+    };
+    try {
+      withBoundedRetry(() => turns.complete(c.userId, c.turnId, completion), busy);
+    } catch (completeError) {
+      try {
+        turns.fail(c.userId, c.turnId, errorCodeFor(completeError));
+      } catch (failError) {
+        logger?.error(
+          { turnId: c.turnId, error: String(failError) },
+          'the failed turn could not be finalised; left for restart recovery',
+        );
+      }
+    }
   }
 
   private async runLane(c: {

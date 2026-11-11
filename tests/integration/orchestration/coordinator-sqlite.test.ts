@@ -436,14 +436,14 @@ describe('failure handling against SQLite', () => {
     });
   });
 
-  it('a programmer error mid-turn propagates and leaves the turn running for recoverRunning', async () => {
+  it('a programmer error mid-turn is rethrown and the turn is finalised as failed, so nothing is left to recover', async () => {
     const h = harness({ analyzer: new FakeAnalyzer(new TypeError('bug')) });
     await expect(h.run()).rejects.toBeInstanceOf(TypeError);
-    const row = h.t.db.prepare('SELECT state, status FROM turns WHERE user_id = ?').get(h.userId);
-    expect(row).toEqual({ state: 'ANALYZING', status: 'running' });
-    expect(h.t.turns.recoverRunning(T0 + 1)).toBe(1);
-    const after = h.t.db.prepare('SELECT state, status FROM turns WHERE user_id = ?').get(h.userId);
-    expect(after).toEqual({ state: 'ANALYZING', status: 'interrupted' });
+    const row = h.t.db
+      .prepare('SELECT state, status, error_code FROM turns WHERE user_id = ?')
+      .get(h.userId);
+    expect(row).toEqual({ state: 'COMPLETED', status: 'failed', error_code: 'internal_error' });
+    expect(h.t.turns.recoverRunning(T0 + 1)).toBe(0);
   });
 
   it('a degraded analysis stores a failed turn with a fixed reply through ANALYZING to PERSISTING', async () => {

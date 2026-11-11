@@ -21,8 +21,8 @@ during implementation, and open decisions raised since; they were never in the o
 | partly implemented | Some of it exists; the page says exactly what |
 | not implemented | A design or a decision only |
 
-Counts: 40 ADRs. Accepted 35, Proposed 4, Superseded 1.
-Implemented 13, partly 14, not implemented 13.
+Counts: 40 ADRs. Accepted 36, Proposed 3, Superseded 1.
+Implemented 14, partly 14, not implemented 12.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
 latency, accuracy or cost has been measured. The weighted scores behind ADR-01 are the author's judgements. Numeric limits in ADR-09, ADR-10, ADR-15 and ADR-24 are
@@ -60,7 +60,7 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-26](ADR-26.md) | Immutability enforced by database triggers | Accepted | implemented | Snapshots, evidence, assertion events, belief history and message content cannot be updated; assertions may only gain `presented_at`, once. | [ADR-06](ADR-06.md), [ADR-27](ADR-27.md), [ADR-32](ADR-32.md) |
 | [ADR-27](ADR-27.md) | Ownership consistency enforced by database triggers (partial) | Accepted | partly implemented | A row may only reference rows of the same user as its owning turn; covered for messages, turns, evidence, findings and assertions. | [ADR-20](ADR-20.md), [ADR-26](ADR-26.md), [ADR-28](ADR-28.md), [Q-007](../questions.md) |
 | [ADR-28](ADR-28.md) | Demo and live data isolation at the database level (not complete) | Accepted | partly implemented | A database stamped `real` rejects non-live data and relabelling; a demo database accepts it. | [ADR-19](ADR-19.md), [ADR-27](ADR-27.md), [Q-002](../questions.md) |
-| [ADR-29](ADR-29.md) | Turn state machine enforced in TypeScript and in the database | Accepted | implemented | The 19 edges of architecture §4 are a TypeScript table and a database trigger, and a test compares them pair by pair. | [ADR-01](ADR-01.md), [ADR-30](ADR-30.md), [ADR-39](ADR-39.md) |
+| [ADR-29](ADR-29.md) | Turn state machine enforced in TypeScript and in the database | Accepted | implemented | The 26 edges (the 19 of architecture §4 plus the failure edges of ADR-39) are a TypeScript table and a database trigger, and a test compares them pair by pair. | [ADR-01](ADR-01.md), [ADR-30](ADR-30.md), [ADR-39](ADR-39.md) |
 | [ADR-30](ADR-30.md) | At most one running turn per conversation | Accepted | implemented | A partial unique index guarantees it; `begin` checks inside a `BEGIN IMMEDIATE` transaction and throws `TurnInProgressError`. | [ADR-29](ADR-29.md), [Q-006](../questions.md) |
 | [ADR-31](ADR-31.md) | Streamed extent and rendered extent are separate and ordered | Accepted | implemented | Rendered may never exceed streamed; an acknowledgement beyond what was streamed is rejected, never clamped. | [ADR-23](ADR-23.md), [ADR-16](ADR-16.md), [ADR-32](ADR-32.md) |
 | [ADR-32](ADR-32.md) | Assertions, findings and events are persisted atomically at completion | Accepted | implemented | One transaction stores the answer, findings, assertions (born unpresented), evidence links and events, or nothing. | [ADR-06](ADR-06.md), [ADR-12](ADR-12.md), [ADR-23](ADR-23.md), [ADR-31](ADR-31.md) |
@@ -70,7 +70,7 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-36](ADR-36.md) | Stricter proof for a post-baseline change | Accepted | implemented | `changed` needs the old value re-observed after the previous answer then the new value observed later, same `url_norm`, `comparableKeys` equal with a known locale, or an explicitly associated reliable effective date; publication and fetch dates alone never; otherwise `differs_timing_unknown`. | [ADR-22](ADR-22.md), [ADR-37](ADR-37.md), [Q-001](../questions.md) |
 | [ADR-37](ADR-37.md) | Locale as a dimension of the belief key | Accepted | implemented | Locale (canonical BCP-47, `und` if unknown) is part of the belief key; different locales are incomparable. Applied to the contract and shared type; not implemented. | [ADR-21](ADR-21.md), [ADR-36](ADR-36.md), [Q-001](../questions.md) |
 | [ADR-38](ADR-38.md) | Which assertions may become historical baselines | Accepted | implemented | Recall needs presentation; baseline eligibility also needs the current-value placeholder, a verified sentence and passing evidence links. Only presentation gating exists in code. | [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md) |
-| [ADR-39](ADR-39.md) | Failure transitions from intermediate states | Proposed | not implemented | Decide which failures are recoverable, which are terminal, and how partial work is preserved, before the orchestrator is written. | [ADR-29](ADR-29.md), [ADR-33](ADR-33.md), [Q-011](../questions.md) |
+| [ADR-39](ADR-39.md) | Failure transitions from intermediate states | Accepted | implemented | Every non-final state may move to PERSISTING; an unexpected error or replay miss finalises the turn as failed with an error code and no answer. | [ADR-29](ADR-29.md), [ADR-33](ADR-33.md), [Q-011](../questions.md) |
 | [ADR-40](ADR-40.md) | Factual sentences are released only after validation | Accepted | not implemented | Received, validated and presented are separate states: only validated sentences are sent, one at a time; a sentence that fails a check is withheld, never shown and later downgraded. | [ADR-16](ADR-16.md), [ADR-23](ADR-23.md), [ADR-38](ADR-38.md) |
 
 ## How these relate to other documents

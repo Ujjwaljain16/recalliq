@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { initializeDatabase } from '../../../src/db/index.js';
+import { loadMigrations } from '../../../src/db/migrate.js';
 import { normaliseExaResponse } from '../../../src/search/exa-adapter.js';
 import type { CrawlBasis, SearchHit } from '../../../src/shared/search.js';
 import { crawlBasisOfHit, SnapshotStore } from '../../../src/sources/snapshot-store.js';
@@ -128,7 +129,7 @@ describe('migration 009 on a populated version-8 database', () => {
     expect(before.some((c) => c.name === 'crawl_basis')).toBe(false);
 
     const result = initializeDatabase(t.db, { mode: 'real', clock: new FixedClock(T0) });
-    expect(result).toMatchObject({ schemaVersion: 9, created: false });
+    expect(result).toMatchObject({ schemaVersion: loadMigrations().length, created: false });
 
     const raw = t.db
       .prepare('SELECT id, fresh_fetch, crawl_basis FROM source_snapshots ORDER BY id')

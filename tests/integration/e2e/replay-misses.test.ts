@@ -46,21 +46,34 @@ const complete = {
 async function misses(parts: Parameters<typeof fixture>[0]): Promise<string> {
   t = await startE2e({ fixture: fixture(parts) });
   const user = t.client();
-  const res = await user.request(
-    'POST',
-    `/api/conversations/${await user.newConversation()}/turns`,
-    {
-      text: Q,
-      idempotencyKey: 'miss',
-    },
-  );
+  const conversation = await user.newConversation();
+  const res = await user.request('POST', `/api/conversations/${conversation}/turns`, {
+    text: Q,
+    idempotencyKey: 'miss',
+  });
   const raw = await res.text();
   // loud: an error event, no answer, the turn is not complete, nothing was claimed
   expect(raw).toContain('event: error');
+  expect(raw).toContain('replay_miss');
   expect(raw).not.toContain('answer.delta');
   expect(raw).not.toContain('answer.completed');
   expect(scalar(t.app, "SELECT count(*) FROM turns WHERE status = 'complete'")).toBe(0);
   expect(scalar(t.app, 'SELECT count(*) FROM assertions')).toBe(0);
+  // terminal: failed, finished, with the class in the error code; nothing is left running
+  expect(t.app.db.prepare('SELECT state, status, error_code FROM turns').all()).toEqual([
+    { state: 'COMPLETED', status: 'failed', error_code: 'replay_miss' },
+  ]);
+  expect(scalar(t.app, "SELECT count(*) FROM turns WHERE status = 'running'")).toBe(0);
+  expect(scalar(t.app, "SELECT count(*) FROM messages WHERE role = 'assistant'")).toBe(0);
+  // the conversation takes the next turn (one running turn per conversation is satisfied)
+  const next = await user.request('POST', `/api/conversations/${conversation}/turns`, {
+    text: Q,
+    idempotencyKey: 'miss-next',
+  });
+  expect(next.status).toBe(200);
+  await next.text();
+  expect(scalar(t.app, 'SELECT count(*) FROM turns')).toBe(2);
+  expect(scalar(t.app, "SELECT count(*) FROM turns WHERE status = 'running'")).toBe(0);
   return raw;
 }
 

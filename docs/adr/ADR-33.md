@@ -22,6 +22,7 @@ Interrupt. Recovery creates no message, acknowledgement, presented claim or base
 ## Consequences and trade-offs
 
 - It interrupts every running turn, unscoped, so it assumes one process per database file (ADR-34).
+- It is now the fallback only: an unexpected error finalises the turn as failed (ADR-39), and recovery handles what that could not finalise, such as a crash or a database that refused every write.
 
 ## Evidence and implementation references
 

@@ -23,7 +23,7 @@ questions, including resolved ones and their history.
 | Q-008 | Declared-only contract functions | applied | — | — |
 | Q-009 | Type-identical lint edits | applied | — | — |
 | Q-010 | Small implementation choices | applied | — | — |
-| Q-011 | No failure edge from most states | open | Milestone 5 | [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md) |
+| Q-011 | No failure edge from most states | **applied** (migration 010, failure policy in the coordinator, 2026-11-12) | — | [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md) |
 | Q-012 | Acknowledgement before the answer is stored | open | — | [ADR-23](adr/ADR-23.md) |
 | Q-013 | Meaning of `AckRequest.complete` | open | — | [ADR-31](adr/ADR-31.md) |
 | Q-014 | JSON columns only partly validated | open | Milestones 3, 5 | [ADR-32](adr/ADR-32.md), [ADR-05](adr/ADR-05.md) |
@@ -43,7 +43,7 @@ The 39-ADR structure and numbering were accepted, with these decisions. Docs onl
 - **Q-015 / ADR-38 decided:** historical *recall* and *baseline eligibility* are different. Rules in [ADR-38](adr/ADR-38.md). The loader is not implemented.
 - **Q-001:** the effective-date distinction is decided; locale is a required comparability dimension ([ADR-37](adr/ADR-37.md)); the change detector stays unimplemented until M4.
 - **Q-007:** a table-by-table plan with timing is recorded below; ownership is **not** fully enforced today.
-- **ADR-34 and ADR-39 stay Proposed**, no mechanism and no failure edges chosen. **Q-011, Q-012, Q-013, Q-014 and Q-016 stay open.**
+- **ADR-34 stays Proposed**, no mechanism chosen. **ADR-39 was later accepted and implemented** (see Q-011). **Q-012, Q-013, Q-014 and Q-016 stay open.**
 - **Corrections to normative text:** contracts §1 (PRAGMAs, migrations 002–005) and architecture §8, §12, Part IV scenarios 2–3, the scenario matrix, U12 and U19.
 
 ## Owner review of Milestone 2 (2026-11-11)
@@ -51,7 +51,7 @@ The 39-ADR structure and numbering were accepted, with these decisions. Docs onl
 Milestone 2 was approved, with these qualifications. They are recorded here and in the ADRs; none of the questions below is closed by them.
 
 - **Q-011 (failure transitions), resolve before M5.** Define a failure transition from every non-terminal state with an explicit recovery policy, but do **not** add arbitrary
-  failure edges: decide which failures are recoverable, which are terminal, and how partial work is preserved. → [ADR-39](adr/ADR-39.md), Proposed.
+  failure edges: decide which failures are recoverable, which are terminal, and how partial work is preserved. → [ADR-39](adr/ADR-39.md), now Accepted and implemented.
 - **Q-007 (ownership), still open.** Evidence, findings and assertions are protected; `search_requests`, `decisions`, snapshots and beliefs are not. Ownership integrity must not be
   described as fully enforced. Add the constraints and cross-user regression tests before those tables are used heavily. → [ADR-27](adr/ADR-27.md).
 - **Q-015 (historical baselines), resolve before M3.** Only presented assertions can become baselines: a presented assertion can be retrieved as previously communicated; a
@@ -313,19 +313,22 @@ comment. No lint rule is disabled anywhere.
 
 None of these blocks Milestone 3. Each says what the code does meanwhile.
 
-### Q-011: no failure edge from most states — open (before Milestone 5)
+### Q-011: no failure edge from most states — applied (2026-11-12)
 
-**ADR:** [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md)  
-**History:** Raised in M2. **Open.** Owner review: see "Owner review of Milestone 2" above.
+**ADR:** [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md)
+**History:** Raised in M2, open through the owner review. The owner decided that replay misses and unexpected failures must move the turn to a terminal state. **Applied.**
 
-The state machine in architecture §4 has failure edges only from ANALYZING and SYNTHESIZING (to PERSISTING) and from
-PERSISTING (to FAILED). It matches the diagram exactly, so an unexpected exception while SEARCHING, EXTRACTING, VERIFYING
-or RESOLVING_BELIEFS has no legal way to a final state: `setState(…, 'PERSISTING')` is refused. The architecture says the
-orchestrator never throws and degrades instead, which covers the expected failures, but it does not say what a bug does.
+The state machine in architecture §4 had failure edges only from ANALYZING and SYNTHESIZING (to PERSISTING) and from
+PERSISTING (to FAILED), so an unexpected exception while SEARCHING, EXTRACTING, VERIFYING or RESOLVING_BELIEFS (and in
+RECEIVED, RESOLVING_CONTEXT, PLANNING) had no legal way to a final state.
 
-**Behaviour meanwhile:** the turn stays `running` until `recoverRunning` interrupts it on the next start.
-**Smallest correction if wanted:** allow every non-final state to go to PERSISTING (an edge change in architecture §4 and
-migration 004). Decide before the orchestrator is written.
+**What the code does now:** every non-final state has an edge to PERSISTING (26 edges, in the TypeScript table and in migration 010). An unexpected error
+before persistence makes the coordinator move the turn to PERSISTING and call `complete()` with status `failed`, an error code naming the class
+(`replay_miss`, `internal_error`, `contract_violation`, `persistence:<code>`, `external_error`, `deadline`, `cancelled`) and no assistant message; the client gets an SSE
+`error` event and the original error is logged and rethrown. If the finalising write fails, `fail()` is used when the turn reached PERSISTING, otherwise
+`recoverRunning` still interrupts the turn on the next start. Normal typed outcomes (partial, interrupted, clarify, a fixed reply for a provider outage) are unchanged.
+
+**Not done:** findings gathered before the error are not stored by the failure path, partial search and evidence rows are not cleaned up, and a failed turn is not retried automatically.
 
 ### Q-012: an acknowledgement that arrives before the answer is stored is rejected — open
 

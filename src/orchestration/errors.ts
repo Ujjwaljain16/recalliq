@@ -9,7 +9,7 @@ import {
 } from '../db/errors.js';
 import type { TurnId } from '../shared/ids.js';
 import { LlmError } from '../shared/llm.js';
-import { SearchError } from '../shared/search.js';
+import { ReplayMissError, SearchError } from '../shared/search.js';
 import { DeadlineExceededError } from './turn-budget.js';
 
 /**
@@ -94,6 +94,49 @@ export function errorCodeFor(error: unknown): string {
   if (code !== null) return `persistence:${code.toLowerCase()}`;
   if (error instanceof Error) return `persistence:${error.name}`;
   return 'persistence:unknown';
+}
+
+/**
+ * The stable code stored on a turn that an unexpected error finalised as failed (ADR-39). It names the class,
+ * never the message: a replay fixture miss is `replay_miss`; our own database failing is `persistence:<code>`;
+ * a broken contract is `contract_violation`; a deadline or an abort that surfaced as an error is `deadline` or
+ * `cancelled`; a provider failure that reached here is `external_error`; anything else is `internal_error`.
+ */
+export function failureCodeFor(error: unknown, signal?: AbortSignal): string {
+  if (isReplayMiss(error)) return 'replay_miss';
+  if (error instanceof ContractViolationError) return 'contract_violation';
+  const cls = classifyError(error, signal);
+  switch (cls) {
+    case 'deadline':
+      return 'deadline';
+    case 'cancelled':
+      return 'cancelled';
+    case 'external_retryable':
+    case 'external_permanent':
+      return 'external_error';
+    case 'persistence':
+      return errorCodeFor(error);
+    case 'programmer':
+      return 'internal_error';
+  }
+}
+
+/** The code the client sees in the SSE error event: never database or stored detail. */
+export function clientCodeFor(code: string): string {
+  return code === 'replay_miss' || code === 'deadline' || code === 'cancelled'
+    ? code
+    : 'internal_error';
+}
+
+/**
+ * A replay fixture miss (search or model fixture). Recognised by name because the fixture classes live in the
+ * application layer, which this module does not import.
+ */
+export function isReplayMiss(error: unknown): boolean {
+  return (
+    error instanceof ReplayMissError ||
+    (error instanceof Error && error.name === 'FixtureMissError')
+  );
 }
 
 /** A component broke its contract (for example a finding set that contradicts itself). A bug, never a result. */
