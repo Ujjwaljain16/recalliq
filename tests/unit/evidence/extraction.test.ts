@@ -167,7 +167,12 @@ function setup(handler: ConstructorParameters<typeof FakeLlm>[0], entityIds = ['
     snapshots: (want) => snaps.filter((s) => want.includes(s.id)),
     entities: (want) => entities.filter((e) => want.includes(e.id)),
   });
-  const byEntity = new Map(entityIds.map((e, i) => [`ent_${e}`, [snaps[i] as SourceSnapshot]]));
+  const byEntity = new Map<EntityId, SourceSnapshot[]>(
+    entityIds.map((e, i): [EntityId, SourceSnapshot[]] => [
+      `ent_${e}`,
+      [snaps[i] as SourceSnapshot],
+    ]),
+  );
   const batches = new AdaptiveBatcher().pack(byEntity);
   return { llm, extractor, byEntity, batches };
 }
