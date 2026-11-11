@@ -116,15 +116,25 @@ export function extractionOf(v: Vendor, amount: number): Extraction {
 export const priceQuery = (v: Vendor): string => `${v} pricing`;
 
 export function priceSearch(v: Vendor, ...amounts: Array<number | 'unavailable'>): SearchEntry {
+  return priceSearchAt(PRICE_URL[KEY[v]], v, priceQuery(v), ...amounts);
+}
+
+/** The same pages served from another url and/or query (look-alike hosts, fallback rounds). */
+export function priceSearchAt(
+  url: string,
+  v: Vendor,
+  query: string,
+  ...amounts: Array<number | 'unavailable'>
+): SearchEntry {
   return {
-    query: priceQuery(v),
+    query,
     steps: amounts.map((a) =>
       a === 'unavailable'
         ? { error: 'unavailable' as const }
         : {
             hits: [
               {
-                url: PRICE_URL[KEY[v]],
+                url,
                 title: `[SYNTHETIC] ${v} pricing`,
                 text: pricingPage(v, a),
               },

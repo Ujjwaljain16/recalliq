@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { Db } from '../../db/index.js';
 import { queryOne } from '../../db/sql.js';
-import { registrableDomain } from '../../evidence/authority.js';
 import { newId, parseId, type Origin, type UserId } from '../../shared/ids.js';
 import type { Clock } from '../../shared/infrastructure.js';
 import type { ResolvedContext } from '../../shared/memory.js';
@@ -11,18 +10,8 @@ export type EntityRow = ResolvedContext['entities'][number];
 
 const idRow = z.object({ id: z.string() });
 
-/**
- * Whether a domain's name part is evidently the entity's name: "acme.example" for "Acme CRM". Deterministic,
- * at least three letters, and the only way a domain becomes official here: a model's guess alone never does.
- */
-export function nameMatchesDomain(name: string, domain: string): boolean {
-  const label = registrableDomain(domain).split('.')[0] ?? '';
-  const squashed = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (label.length < 3 || squashed.length < 3) return false;
-  return squashed.startsWith(label) || label.startsWith(squashed);
-}
-
-/** The user's entities: find or create the row for a mention, and record official domains with their basis. */
+/** The user's entities: find or create the row for a mention, and the domains it lists are only those the row already carries from an explicit earlier source.
+ * Nothing here ever promotes a domain to official: not a model's guess, not a name that matches a domain. */
 export class EntityDirectory {
   constructor(
     private readonly db: Db,
@@ -68,17 +57,6 @@ export class EntityDirectory {
         .run(id, alias);
       if (!entity.aliases.includes(alias)) entity.aliases.push(alias);
     }
-    const guess = mention.officialDomainGuess;
-    if (guess !== undefined && nameMatchesDomain(mention.text, guess)) {
-      this.addDomain(entity, registrableDomain(guess), 'analysis_confirmed');
-    }
     return entity;
-  }
-
-  addDomain(entity: EntityRow, domain: string, basis: 'name_match' | 'analysis_confirmed'): void {
-    this.db
-      .prepare('INSERT OR IGNORE INTO entity_domains (entity_id, domain, basis) VALUES (?, ?, ?)')
-      .run(entity.id, domain, basis);
-    if (!entity.officialDomains.includes(domain)) entity.officialDomains.push(domain);
   }
 }

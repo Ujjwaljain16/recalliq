@@ -17,6 +17,8 @@ export interface AppEnv {
   scriptedPaceMs: number;
   /** REPLAY_FIXTURE: path of the replay fixture file (replay set only). */
   replayFixture: string | undefined;
+  /** OFFICIAL_DOMAINS_FILE: the owner's registry of official domains. Optional; none ships and none is assumed. */
+  officialDomainsFile: string | undefined;
 }
 
 function blank(v: string | undefined): string | undefined {
@@ -109,5 +111,6 @@ export function loadAppEnv(
     shutdownGraceMs,
     scriptedPaceMs,
     replayFixture: blank(env['REPLAY_FIXTURE']),
+    officialDomainsFile: blank(env['OFFICIAL_DOMAINS_FILE']),
   };
 }
