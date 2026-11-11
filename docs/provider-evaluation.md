@@ -45,6 +45,7 @@ Two real searches ("Neon Postgres pricing per month", 3 results, text mode, 2,50
 - **Cost:** `costDollars` was `{"total":0.007,"search":{"neural":0.007}}` for each request.
 - **Timing (single observations):** with a live crawl requested (`maxAgeHours: 0`) the adapter's call took about 4.8 s; the cached request took about 0.3 s. The size of the gap suggests a fetch happened, but the response does not say so.
 - **The adapter** parsed both responses with no dropped items.
+- **Failed live crawl (one probe each):** with `maxAgeHours: 0` and `livecrawlTimeout: 1` the response was HTTP 200 with three results of only 186, 131 and 87 characters, no error and no marker; with `livecrawlTimeout: 8000` the same query returned 1,500 characters per result in about 1.6 s; with `maxAgeHours: -1` (cache only) it returned 1,500 characters in about 0.26 s. An unfinished live crawl is therefore silent.
 - **Consequence:** the adapter sets `freshFetch` only when a per-result marker says a live crawl succeeded. No such marker exists, so `freshFetch` is false for every real result and `crawlStatus` is unknown. With the owner's as-of rule, a `changed` verdict from re-observation therefore cannot be reached on real Exa data; `differs_timing_unknown` and the effective-date route remain available. Whether to treat a documented `maxAgeHours: 0` request as evidence of a live crawl is an open decision (see the question log entry on provider capture time).
 
 ## Cache and freshness metadata

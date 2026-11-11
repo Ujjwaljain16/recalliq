@@ -47,7 +47,7 @@ So **ADR-36 does not change**: its stricter requirement keeps meaning "the provi
 
 ## Risks and open questions
 
-- Whether a failed live crawl under `maxAgeHours: 0` returns an error, drops the result or returns a stale copy is not documented. If it can return stale content silently, `requested_live` would overstate freshness. A probe with a deliberately tiny `livecrawlTimeout` would show it; it has not been run.
+- **Probed (2026-11-12, one request each, same query, 3 results):** with `maxAgeHours: 0` and `livecrawlTimeout: 1` the API answered HTTP 200 with three results whose text was only 186, 131 and 87 characters, with no error and no marker; with `livecrawlTimeout: 8000` the same query returned the full 1,500 characters per result in about 1.6 s; cache-only (`maxAgeHours: -1`) returned the full text in about 0.26 s. So a live crawl that does not finish is **not reported**: the response silently carries short content. This confirms that a request for a live crawl cannot be read as a confirmed one. A cheap guard that follows from it: treat a result whose text is far shorter than the requested budget as insufficient content (it could not support a price statement) rather than as a fresh page.
 - A user reading "confirmed" may assume independent confirmation. The finding text for the weaker basis should say "as of the time we asked the provider to fetch the page".
 
 ## Alternatives
