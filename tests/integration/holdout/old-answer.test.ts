@@ -87,7 +87,7 @@ describe('HOLDOUT 2: the old answer was wrong when it was given', () => {
     expectConsistent(r, a);
   });
 
-  it('HO-02c the prior-effect proof also holds at tier C when the baseline is tier C', async () => {
+  it('HO-02c a tier C page cannot retract a tier C baseline', async () => {
     const r = await start({
       steps: [[o(90)], [oEff(100, '1 November 2026')]],
       registry: 'none',
@@ -95,7 +95,7 @@ describe('HOLDOUT 2: the old answer was wrong when it was given', () => {
     await r.research();
     const a = await r.audit(8 * DAY);
     expectVerdict('HO-02c', a.verdict);
-    expect(a.finding?.verdictReason).toBe('other_value_in_effect_at_T0');
+    expect(a.finding?.verdictReason).toBe('low_authority_source');
     expectWording(a.verdict, a.text);
     expectConsistent(r, a);
   });

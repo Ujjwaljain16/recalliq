@@ -68,15 +68,15 @@ describe('HOLDOUT 3: the world changed, with proof', () => {
     expectConsistent(r, a);
   });
 
-  it('HO-03d re-observation bracketing needs no registry', async () => {
+  it('HO-03d re-observation bracketing on tier C pages alone is not proof of a change', async () => {
     const r = await start({ steps: [[o(90)], [o(90)], [o(100)]], registry: 'none' });
     await r.research();
     const mid = await r.audit(9 * DAY);
     expect(mid.verdict).toBe('no_evidence_of_change');
     const last = await r.audit(10 * DAY + 2 * HOUR);
     expectVerdict('HO-03d', last.verdict);
-    expect(last.finding?.verdictReason).toBe('same_source_bracketing');
-    expectWording(last.verdict, last.text, 'up');
+    expect(last.finding?.verdictReason).toBe('low_authority_source');
+    expectWording(last.verdict, last.text);
     expectConsistent(r, last);
   });
 });

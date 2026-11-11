@@ -436,3 +436,100 @@ import { decodePriceKey } from '../../../src/belief/belief-key.js';
 function decode(k: string) {
   return decodePriceKey(k);
 }
+
+describe('the low-authority gate (baseline poisoning)', () => {
+  /** A baseline whose only evidence is a tier C page, as every unlisted site is without an owner registry. */
+  const lowBaseline = (): Baseline =>
+    baseline({ evidence: [ev({ id: 'b0', tier: 'C', observedAt: T0 - H })] });
+  const bracket = (tier: 'A1' | 'B' | 'C', oldTier: 'A1' | 'B' | 'C' = tier) => [
+    ev({ id: 'old', amount: 90, tier: oldTier, observedAt: T0 + 2 * DAY }),
+    ev({ id: 'new', amount: 100, tier, observedAt: T0 + 10 * DAY }),
+  ];
+
+  it('a tier C baseline never yields changed, even with official bracketing', () => {
+    expect(detectConfirmed(baseline(), bracket('A1')).result.verdict).toBe('changed');
+    expect(detectConfirmed(lowBaseline(), bracket('A1')).result).toEqual({
+      verdict: 'differs_timing_unknown',
+      reason: 'low_authority_source',
+      direction: 'up',
+    });
+  });
+
+  it('a tier C baseline never yields changed from an official effective date', () => {
+    const nu = ev({
+      id: 'new',
+      amount: 100,
+      observedAt: T0 + 10 * DAY,
+      effectiveFrom: T0 + 3 * DAY,
+    });
+    expect(detectConfirmed(lowBaseline(), [nu]).result).toMatchObject({
+      verdict: 'differs_timing_unknown',
+      reason: 'low_authority_source',
+    });
+  });
+
+  it('a tier C baseline is never retracted as baseline_incorrect by a prior-effect statement', () => {
+    for (const tier of ['A1', 'C'] as const) {
+      const effective = ev({
+        id: 'e',
+        amount: 100,
+        tier,
+        observedAt: T0 + 10 * DAY,
+        effectiveFrom: T0 - 10 * DAY,
+      });
+      expect(detectConfirmed(lowBaseline(), [effective]).result).toMatchObject({
+        verdict: 'differs_timing_unknown',
+        reason: 'low_authority_source',
+      });
+    }
+  });
+
+  it('a current value resting only on tier C pages never yields changed against an official baseline', () => {
+    expect(detectConfirmed(baseline(), bracket('C')).result).toEqual({
+      verdict: 'differs_timing_unknown',
+      reason: 'low_authority_source',
+      direction: 'up',
+    });
+  });
+
+  it('a tier C re-observation of the old value cannot bracket an official new value', () => {
+    expect(detectConfirmed(baseline(), bracket('A1', 'C')).result).toMatchObject({
+      verdict: 'differs_timing_unknown',
+      reason: null,
+    });
+  });
+
+  it('a tier C baseline is never unchanged_confirmed, even against a fresh official page', () => {
+    const same = ev({ id: 'same', amount: 90, observedAt: T0 + 5 * DAY });
+    expect(detectConfirmed(baseline(), [same], 90).result.verdict).toBe('unchanged_confirmed');
+    expect(detectConfirmed(lowBaseline(), [same], 90).result).toEqual({
+      verdict: 'no_evidence_of_change',
+      reason: 'low_authority_source',
+    });
+  });
+
+  it('a winner that is not among the statements given counts as tier C', () => {
+    const [old, nu] = bracket('A1') as [VerifiedEvidence, VerifiedEvidence];
+    const all = [...baseline().evidence, old, nu];
+    const current: Belief = {
+      ...detectConfirmed(baseline(), [old, nu]).current,
+      winningEvidence: ['ev_elsewhere'],
+    };
+    expect(detector.price(baseline(), current, all, OK_COVERAGE).reason).toBe(
+      'low_authority_source',
+    );
+  });
+
+  it('tier B (a curated secondary source) passes the gate on both sides', () => {
+    const b = baseline({ evidence: [ev({ id: 'b0', tier: 'B', observedAt: T0 - H })] });
+    expect(detectConfirmed(b, bracket('B')).result).toMatchObject({
+      verdict: 'changed',
+      reason: 'same_source_bracketing',
+    });
+  });
+
+  it('a tier C baseline whose own evidence fails is still retracted by row 3 (no new evidence is used)', () => {
+    const failed = baseline({ evidence: [ev({ id: 'b0', tier: 'C', status: 'fail' })] });
+    expect(detect(failed, []).result.reason).toBe('unsupported_at_time');
+  });
+});
