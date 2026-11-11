@@ -81,7 +81,7 @@ describe('scripted answer pipeline', () => {
   async function run(userMessage: string) {
     const events: SseEvent[] = [];
     const result = await new ScriptedAnswer().run(
-      { findings: null, recall: new Map(), ctx: ctx('chat'), userMessage, window: [] },
+      { findings: null, recall: new Map(), ctx: ctx('chat'), userMessage, window: [], tz: 'UTC' },
       budget,
       (e) => events.push(e),
     );
