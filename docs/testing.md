@@ -339,6 +339,17 @@ Existing end-to-end tests that expected the fixed reply for an audit with a name
 
 Mutation checks, each restored afterwards and each made at least one test fail: shortlist resolution removed (10 failed); audit falling back to the fixed reply despite companies (10); the recalled question left out of the reply (8); year stripping removed (3); role instructions removed from the prompt (1, the prompt version test).
 
+### Research lane recall (added 2026-11-12, after a live rerun)
+
+Helpers shared by the scenario files are in `tests/integration/orchestration/scenario-world.ts` (real coordinator, SQLite, resolver, retriever and baseline source; recording doubles that log the order recall, plan, research, answer).
+
+| File | What it covers |
+|---|---|
+| `scenario-research-recall.test.ts` | The first and third questions as the real analyzer returned them in the live rerun (lane research): the Monday message recalled and quoted, the five tools researched; the Tuesday message recalled, Neon and Supabase taken from its tags or from stored entities, never the category; several conversations (with and without topic terms) a question; nothing derivable keeps the clarification and quotes what was found; another user's tagged message and entities never used |
+| `scenario-owner-properties.test.ts` | (a) recall before plan and search, by call order; (b) tags, categories never vendors; (c) several conversations: one option each, no research, no answer call; (d) the lead equals the retrieved excerpt, is absent when nothing was retrieved or the message is from another day; (e) 30 Tuesday cases (6 topic-term sets, including none, times 5 phrasings of the day, including "earlier today" and "yesterday") and 12 Monday cases; (f) zero analysed entities, both vendors researched from tags alone or from stored entities alone; (g) the lead is present when every finding is `unable_to_verify` (research lane, shortlist, audit lane, three failure codes); retrieval is not the whole day (other topics, the other candidate Tuesday, another user, an unrelated stored entity) |
+
+Mutation checks, each restored afterwards and each made at least one test fail: recall skipped in the research lane (73 failed); tags ignored (49); category filter removed (6); one of several conversations picked (1); lead sentence omitted (56); topic filter ignored so the whole day is returned (7); another user's messages included (9, three of them in the retriever's own tests); companies taken from all stored entities instead of the recalled message (4).
+
 ## Documentation checks (`tests/integration/docs.test.ts`)
 
 Added in the post-M2 documentation pass. They check the documents against each other and against the code; they do not test application behaviour.

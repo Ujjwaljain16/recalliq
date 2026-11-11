@@ -1,4 +1,3 @@
-import { resolveRecall } from '../../memory/recall.js';
 import type { ConversationId } from '../../shared/ids.js';
 import type { Baseline, DecisionRecord, MemoryCandidate } from '../../shared/memory.js';
 import type { DayInterval } from '../../shared/temporal.js';
@@ -9,7 +8,6 @@ import {
   ambiguousEntityOutcome,
   askedSentences,
   candidateAsHit,
-  clarifyOutcome,
   emitContext,
   emitEntityCap,
   emptyContext,
@@ -20,6 +18,7 @@ import {
   resolveShortlist,
   resolveTemporal,
 } from './common.js';
+import { recallDay } from './recall-context.js';
 import { runResearch } from './research-core.js';
 import type { LaneHandler, RecallTexts } from './types.js';
 
@@ -55,20 +54,8 @@ export const auditLane: LaneHandler = async (input, deps) => {
   let hits: MemoryCandidate[] = base.memoryHits;
   const asksAboutADay = input.analysis.temporal.some((t) => t.role === 'reference_conversation');
   if (asksAboutADay) {
-    const found = resolveRecall(
-      { resolver: deps.resolver, memory: deps.memory },
-      {
-        userId: input.userId,
-        mentions: input.analysis.temporal,
-        topicTerms: input.analysis.topicTerms,
-        tz: input.tz,
-        now: input.now,
-      },
-    );
-    if (found.kind === 'clarify') {
-      emitContext(input, base);
-      return clarifyOutcome(input, base, found.reason, found.question, found.options);
-    }
+    const found = recallDay(input, deps, base);
+    if (found.kind === 'clarify') return found.outcome;
     if (found.kind === 'none') {
       emitContext(input, base);
       return {
@@ -82,8 +69,10 @@ export const auditLane: LaneHandler = async (input, deps) => {
         ],
       };
     }
-    conversationIds = found.conversationIds as ConversationId[];
-    hits = found.hits;
+    if (found.kind === 'found') {
+      conversationIds = found.conversationIds;
+      hits = found.hits;
+    }
   }
   const recalledHits = asksAboutADay ? hits : [];
 
