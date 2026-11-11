@@ -11,7 +11,7 @@ export interface Logger {
   child(b: object): Logger;
 }
 
-export type BudgetStage = 'analysis' | 'search' | 'extraction' | 'judge' | 'synthesis';
+export type BudgetStage = 'analysis' | 'search' | 'extraction' | 'judge' | 'synthesis' | 'quick';
 export type BudgetOp =
   'search_retry' | 'extraction_retry' | 'extraction_split' | 'fallback_round' | 'judge';
 

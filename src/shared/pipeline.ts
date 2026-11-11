@@ -22,6 +22,13 @@ export interface ResearchRequest {
   now: Ms;
   budget: TurnBudget;
   emit: EventSink;
+  /**
+   * Optional. Called once, in a turn that will extract, after the searches of the first round returned and
+   * their snapshots were stored, before extraction starts. Receives the turn's sources with their content, in
+   * the order of their `source` events (already sent). The service does not wait for what the callback starts and
+   * ignores what it throws; the final `FindingSet.sources` keeps these keys first, in this order.
+   */
+  onSourcesReady?: (sources: FindingSet['sources']) => void;
 }
 
 /**

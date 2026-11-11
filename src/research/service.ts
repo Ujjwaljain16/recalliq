@@ -124,9 +124,25 @@ export class PipelineResearchService implements ResearchService {
     /** Every snapshot this turn's searches returned, in search order. */
     const turnSnapshots = new Map<SnapshotId, SourceSnapshot>();
 
+    const general = [...req.plan.specs, ...req.plan.fallback].every((s) => s.intent === 'general');
+    /** The sources sent early, in order; they stay the first keys of the final set (citation numbers). */
+    let early: FindingSet['sources'] | null = null;
+    const emitted = new Set<SnapshotId>();
     const round = async (n: 1 | 2, plan: ResearchRequest['plan']) => {
       const outcomes = await this.d.executor.execute(plan, n, budget, req.emit);
-      await this.process(req, states, allSnapshots, turnSnapshots, outcomes);
+      await this.process(req, states, allSnapshots, turnSnapshots, outcomes, () => {
+        // Once, when the first sources with content exist, before extraction starts (a turn that extracts).
+        if (early !== null || general || !req.onSourcesReady) return;
+        const sources = turnSources({});
+        if (Object.keys(sources).length === 0) return;
+        early = sources;
+        this.emitSources(req, sources, turnSnapshots, emitted);
+        try {
+          req.onSourcesReady(sources);
+        } catch {
+          /* an optional early hook never stops the research */
+        }
+      });
     };
     const terms = termsOf(
       ...req.analysis.queries,
@@ -136,10 +152,13 @@ export class PipelineResearchService implements ResearchService {
     );
     const turnSources = (sources: FindingSet['sources']): FindingSet['sources'] =>
       withTurnSources(sources, turnSnapshots, terms, (snap) =>
-        this.d.classifier.classify(snap, []),
+        this.d.classifier.classify(
+          snap,
+          // A source an entity's searches returned is judged against that entity's own domains.
+          [...states.values()].find((s) => s.snapshots.has(snap.id))?.entity.officialDomains ?? [],
+        ),
       );
 
-    const general = [...req.plan.specs, ...req.plan.fallback].every((s) => s.intent === 'general');
     if (general) {
       await round(1, req.plan);
       if (
@@ -151,7 +170,7 @@ export class PipelineResearchService implements ResearchService {
         await round(2, req.plan);
       }
       const set: FindingSet = { turnId, createdAt: now, findings: [], sources: turnSources({}) };
-      this.emitAll(req, set, turnSnapshots);
+      this.emitAll(req, set, turnSnapshots, emitted);
       return set;
     }
 
@@ -227,8 +246,11 @@ export class PipelineResearchService implements ResearchService {
       entities: inputs,
       snapshots: allSnapshots,
     });
-    const set: FindingSet = { ...assembled, sources: turnSources(assembled.sources) };
-    this.emitAll(req, set, allSnapshots);
+    const set: FindingSet = {
+      ...assembled,
+      sources: earlyFirst(early, turnSources(assembled.sources)),
+    };
+    this.emitAll(req, set, allSnapshots, emitted);
     return set;
   }
 
@@ -249,6 +271,7 @@ export class PipelineResearchService implements ResearchService {
     allSnapshots: Map<SnapshotId, SourceSnapshot>,
     turnSnapshots: Map<SnapshotId, SourceSnapshot>,
     outcomes: SearchOutcome[],
+    sourcesStored: () => void,
   ): Promise<void> {
     const { userId, turnId, now, budget, ctx } = req;
     const returned = [
@@ -299,6 +322,7 @@ export class PipelineResearchService implements ResearchService {
       }
       if (kept.length > 0) byEntity.set(entityId, kept);
     }
+    sourcesStored();
     if (byEntity.size === 0) return;
 
     const batches = this.d.batcher.pack(byEntity);
@@ -457,9 +481,23 @@ export class PipelineResearchService implements ResearchService {
     req: ResearchRequest,
     set: FindingSet,
     snapshots: Map<SnapshotId, SourceSnapshot>,
+    emitted: Set<SnapshotId>,
   ): void {
-    for (const [id, src] of Object.entries(set.sources)) {
+    this.emitSources(req, set.sources, snapshots, emitted);
+    for (const f of set.findings satisfies Finding[]) req.emit({ event: 'finding', data: f });
+  }
+
+  /** One `source` event per source, once: a source sent early is not sent again. */
+  private emitSources(
+    req: ResearchRequest,
+    sources: FindingSet['sources'],
+    snapshots: Map<SnapshotId, SourceSnapshot>,
+    emitted: Set<SnapshotId>,
+  ): void {
+    for (const [id, src] of Object.entries(sources)) {
       const sid = id as SnapshotId;
+      if (emitted.has(sid)) continue;
+      emitted.add(sid);
       const snap = snapshots.get(sid);
       req.emit({
         event: 'source',
@@ -475,6 +513,23 @@ export class PipelineResearchService implements ResearchService {
         },
       });
     }
-    for (const f of set.findings satisfies Finding[]) req.emit({ event: 'finding', data: f });
   }
+}
+
+/** The final sources with the ones already sent first, in the order they were sent. */
+function earlyFirst(
+  early: FindingSet['sources'] | null,
+  final: FindingSet['sources'],
+): FindingSet['sources'] {
+  if (early === null) return final;
+  const out: FindingSet['sources'] = {};
+  for (const [id, src] of Object.entries(early)) {
+    const sid = id as SnapshotId;
+    out[sid] = final[sid] ?? src;
+  }
+  for (const [id, src] of Object.entries(final)) {
+    const sid = id as SnapshotId;
+    if (!Object.hasOwn(out, sid)) out[sid] = src;
+  }
+  return out;
 }
