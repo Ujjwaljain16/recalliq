@@ -1,6 +1,6 @@
 # Model evaluation
 
-**Status: not run.** No live model call has been made for this project. This page contains no latency, token, cost, accuracy or failure-rate figure, because none has been measured. The model choice ([ADR-14](adr/ADR-14.md)) stays Proposed until a run recorded in section 5 exists.
+**Status: the benchmark has not been run.** The only live observation is one smoke check of two calls, recorded in section 5 as a single observation. It is not a benchmark and supports no latency, cost, accuracy or failure-rate claim. The model choice ([ADR-14](adr/ADR-14.md)) stays Proposed, and free-tier eligibility of any model is unverified.
 
 ## 1. What exists
 
@@ -11,7 +11,7 @@
 | Scripted fake, recording and replay adapters | `src/llm/fake.ts`, `src/llm/replay.ts` | Built. Replay never falls back to a live call. |
 | Client-side limiter, bounded retries with backoff and jitter | `src/llm/limiter.ts`, `src/llm/gemini/adapter.ts` | Built, unit-tested with injected time and randomness. |
 | Fixed benchmark set and harness | `src/llm/bench/`, `scripts/model-bench.ts` | Built and unit-tested against the fake adapter. **Not run against any model.** |
-| Live integration tests | `tests/integration/llm/gemini-live.test.ts` | Skipped unless `GEMINI_API_KEY` and `GEMINI_MODEL` are in `process.env`. They were skipped. |
+| Live integration tests | `tests/integration/llm/gemini-live.test.ts` | Skipped unless `GEMINI_API_KEY` and `GEMINI_MODEL` are in `process.env`. They ran once, by the owner (section 5). The per-test timeout is 60 s because the limiter spacing alone exceeds vitest's default 5 s. |
 
 Provider choice is explicit configuration. There is no fallback from one provider to another: a failure raises a typed `LlmError`.
 
@@ -58,6 +58,8 @@ Checked on 2026-11-12 against the public Gemini documentation, without a live ca
 4. `thoughtsTokenCount` is billed as output; it is added to `outputTokens` because the usage type has no separate field. `promptTokenCount` includes cached tokens, so input tokens are reported as prompt minus cached.
 5. No tool is enabled: no search grounding, no URL context, no function calling. The request body has no `tools` field, and a test asserts it.
 
+**After the single observation in section 5:** the two calls passed, which is consistent with assumptions 1 and 2 (host, header, and stream framing) but does not test assumptions 3 and 4 (error details, token accounting).
+
 **Free-tier model.** No model identifier is hard-coded and none is claimed to be free-tier eligible. The owner chooses the model through `GEMINI_MODEL`.
 
 ## 4. Recording rules
@@ -94,4 +96,22 @@ Notes:                     anything unexpected, including any wire-format assump
 
 ### Runs recorded
 
-None. The benchmark has not been run.
+#### Single observation, 2026-11-12 (not a benchmark)
+
+Observed by the owner. Recorded exactly as reported; nothing else was measured.
+
+```
+Date (UTC):               2026-11-12
+Adapter:                  gemini
+Model id (GEMINI_MODEL):  gemini-3.5-flash-lite
+Conditions:               synthetic prompts only, 2 calls (the two live tests), default limiter
+Result:                   both calls passed
+Observed:                 structured call 1.35 s; stream call 3.9 s (this includes the limiter's enforced spacing)
+Not recorded:             tokens, per-call latency split, cost, retries, quota context
+```
+
+Earlier failed attempt with a different model, same day: `gemini-2.5-flash-lite` returned HTTP 404 with the message "no longer available to new users". The adapter surfaced it as a typed `bad_request` error. Recorded as a failure of that model id for this account, not as a finding about the model's quality.
+
+Free-tier eligibility of `gemini-3.5-flash-lite` is not verified by this observation. Two calls say nothing about rates, quotas or reliability.
+
+The benchmark set (`bench-set-1`) has not been run.

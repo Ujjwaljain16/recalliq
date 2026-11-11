@@ -119,6 +119,9 @@ const WITHHELD: Array<[label: string, template: string]> = [
   ['updated', 'It was updated last week.'],
   ['changed, plain current value of a changed finding', 'Everything has changed [[F1]].'],
   ['jumped, plain current value of a changed finding', 'It jumped to [[F1]].'],
+  ['rose, plain current value of a changed finding', 'It rose sharply [[F1]].'],
+  ['dropped, plain current value of a changed finding', 'It dropped to [[F2]].'],
+  ['updated with a differs_timing_unknown verdict', 'It was updated: [[F5:verdict]].'],
   ['pricier, plain value only', 'ExampleCo1 is pricier [[F1]].'],
   ['jumped with the wrong direction', 'It jumped: [[F2:verdict]].'],
   ['slashed with the wrong direction', 'It was slashed: [[F1:verdict]].'],
@@ -162,7 +165,6 @@ const PASSES: Array<[label: string, template: string]> = [
   ['launched, launch verdict', 'They launched it: [[F6:verdict]].'],
   ['out of date, baseline incorrect', 'The old price was out of date: [[F4:verdict]].'],
   ['differs', 'It differs now: [[F5:verdict]].'],
-  ['updated, differs verdict', 'It was updated: [[F5:verdict]].'],
   ['unchanged, confirmed', 'It is unchanged: [[F3:verdict]].'],
   ['closing offer', 'Let me know if you want a deeper look.'],
   ['could not check', 'I could not check ExampleCo8 this time.'],
@@ -175,8 +177,6 @@ const PASSES: Array<[label: string, template: string]> = [
   ['billed annually', 'It is billed annually.'],
   ['free trials', 'ExampleCo1 and ExampleCo2 both have free trials.'],
   ['tracking', 'I will keep tracking it.'],
-  ['rose with an up finding, plain placeholder (existing family rule)', 'It rose sharply [[F1]].'],
-  ['dropped with a down finding (existing family rule)', 'It dropped to [[F2]].'],
   ['hyphen in a normal word', 'ExampleCo1 is a well-known vendor.'],
 ];
 

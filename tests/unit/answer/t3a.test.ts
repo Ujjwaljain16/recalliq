@@ -139,18 +139,26 @@ describe('T3a: verdict-word families need a compatible finding in the same sente
   const all = [up, down, same, quiet, differs, wrong, launched, removed];
 
   it.each([
-    ['raised', 'The price was raised: [[F1]].', 'The price was raised: [[F3]].'],
-    ['cut', 'They cut it: [[F2]].', 'They cut it: [[F1]].'],
-    ['unchanged', 'It is unchanged: [[F3]].', 'It is unchanged: [[F4]].'],
+    ['raised', 'The price was raised: [[F1:verdict]].', 'The price was raised: [[F3:verdict]].'],
+    ['cut', 'They cut it: [[F2:verdict]].', 'They cut it: [[F1:verdict]].'],
+    ['unchanged', 'It is unchanged: [[F3:verdict]].', 'It is unchanged: [[F4:verdict]].'],
     [
       'no evidence',
-      'There is no evidence of a change: [[F4]].',
-      'There is no evidence of a change: [[F1]].',
+      'There is no evidence of a change: [[F4:verdict]].',
+      'There is no evidence of a change: [[F1:verdict]].',
     ],
-    ['different now', 'It is different now: [[F5]].', 'It is different now: [[F3]].'],
-    ['launched', 'They launched it: [[F7]].', 'They launched it: [[F8]].'],
-    ['discontinued', 'They discontinued it: [[F8]].', 'They discontinued it: [[F7]].'],
-    ['was wrong', 'My answer was wrong: [[F6]].', 'My answer was wrong: [[F3]].'],
+    [
+      'different now',
+      'It is different now: [[F5:verdict]].',
+      'It is different now: [[F3:verdict]].',
+    ],
+    ['launched', 'They launched it: [[F7:verdict]].', 'They launched it: [[F8:verdict]].'],
+    [
+      'discontinued',
+      'They discontinued it: [[F8:verdict]].',
+      'They discontinued it: [[F7:verdict]].',
+    ],
+    ['was wrong', 'My answer was wrong: [[F6:verdict]].', 'My answer was wrong: [[F3:verdict]].'],
   ])('%s: allowed with its finding, flagged with another', (_name, good, bad) => {
     expect(check(good, { findings: all })).toEqual([]);
     expect(check(bad, { findings: all })).toEqual(['unsupported_verdict_word']);
@@ -158,19 +166,28 @@ describe('T3a: verdict-word families need a compatible finding in the same sente
 
   it('flags a verdict word with no placeholder at all, and with a direction that does not match', () => {
     expect(check('The price was raised.', { findings: all })).toEqual(['unsupported_verdict_word']);
-    expect(check('The price was lowered: [[F1]].', { findings: all })).toEqual([
+    expect(check('The price was lowered: [[F1:verdict]].', { findings: all })).toEqual([
       'unsupported_verdict_word',
     ]);
   });
 
-  it('a verdict word is fine when ANY finding placeholder of the sentence supports it', () => {
+  it('findings cannot borrow each other verdicts inside one sentence', () => {
     expect(
-      check('Raised for one, unchanged for the other: [[F1]] and [[F3]].', { findings: all }),
+      check('Raised for one, unchanged for the other: [[F1:verdict]] and [[F3:verdict]].', {
+        findings: all,
+      }),
+    ).toEqual(['unsupported_verdict_word']);
+    expect(
+      check('One was raised: [[F1:verdict]], and one is unchanged: [[F3:verdict]].', {
+        findings: all,
+      }),
     ).toEqual([]);
   });
 
   it('the same word with a "baseline" placeholder of a compatible finding is accepted (verdict belongs to the finding)', () => {
-    expect(check('It was raised from [[F1:baseline]] to [[F1]].', { findings: all })).toEqual([]);
+    expect(
+      check('It was raised from [[F1:baseline]] to [[F1:verdict]].', { findings: all }),
+    ).toEqual([]);
   });
 });
 
