@@ -30,7 +30,7 @@ npm run db:migrate       # create or open the database for APP_MODE (data/app.db
 rejects non-live data (fixture users, recorded or synthetic conversations, messages, entities, decisions, snapshots) and any
 attempt to relabel it or change `db_mode`. That is not _complete_ isolation: see [docs/proposals/demo-isolation.md](docs/proposals/demo-isolation.md).
 
-- Architecture decision records (39, with status and implementation for each): [docs/adr/README.md](docs/adr/README.md)
+- Architecture decision records (40, with status and implementation for each): [docs/adr/README.md](docs/adr/README.md)
 - Database schema as an ER diagram: [docs/diagrams/er.mmd](docs/diagrams/er.mmd)
 - Turn lifecycle, acknowledgement semantics and migrations: [docs/turn-lifecycle.md](docs/turn-lifecycle.md)
 - Test documentation and test-ID mapping: [docs/testing.md](docs/testing.md)

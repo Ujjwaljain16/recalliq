@@ -27,7 +27,7 @@ questions, including resolved ones and their history.
 | Q-012 | Acknowledgement before the answer is stored | open | — | [ADR-23](adr/ADR-23.md) |
 | Q-013 | Meaning of `AckRequest.complete` | open | — | [ADR-31](adr/ADR-31.md) |
 | Q-014 | JSON columns only partly validated | open | Milestones 3, 5 | [ADR-32](adr/ADR-32.md), [ADR-05](adr/ADR-05.md) |
-| Q-015 | Which assertions may become baselines | **applied** (rules and loader, M3); no caller until M5 | — | [ADR-38](adr/ADR-38.md) |
+| Q-015 | Which assertions may become baselines | **applied** (rules and loader); no caller until M5 | — | [ADR-38](adr/ADR-38.md) |
 | Q-016 | `recoverRunning` assumes one process | open | — | [ADR-34](adr/ADR-34.md), [ADR-33](adr/ADR-33.md) |
 | Q-017 | Behaviour added beyond the contract | applied | — | [ADR-30](adr/ADR-30.md), [ADR-32](adr/ADR-32.md) |
 | Q-018 | Test IDs introduced in M2 | applied → [testing.md](testing.md) | — | — |
@@ -367,7 +367,7 @@ The database records every assertion and its delivery state; it does not decide 
 - `F<n>:baseline`, `F<n>:verdict` and `F<n>:derived:<k>` are **not** baselines; only `F<n>` is;
 - an assertion in a sentence with status `unverified`, `unchecked` or `truncated` is recallable but **not** a baseline.
 
-Applied in milestone 3: `BaselineLoader` ([ADR-38](adr/ADR-38.md)) implements rules 1 to 5 and a separate `recallUnverified`; 20 tests. It has no caller until the audit lane (milestone 5).
+Applied in milestone 3: `BaselineLoader` ([ADR-38](adr/ADR-38.md)) implements rules 1 to 6 and a separate `recallUnverified`; 24 tests. It has no caller until the audit lane (milestone 5).
 
 ### Q-016: `recoverRunning` assumes one application process per database file — open
 

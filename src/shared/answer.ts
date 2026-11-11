@@ -1,5 +1,5 @@
 import type { FindingSet } from './findings.js';
-import type { FindingId, MessageId, SnapshotId } from './ids.js';
+import type { FindingId, IanaTz, MessageId, SnapshotId } from './ids.js';
 import type { TurnBudget } from './infrastructure.js';
 import type { ResolvedContext } from './memory.js';
 import type { EventSink } from './sse.js';
@@ -51,6 +51,8 @@ export interface AnswerPipeline {
       ctx: ResolvedContext;
       userMessage: string;
       window: Array<{ role: 'user' | 'assistant'; content: string }>;
+      /** The user's time zone: recalled times and dates are rendered in it. */
+      tz: IanaTz;
     },
     budget: TurnBudget,
     emit: EventSink,

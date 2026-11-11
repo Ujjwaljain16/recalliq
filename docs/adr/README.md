@@ -1,7 +1,7 @@
 # Architecture decision records
 
 One page per decision, recorded 2026-11-11 after milestones 1 and 2. ADR-01 to ADR-24 are the original register from
-[architecture.md](../architecture.md), restated against what is actually implemented. ADR-25 to ADR-39 record decisions made
+[architecture.md](../architecture.md), restated against what is actually implemented. ADR-25 to ADR-40 record decisions made
 during implementation, and open decisions raised since; they were never in the original register.
 
 **Provenance.** ADR-01 to ADR-24 were reconstructed on 2026-11-11 from the architecture §20 register (one summary row each) and the Stage 3 / 3.1 design documents. They are **not** recovered original ADR text; no earlier pages existed, and each page says so. Where a page cites a rationale, it comes from those documents. **Status** records whether the decision was made; **Implementation** records, separately, what the code and tests do today. ADR-25 to ADR-39 record decisions made
@@ -13,7 +13,7 @@ during implementation, and open decisions raised since; they were never in the o
 |---|---|
 | **Accepted** | The decision has been made (by the owner, or by an owner-approved design). It does **not** mean it is implemented: see the Implementation column |
 | **Proposed** | Not yet decided, or contingent on measurement or review. Nothing here is a settled fact |
-| **Superseded** | Replaced by a later ADR, which the page names. None are superseded today |
+| **Superseded** | Replaced by a later ADR, which the page names |
 
 | Implementation | Meaning |
 |---|---|
@@ -21,8 +21,8 @@ during implementation, and open decisions raised since; they were never in the o
 | partly implemented | Some of it exists; the page says exactly what |
 | not implemented | A design or a decision only |
 
-Counts: 39 ADRs. Accepted 35, Proposed 4, Superseded 0.
-Implemented 11, partly 14, not implemented 14.
+Counts: 40 ADRs. Accepted 35, Proposed 4, Superseded 1.
+Implemented 11, partly 14, not implemented 15.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
 latency, accuracy or cost has been measured. The weighted scores behind ADR-01 are the author's judgements. Numeric limits in ADR-09, ADR-10, ADR-15 and ADR-24 are
@@ -47,7 +47,7 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-13](ADR-13.md) | Deterministic belief resolution | Accepted | not implemented | Authority tier, then freshness, then recency; disagreement within a window is `contested`, not resolved silently. | [ADR-06](ADR-06.md), [ADR-21](ADR-21.md), [ADR-22](ADR-22.md) |
 | [ADR-14](ADR-14.md) | Models: Haiku 5.5 and Sonnet 5.5 behind an LLM port (provisional) | Proposed | not implemented | Haiku for analysis and judging, Sonnet for extraction and synthesis, behind `LlmPort`; to be confirmed by measurement. | [ADR-08](ADR-08.md), [ADR-10](ADR-10.md) |
 | [ADR-15](ADR-15.md) | Caching policy | Accepted | not implemented | A search cache that is bypassed for fresh-fetch and recent-date requests; prompt caching on fixed system prompts; no answer cache. | [ADR-09](ADR-09.md) |
-| [ADR-16](ADR-16.md) | Streaming: findings first, no hold-back, late verification only downgrades | Accepted | partly implemented | Checked findings are sent before any prose; sentences stream immediately; a late judge result may confirm or downgrade a sentence, never upgrade it. | [ADR-12](ADR-12.md), [ADR-23](ADR-23.md), [ADR-31](ADR-31.md) |
+| [ADR-16](ADR-16.md) | Streaming: findings first, no hold-back, late verification only downgrades | Superseded | partly implemented | Checked findings are sent before any prose; sentences stream immediately; a late judge result may confirm or downgrade a sentence, never upgrade it. | [ADR-12](ADR-12.md), [ADR-23](ADR-23.md), [ADR-31](ADR-31.md) |
 | [ADR-17](ADR-17.md) | A turn runs to completion after the client disconnects | Accepted | partly implemented | The server finishes the turn; what the user was told is decided by acknowledgements, not by completion. | [ADR-23](ADR-23.md), [ADR-24](ADR-24.md), [ADR-31](ADR-31.md) |
 | [ADR-18](ADR-18.md) | Test strategy: ports, recorded replay, fixed clock, offline by default | Accepted | partly implemented | External services sit behind ports; tests are offline and deterministic; live runs are separate and explicit. | [ADR-19](ADR-19.md) |
 | [ADR-19](ADR-19.md) | Evaluation data classes: recorded, synthetic, live | Accepted | partly implemented | Recorded real runs, synthetic edge cases on fictional `.example` entities, and live runs graded on invariants only, kept apart. | [ADR-18](ADR-18.md), [ADR-28](ADR-28.md) |
@@ -71,6 +71,7 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-37](ADR-37.md) | Locale as a dimension of the belief key | Accepted | not implemented | Locale (canonical BCP-47, `und` if unknown) is part of the belief key; different locales are incomparable. Applied to the contract and shared type; not implemented. | [ADR-21](ADR-21.md), [ADR-36](ADR-36.md), [Q-001](../questions.md) |
 | [ADR-38](ADR-38.md) | Which assertions may become historical baselines | Accepted | implemented | Recall needs presentation; baseline eligibility also needs the current-value placeholder, a verified sentence and passing evidence links. Only presentation gating exists in code. | [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md) |
 | [ADR-39](ADR-39.md) | Failure transitions from intermediate states | Proposed | not implemented | Decide which failures are recoverable, which are terminal, and how partial work is preserved, before the orchestrator is written. | [ADR-29](ADR-29.md), [ADR-33](ADR-33.md), [Q-011](../questions.md) |
+| [ADR-40](ADR-40.md) | Factual sentences are released only after validation | Accepted | not implemented | Received, validated and presented are separate states: only validated sentences are sent, one at a time; a sentence that fails a check is withheld, never shown and later downgraded. | [ADR-16](ADR-16.md), [ADR-23](ADR-23.md), [ADR-38](ADR-38.md) |
 
 ## How these relate to other documents
 

@@ -677,7 +677,7 @@ export interface PersistedSentence {
 }
 export interface AnswerPipeline {
   run(input: { findings: FindingSet | null; recall: Map<MessageId, { text: string; localTime: string }>; ctx: ResolvedContext;
-               userMessage: string; window: Array<{ role: 'user' | 'assistant'; content: string }> },
+               userMessage: string; window: Array<{ role: 'user' | 'assistant'; content: string }>; tz: IanaTz },
       budget: TurnBudget, emit: EventSink):
     Promise<{ sentences: PersistedSentence[]; streamedThrough: number; interrupted: boolean; template: string; rendered: string }>;
 }
@@ -719,7 +719,7 @@ export type SseEvent =
   | { event: 'answer.sentence_end'; data: { index: number; status: SentenceStatus | 'pending_judge'; issues: SentenceIssue[] } }
   | { event: 'verification'; data: { index: number; status: SentenceStatus; issues: SentenceIssue[] } }
   | { event: 'answer.completed'; data: { assistantMessageId: MessageId; sentences: Array<Pick<PersistedSentence, 'index' | 'status' | 'issues'>>; citations: SnapshotId[] } }
-  | { event: 'warning'; data: { code: 'search_partial' | 'deadline_compacted' | 'analysis_degraded' | 'judge_skipped' | 'entity_cap'; text: string } }
+  | { event: 'warning'; data: { code: 'search_partial' | 'deadline_compacted' | 'analysis_degraded' | 'judge_skipped' | 'entity_cap' | 'sentence_withheld'; text: string } }
   | { event: 'error'; data: { code: string; text: string; recoverable: boolean } }
   | { event: 'turn.completed'; data: { status: TerminalTurnStatus; metrics: Pick<TurnMetrics, 'ttfpMs' | 'ttftMs' | 'ttcMs'> } };
 

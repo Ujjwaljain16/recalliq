@@ -183,6 +183,26 @@ describe('ADR-38: each baseline rule, broken alone, makes a claim recall-only', 
     expect(recalled[0]?.reasons).toEqual([reason]);
   });
 
+  it.each(['contested', 'stale', 'unknown', 'unable_to_verify'] as const)(
+    'rule 6: a claim about a %s finding records an uncertainty and is recall-only',
+    (status) => {
+      const { t, loader, userId } = setup();
+      const valid = claim(t, { userId });
+      const hedged = claim(t, { userId, conversationId: valid.conversationId });
+      t.db
+        .prepare('UPDATE findings SET current_status = ? WHERE turn_id = ?')
+        .run(status, hedged.turnId);
+      const now = laterTurn(t, userId, valid.conversationId);
+
+      expect(loader.loadBaselines(userId, now).map((b) => b.assertionId)).toEqual([
+        valid.assertionId,
+      ]);
+      const recalled = loader.recallUnverified(userId, now);
+      expect(recalled.map((r) => r.assertionId)).toEqual([hedged.assertionId]);
+      expect(recalled[0]?.reasons).toEqual(['finding_not_confirmed']);
+    },
+  );
+
   it('rule 4: a value_json that is not a valid NormalizedValue is ineligible', () => {
     const { t, loader, userId } = setup();
     const c = claim(t, { userId });

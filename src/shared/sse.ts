@@ -61,7 +61,8 @@ export type SseEvent =
           | 'deadline_compacted'
           | 'analysis_degraded'
           | 'judge_skipped'
-          | 'entity_cap';
+          | 'entity_cap'
+          | 'sentence_withheld';
         text: string;
       };
     }

@@ -251,7 +251,12 @@ resolve(key, S_all, prev, now, policy):
 | `unchecked` | Needed T3b, but no result arrived before the deadline or the judge failed |
 | `truncated` | The last, incomplete sentence of an interrupted stream |
 
-5. **Timing: what happens when verification arrives after the sentence has streamed.**
+5. **Timing.** *(Revised 2026-11-12, [ADR-40](adr/ADR-40.md): factual sentences are released only after validation. The previous text, which streamed every sentence immediately and let late checks downgrade it, is kept below as history. Where they differ, this item wins.)*
+   - There are three states: **received** (model text held in the pipeline, never sent or stored), **validated** (passed placeholder authorisation, rendering, the render-integrity check, T3a and, where it applies, T3b) and **presented** (acknowledged as rendered by the browser).
+   - The unit of release is the sentence. A validated sentence is sent as one `answer.delta` with its complete rendered text, then `answer.sentence_end` with its final status. A sentence that fails a check, or needs T3b and gets no result within the cap, is **withheld**: not sent, not stored, no index consumed, and a `warning sentence_withheld` names the issues. An interrupted stream never sends its incomplete trailing sentence.
+   - `pending_judge` and the later `verification` event remain in the contract only for a defect found after release; they should not occur in normal operation.
+
+   *Previous text (superseded): how verification arriving after the sentence had streamed was handled.*
    - Sentence text streams immediately. **There is no hold-back.** This is safe because high-risk facts can only enter the text through placeholders that were verified beforehand.
    - The server emits `answer.sentence_end {index, status}` as soon as a sentence completes. The status is the T3a result, or `pending_judge`.
    - If T3b is still needed, a `verification {index, status, issues}` event follows later.
