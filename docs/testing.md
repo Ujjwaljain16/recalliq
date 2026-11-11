@@ -41,11 +41,22 @@ schema without losing data, and the Q-003 rules (connection PRAGMAs, no PRAGMA i
 
 | ID | Invariant | Test cases | Status |
 |---|---|---|---|
-| **T-TRN-01** | The database enforces the state machine and agrees with the TypeScript table | "accepts exactly the 19 edges and rejects every other ordered pair (182 probes)"; "rejects a state value that is not part of the state machine". Unit: 19 edges, 196-pair agreement, no dead ends, all states reachable | passed |
+| **T-TRN-01** | The database enforces the state machine and agrees with the TypeScript table | "accepts exactly the 26 edges and rejects every other ordered pair (182 probes)"; "rejects a state value that is not part of the state machine"; "every non-final state can move to PERSISTING (failure edges), and the turn can then be finalised". Unit: the 26 edges, every non-final state has a direct edge to PERSISTING and only PERSISTING reaches a final state, 196-pair agreement, no dead ends, all states reachable | passed |
 | **T-TRN-02** | Finished turns are final; turn identity is immutable; turn rows keep their shape; one running turn per conversation | the five tests of that group | passed |
-| **T-TRN-03** | `setState` validates every transition; final states only via `complete()`/`fail()`; owner scoping | the seven tests of that group (valid path, invalid jumps, two PERSISTING shortcuts, final states refused, finished turns refused, ownership, `fail`) | passed |
+| **T-TRN-03** | `setState` validates every transition; final states only via `complete()`/`fail()`; owner scoping | the seven tests of that group (valid path, invalid jumps, failure edges to PERSISTING from every non-final state, final states refused, finished turns refused, ownership, `fail`) | passed |
 | **T-TRN-04** | `begin`: creation, idempotent replay, key conflict, per-user keys, in-progress refusal (Q-006), retry validation, ownership, input validation | the eight tests of that group; plus "violatesOneRunningTurn recognises the real SQLite error, and only that one" | passed |
 | **T-TRN-05** | Recovery of running turns invents no answer, acknowledgement, presented claim or baseline; idempotent; survives a restart | the five tests of that group, including a file database reopened by a new connection | passed |
+
+### T-FAIL: failure edges and terminal states (ADR-39)
+
+| ID | Invariant | Test cases | Status |
+|---|---|---|---|
+| **T-FAIL-01** | An unexpected error in any non-final state (RECEIVED, ANALYZING, RESOLVING_CONTEXT, CLARIFYING, PLANNING, SEARCHING, EXTRACTING, VERIFYING, RESOLVING_BELIEFS, SYNTHESIZING, POST_VERIFYING) ends in a terminal failed turn: status `failed`, error code recorded, no assistant message, no findings or assertions, one SSE error event, no completion event, the original error rethrown and logged, the next turn in the conversation accepted, nothing left for restart recovery | one parametrised test per state in `tests/integration/orchestration/failure-edges.test.ts` (real SQLite and migrations, failing doubles for analyzer, memory, research service, answer pipeline and the turn store); a failure after the PERSISTING transition was applied | passed |
+| **T-FAIL-02** | The error code names the class: `replay_miss` (model or search fixture miss), `internal_error`, `contract_violation`, `persistence:<code>` (not shown to the client), `external_error` | the six tests of "the error code names the class" | passed |
+| **T-FAIL-03** | When the finalising write fails the coordinator falls back to `fail()`, and to restart recovery when the turn cannot reach PERSISTING or `fail()` is refused; the original error is the one reported | the three tests of "when the finalising write fails" | passed |
+| **T-FAIL-04** | Typed outcomes are unchanged: clarify, interrupted, partial, and a provider outage in the analyzer or the answer pipeline still produce their stored reply | the four tests of "normal typed outcomes are unchanged" | passed |
+| **T-FAIL-05** | Replay fixture misses (analysis, search, fewer search calls than made, synthesis) through the HTTP server: error event with `replay_miss`, a failed finished turn, no assistant message, no running turn, the next turn accepted; a database failure while storing evidence leaves a failed turn with a `persistence:` code | `tests/integration/e2e/replay-misses.test.ts`, `tests/integration/e2e/failures.test.ts` | passed |
+| **T-FAIL-06** | Migration 010 replaces only the transition trigger of migration 004, installs exactly the triggers the migrations declare (a trigger is recreated only after a DROP), and upgrades a populated version-8 database: rows kept, the new edges apply to a turn already in flight, the finality triggers survive | three tests in `tests/integration/db/migrations.test.ts` | passed |
 
 ### T-ASR: assertion persistence (`turn-completion.test.ts`)
 
@@ -154,7 +165,7 @@ Added in the post-M2 documentation pass. They check the documents against each o
 
 | Group | What it enforces |
 |---|---|
-| ADRs (9 tests) | numbers contiguous from 01 and unique; each has a title, a valid status (Proposed, Accepted, Superseded) and implementation value, and every required section in order; a Superseded ADR names its replacement; an ADR marked "implemented" links at least one test; the search-provider and model ADRs stay Proposed; the single-instance-guard and failure-transition ADRs (34, 39) stay Proposed; ADR-01 to ADR-24 and the index carry the reconstructed-not-recovered provenance statement; no ADR contains latency-percentile or millisecond figures; the index lists every ADR with the same title, status and implementation, and its counts are right |
+| ADRs (9 tests) | numbers contiguous from 01 and unique; each has a title, a valid status (Proposed, Accepted, Superseded) and implementation value, and every required section in order; a Superseded ADR names its replacement; an ADR marked "implemented" links at least one test; the search-provider and model ADRs stay Proposed; the single-instance-guard ADR (34) stays Proposed; ADR-01 to ADR-24 and the index carry the reconstructed-not-recovered provenance statement; no ADR contains latency-percentile or millisecond figures; the index lists every ADR with the same title, status and implementation, and its counts are right |
 | Links (3 tests) | every relative link in the README, `docs/questions.md`, `docs/testing.md`, `docs/turn-lifecycle.md`, the proposals and the ADRs resolves to a file; every ADR or question referred to by number exists; Q-001, Q-007, Q-011, Q-015 and Q-016 stay in the question log, and every question keeps its row in the summary table |
 | ER diagram (5 tests) | `docs/diagrams/er.mmd` draws exactly the tables of the schema the migrations create (the FTS5 virtual table excluded), with every column, type, primary-key and foreign-key flag; every foreign key appears once as a solid relationship with its ON DELETE action; dotted relationships are only for columns with no foreign key; nothing planned is drawn |
 
@@ -171,7 +182,9 @@ mutable identity, presented without acknowledgement, render beyond streamed, `no
 three ownership triggers, two isolation triggers). Every one made at least one test fail, and the sources were restored byte-identical. This is a manual
 spot check, not an automated mutation-testing run, and it does not show the tests are complete. The documentation checks were mutated the same way (16 breaks: a removed or added table or column,
 a wrong ON DELETE label, a bad status, a missing section, a broken link, an unknown ADR, a measurement decision marked Accepted, an unsupported "implemented" claim, an invented latency figure,
-a disagreeing or missing index row, a dropped open question or summary row); every one made a test fail and the documents were restored identical. The two gates added in the final documentation pass (provenance statement, ADR-34 and ADR-39 staying Proposed) were each mutated once (a provenance line removed from ADR-12; ADR-34 set to Accepted) and each failed as expected.
+a disagreeing or missing index row, a dropped open question or summary row); every one made a test fail and the documents were restored identical. The two gates added in the final documentation pass (provenance statement, ADR-34 staying Proposed) were each mutated once (a provenance line removed from ADR-12; ADR-34 set to Accepted) and each failed as expected.
+
+The failure edges (ADR-39) were mutated four times, each restored identical: an edge removed from the migration trigger only (15 tests failed: the pair-by-pair comparison, the migration tests and the per-state failure tests), an edge removed from the TypeScript table only (5 failed), the failure path made a no-op so an unexpected error leaves the turn running (32 failed), and the failure path writing status `complete` instead of `failed` (29 failed).
 
 ## Known gaps in the tests
 
