@@ -20,7 +20,7 @@ Read at startup and validated together; an error names the variable and the rule
 | `PORT`, `HOST` | Listening port (default 3001) and address (default `127.0.0.1`) |
 | `ALLOWED_ORIGIN` | The one cross-origin origin allowed to call the API (CORS with credentials) |
 | `SESSION_SECRET` | At least 32 characters; signs the session cookie. Unset in development: a random secret is generated for the process and a warning is logged (sessions end at restart). Required when `NODE_ENV=production` |
-| `APP_COMPONENTS` | `scripted` or `live`. Default `scripted` unless a provider key is set. `live` fails fast, naming the missing components; it never falls back to scripted |
+| `APP_COMPONENTS` | `scripted`, `replay` or `live`, fixed for the life of the process. Default `scripted`. `replay` runs the real pipeline against recorded fixtures (`APP_MODE=demo` and `REPLAY_FIXTURE` required). `live` runs the real pipeline against Gemini and Exa (`APP_MODE=real`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `EXA_API_KEY` required). A missing variable fails at startup and names it. No set ever falls back to another. See [running.md](running.md) |
 | `SHUTDOWN_GRACE_MS` | How long a shutdown waits for running turns to persist (default 15000) |
 | `SCRIPTED_PACE_MS` | Pause between scripted sentences so the stream is visible (default 120) |
 
@@ -60,7 +60,7 @@ limited to 32 KiB (`413`).
 
 ### `GET /api/health`
 
-`{ "status": "ok", "mode": "real|demo", "components": "scripted|live", "banner": string | null }`. No session.
+`{ "status": "ok", "mode": "real|demo", "components": "scripted|replay|live", "banner": string | null }`. No session.
 
 ### `POST /api/conversations`
 

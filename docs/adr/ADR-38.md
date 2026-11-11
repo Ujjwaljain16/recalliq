@@ -59,7 +59,7 @@ A baseline keeps its original evidence links and the sentence status it had when
 
 - The loader: [src/db/repositories/baseline-loader.ts](../../src/db/repositories/baseline-loader.ts) (rule 6 added on 2026-11-12, reason `finding_not_confirmed`). `loadBaselines` returns the eligible claims; `recallUnverified` returns presented claims that are not eligible, labelled unverified with the reasons. Tested rule by rule, each broken in isolation next to a valid claim, plus cross-user isolation, by [tests/integration/db/baseline-loader.test.ts](../../tests/integration/db/baseline-loader.test.ts). Presentation is also enforced by the database (T-ASR-05 in [tests/integration/db/turn-completion.test.ts](../../tests/integration/db/turn-completion.test.ts), ADR-31).
 - Where assertions are built: `buildAssertions` in [src/orchestration/prepare.ts](../../src/orchestration/prepare.ts) makes one assertion per rendered `[[F…]]` placeholder of a sent sentence, recording exactly what was rendered; message and source placeholders make none. Eligibility is decided only by the loader above, so the builder never has to judge a claim.
-- **No caller yet:** the audit lane that uses it is milestone 5. Claims from the audit's own turn are excluded from both methods (an implementation choice, not stated in the rules above).
+- Caller: the audit lane, through `LoaderBaselineSource` in [src/app/store-adapters.ts](../../src/app/store-adapters.ts), which turns eligible claims into baselines (decoding the belief key and loading the stored evidence). Exercised end to end with replayed providers only. Claims from the audit's own turn are excluded from both methods (an implementation choice, not stated in the rules above).
 
 ## Revisit when
 
