@@ -114,6 +114,7 @@ const REASON_TEXT: Record<string, string> = {
   quota_exhausted: 'the search quota was used up',
   extraction_failed: 'the pages could not be read',
   deadline: 'time ran out',
+  insufficient_coverage: 'too few recent release sources were found to say there were none',
 };
 
 /**
@@ -125,6 +126,13 @@ function unableText(f: Finding): string {
   return `couldn't be checked this time (${reasonText(f.verdictReason ?? f.coverage.failure)})`;
 }
 
+/** The first condition text of a contested value, trimmed to stay readable; null when there is none. */
+function conditionText(conditions: readonly string[] | undefined): string | null {
+  const c = conditions?.find((x) => x.trim() !== '')?.trim();
+  if (c === undefined) return null;
+  return c.length > 90 ? `${c.slice(0, 87).trimEnd()}...` : c;
+}
+
 function currentText(f: Finding, records: AnswerRecords): string {
   if (f.currentStatus === 'unable_to_verify') return unableText(f);
   if (f.intent === 'releases') return releasesText(f, records);
@@ -133,14 +141,20 @@ function currentText(f: Finding, records: AnswerRecords): string {
   if (cur?.contested && cur.contested.length >= 2) {
     const per = cur.contested.map((cv, i) => {
       const own = cur.citations.length >= cur.contested!.length ? cur.citations[i] : undefined;
-      return withCites(valueText(cv.value, f.beliefKey), own ? cites([own], records) : '');
+      const cond = conditionText(cv.conditions);
+      return withCites(
+        `${valueText(cv.value, f.beliefKey)}${cond === null ? '' : ` (${cond})`}`,
+        own ? cites([own], records) : '',
+      );
     });
     const joined =
       per.length === 2
         ? per.join(' and ')
         : `${per.slice(0, -1).join(', ')} and ${per[per.length - 1]}`;
     const extra = cur.citations.length < cur.contested.length ? ` ${c}` : '';
-    return `listed as ${joined}${extra} — official sources disagree`;
+    // Values that each carry their own condition are a tiered listing, not a disagreement between sources.
+    const tiered = cur.contested.every((cv) => conditionText(cv.conditions) !== null);
+    return `listed as ${joined}${extra}${tiered ? ' depending on the conditions shown' : ' — official sources disagree'}`;
   }
   if (!cur?.value) return 'no verified price was found';
   const text = valueText(cur.value, f.beliefKey);

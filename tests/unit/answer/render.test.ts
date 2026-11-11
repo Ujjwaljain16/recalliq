@@ -91,6 +91,51 @@ describe('rendering of findings by code', () => {
     expect(render(f, 'F1:baseline')).toBe('US$90 per user per month (pro) as of 3 Nov 2026 [1]');
   });
 
+  it('a tiered listing names each value with its condition and does not call it a disagreement', () => {
+    const contested = (conds: Array<string[] | undefined>) =>
+      finding(1, {
+        currentStatus: 'contested',
+        current: {
+          value: null,
+          displayedAt: null,
+          verifiedAt: null,
+          citations: [SRC_1, SRC_2],
+          pendingSignals: [],
+          contested: [
+            { value: USD, evidenceIds: [], ...(conds[0] ? { conditions: conds[0] } : {}) },
+            {
+              value: { ...USD, amount: 100 },
+              evidenceIds: [],
+              ...(conds[1] ? { conditions: conds[1] } : {}),
+            },
+          ],
+        },
+      });
+    expect(
+      render(contested([['Starter subscriptions'], ['Professional subscriptions']]), 'F1'),
+    ).toBe(
+      'listed as US$90 per user per month (pro) (Starter subscriptions) [1] and US$100 per user per month (pro) (Professional subscriptions) [2] depending on the conditions shown',
+    );
+    // One value without a condition: still a disagreement between sources.
+    expect(render(contested([['Starter subscriptions'], undefined]), 'F1')).toMatch(
+      / — official sources disagree$/,
+    );
+    const long = 'x'.repeat(200);
+    expect(render(contested([[long], ['  ']]), 'F1')).toContain(`(${'x'.repeat(87)}...)`);
+  });
+
+  it('release coverage too thin to support a negative says so in words', () => {
+    const f = finding(1, {
+      intent: 'releases',
+      currentStatus: 'unable_to_verify',
+      verdict: 'unable_to_verify',
+      verdictReason: 'insufficient_coverage',
+    });
+    expect(render(f, 'F1')).toBe(
+      "couldn't be checked this time (too few recent release sources were found to say there were none)",
+    );
+  });
+
   it('derived values: amount with its formula', () => {
     const f = finding(1, {
       derived: [
