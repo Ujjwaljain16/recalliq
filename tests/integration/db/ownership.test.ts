@@ -11,7 +11,7 @@ import {
 } from '../../helpers/db.js';
 
 /**
- * Q-007, resolved by migration 003: a row may only reference rows owned by the same user as its owning
+ * Ownership consistency (migration 003): a row may only reference rows owned by the same user as its owning
  * turn. These tests open the database at version 3 so that the error each one expects comes from migration
  * 003 itself and cannot be produced by a later migration's trigger.
  *
@@ -34,7 +34,7 @@ function world() {
   return { t, alice: make('alice-co'), bob: make('bob-co') };
 }
 
-describe('Q-007: evidence ownership (migration 003)', () => {
+describe('ownership: evidence (migration 003)', () => {
   it('accepts evidence whose turn, snapshot and entity all belong to its user', () => {
     const { t, alice } = world();
     expect(() => insertEvidence(t.db, alice)).not.toThrow();
@@ -69,7 +69,7 @@ describe('Q-007: evidence ownership (migration 003)', () => {
   });
 });
 
-describe('Q-007: finding ownership (migration 003)', () => {
+describe('ownership: findings (migration 003)', () => {
   it('accepts a finding about an entity of the turn’s user', () => {
     const { t, alice } = world();
     expect(() => insertFinding(t.db, alice)).not.toThrow();
@@ -101,7 +101,7 @@ describe('Q-007: finding ownership (migration 003)', () => {
   });
 });
 
-describe('Q-007: assertion ownership (migration 003)', () => {
+describe('ownership: assertions (migration 003)', () => {
   function withAssistantMessages() {
     const w = world();
     const aliceAnswer = insertAssistantMessage(w.t, w.alice);
@@ -201,7 +201,7 @@ describe('Q-007: assertion ownership (migration 003)', () => {
   });
 });
 
-describe('Q-007: ownership holds on the real write path at the latest schema', () => {
+describe('ownership: holds on the real write path at the latest schema', () => {
   it('turn completion cannot cite another user’s evidence, and writes nothing when it tries', () => {
     // covered end to end in turn-completion.test.ts ("cross-user evidence"); this guard only pins that the
     // latest schema still carries the migration 003 triggers.

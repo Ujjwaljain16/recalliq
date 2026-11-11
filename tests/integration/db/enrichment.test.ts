@@ -349,7 +349,7 @@ describe('write-time enrichment: atomicity', () => {
     expect(written(t)).toEqual(NOTHING);
   });
 
-  it('still rejects touchedBeliefKeys (milestone 4)', () => {
+  it('still rejects touchedBeliefKeys (belief recomputation is not supported yet)', () => {
     const t = openTestDb();
     const w = turn(t);
     expect(() =>

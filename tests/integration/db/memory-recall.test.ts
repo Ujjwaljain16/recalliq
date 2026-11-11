@@ -6,7 +6,7 @@ import { insertEntity, openTestDb, T0 } from '../../helpers/db.js';
 import { advance, buildCompletion, startTurn } from '../../helpers/turns.js';
 
 /**
- * M3 across its three parts on the real write path: a turn is completed with write-time enrichment
+ * Date resolution, retrieval and recall together, on the real write path: a turn is completed with write-time enrichment
  * (message_search written by complete()), then the resolver and the retriever recall it by date and by
  * topic. Nothing here inserts into message_search by hand.
  */
@@ -42,7 +42,7 @@ function completedTurn(text: string, tags: string[]) {
   return { t, userId, conversationId, ask };
 }
 
-describe('M3 integration: enrichment -> resolver -> retriever -> recall', () => {
+describe('memory and recall: enrichment -> resolver -> retriever -> recall', () => {
   it('recalls yesterday by body text, by an enrichment tag, and with no terms', () => {
     const { conversationId, ask } = completedTurn('Which CRM should we shortlist?', ['pipeline']);
     for (const terms of [['shortlist'], ['pipeline'], []]) {

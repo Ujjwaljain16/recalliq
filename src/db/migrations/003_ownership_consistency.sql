@@ -1,7 +1,7 @@
--- 003_ownership_consistency: resolves Q-007 for evidence, findings and assertions (docs/questions.md).
+-- 003_ownership_consistency: ownership consistency for evidence, findings and assertions (docs/questions.md, "user_id consistency").
 -- Triggers only. A row may only reference rows owned by the same user as its owning turn.
 --
--- Not covered here (still open in Q-007): search_requests, decisions, source_snapshots-by-turn, beliefs.
+-- Not covered here: search_requests, decisions, source_snapshots-by-turn, beliefs (later migrations cover some of these).
 -- Findings have no user_id column; their owner is their turn's owner, so the check is on what they reference.
 
 -- evidence_statements: the turn, the snapshot and the entity must all belong to the evidence's user.

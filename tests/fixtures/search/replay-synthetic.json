@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "class": "synthetic",
+  "label": "[SYNTHETIC] hand-authored; derived from exa-pricing-text.json by normaliseExaResponse, not a real recording",
+  "exchanges": [
+    {
+      "key": "bdd63d2258e2fc976d4480355dc66edc7ea1d78239d0b1d26bd6373547530d7b",
+      "request": {
+        "query": "AcmeCRM pricing",
+        "numResults": 5,
+        "includeDomains": ["acmecrm.example"],
+        "freshness": "live",
+        "liveTimeoutMs": 5000,
+        "contentMode": "text",
+        "contentChars": 6000
+      },
+      "response": {
+        "provider": "exa",
+        "hits": [
+          {
+            "url": "https://www.acmecrm.example/pricing?utm_source=newsletter",
+            "title": "[SYNTHETIC] AcmeCRM Pricing",
+            "text": "# AcmeCRM Pricing\n\n## Plans (USD, billed annually)\n\n| Plan | Price per user / month | Contacts |\n|---|---|---|\n| Starter | $20 | 1,000 |\n| Pro | $90 | 10,000 |\n| Enterprise | Contact sales | Unlimited |\n\nPrices shown in US dollars (USD).\n",
+            "publishedAt": 1790812800000,
+            "lastUpdatedAt": null,
+            "providerScore": null,
+            "freshFetch": true,
+            "crawlStatus": "ok"
+          },
+          {
+            "url": "https://blog.reviewsite.example/acmecrm-vs-zenflow",
+            "title": "[SYNTHETIC] AcmeCRM vs ZenFlow",
+            "text": "## AcmeCRM vs ZenFlow\n\nZenFlow Pro costs $75 per seat. AcmeCRM Pro costs $90 per seat.",
+            "publishedAt": 1789201800000,
+            "lastUpdatedAt": null,
+            "providerScore": null,
+            "freshFetch": false,
+            "crawlStatus": "ok"
+          },
+          {
+            "url": "https://acmecrm.example/legacy",
+            "title": null,
+            "text": "Legacy page. Pro plan was $70 per user per month until 2025.",
+            "publishedAt": null,
+            "lastUpdatedAt": null,
+            "providerScore": null,
+            "freshFetch": false,
+            "crawlStatus": "failed"
+          }
+        ],
+        "droppedMalformed": 0,
+        "latencyMs": 412,
+        "costUsd": 0.007,
+        "observedAt": 1794391200000
+      },
+      "providerRaw": {
+        "requestId": "[SYNTHETIC]-req-0001",
+        "searchTime": 412,
+        "costDollars": {
+          "total": 0.007
+        },
+        "results": [
+          {
+            "id": "https://www.acmecrm.example/pricing?utm_source=newsletter",
+            "url": "https://www.acmecrm.example/pricing?utm_source=newsletter",
+            "title": "[SYNTHETIC] AcmeCRM Pricing",
+            "publishedDate": "2026-10-01T00:00:00.000Z",
+            "text": "# AcmeCRM Pricing\n\n## Plans (USD, billed annually)\n\n| Plan | Price per user / month | Contacts |\n|---|---|---|\n| Starter | $20 | 1,000 |\n| Pro | $90 | 10,000 |\n| Enterprise | Contact sales | Unlimited |\n\nPrices shown in US dollars (USD).\n"
+          },
+          {
+            "id": "https://blog.reviewsite.example/acmecrm-vs-zenflow",
+            "url": "https://blog.reviewsite.example/acmecrm-vs-zenflow",
+            "title": "[SYNTHETIC] AcmeCRM vs ZenFlow",
+            "publishedDate": "2026-09-12T08:30:00.000Z",
+            "text": "## AcmeCRM vs ZenFlow\n\nZenFlow Pro costs $75 per seat. AcmeCRM Pro costs $90 per seat."
+          },
+          {
+            "id": "https://acmecrm.example/legacy",
+            "url": "https://acmecrm.example/legacy",
+            "title": null,
+            "text": "Legacy page. Pro plan was $70 per user per month until 2025."
+          }
+        ],
+        "statuses": [
+          {
+            "id": "https://www.acmecrm.example/pricing?utm_source=newsletter",
+            "status": "success",
+            "source": "live"
+          },
+          {
+            "id": "https://blog.reviewsite.example/acmecrm-vs-zenflow",
+            "status": "success",
+            "source": "cached"
+          },
+          {
+            "id": "https://acmecrm.example/legacy",
+            "status": "error",
+            "source": "cached"
+          }
+        ]
+      }
+    }
+  ]
+}

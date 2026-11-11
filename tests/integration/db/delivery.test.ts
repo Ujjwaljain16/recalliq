@@ -40,7 +40,7 @@ const presentedIndexes = (t: TestDb, a: CompletedAnswer) =>
     .filter((x) => x.delivery === 'presented')
     .map((x) => x.sentenceIndex);
 
-/** What the baseline loader of milestone 3 will read: assertions the browser actually acknowledged. */
+/** What the baseline loader reads: assertions the browser actually acknowledged. */
 const baselines = (t: TestDb, a: CompletedAnswer): string[] =>
   (
     t.db

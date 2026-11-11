@@ -9,6 +9,7 @@ Status: **approved 2026-11-12, interfaces frozen.** Written against the reposito
 | D1 locale | Approved: canonical BCP-47 in `PriceBeliefKey` and the encoded key, `und` for unknown, regional distinctions kept, different locales incomparable, an unknown locale cannot independently establish `changed`. Applied to ADR-37, contracts §2 and `src/shared/belief.ts`. |
 | D2 Q-001 | Approved: observation = immutable timestamped snapshot with sufficient content and validated supporting pricing evidence; source identity = `url_norm` keeping meaningful query parameters and removing only tracking ones; comparability = `comparableKeys === 'equal'` including locale; the baseline's own fetch never counts; effective dates may establish timing, publication and fetch dates may not. Applied to ADR-36, architecture §8 and Q-001. No weaker rule may be implemented. |
 | D3 benchmarks | Adapters and harnesses against recorded fixtures first. ADR-08 and ADR-14 stay Proposed until a benchmark has actually run. The owner configures credentials in an ignored `.env` and approves live spending separately. No credential is committed and no result is invented. |
+| D2 amendment | The fresh-crawl reading of "sufficient content" is relaxed: provider-cached copies may be observations under the conditions in ADR-36 (content as-of time required for a positive `changed`). Cache age or capture time in the contract is open (Q-019). |
 | D4 application surface | A separate **milestone 5.5**: HTTP server, SSE endpoint, acknowledgement endpoint, session handling, a minimal usable web client and `npm run dev`. Reviewers must be able to interact with the agent; this is not deferred into milestone 6. |
 | D5 sequencing | Done: M3 merged on `m3/integration`, full suite and fresh-database initialisation (schema version 6) verified before the M4/M5 worktrees were created. M3 is **not** merged into `main`. |
 | D6 agents | Four implementation agents plus the orchestrator. |
@@ -123,7 +124,7 @@ Strict TypeScript, no `any`, `unknown` at untrusted boundaries, zod at those bou
 1. M3: merge `m3/enrichment`, run the full suite, check migrations from a fresh database. This commit is the base.
 2. Apply D1 (and D2 if confirmed); add `src/shared/pipeline.ts`; commit as the frozen base.
 3. Fork A, B, C, D.
-4. Merge A, then B (against A's `SnapshotReader` and executor), then C (mocks first), then D. Run the full suite after each merge.
+4. M5.5 (HTTP server, SSE and ack endpoints, session handling, minimal web client, `npm run dev`, end-to-end tests of a real user interaction) is staffed when Agent C has reported and its coordinator interface has passed review, in the freed slot; it consumes only the coordinator's public interface. Merge A, then B (against A's `SnapshotReader` and executor), then C (mocks first), then D. Run the full suite after each merge.
 5. Wire the real `ResearchService` and `AnswerPipeline` into the coordinator; replace the mocks; write the first end-to-end test with recorded fixtures.
 6. Implement the `ChangeDetector` if D2 was deferred.
 7. Offline replay, then controlled live runs (only after D3), reported separately.

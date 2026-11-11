@@ -39,7 +39,8 @@ export type IneligibleReason =
   | 'missing_belief_key'
   | 'missing_or_invalid_value'
   | 'no_evidence'
-  | 'evidence_not_passed';
+  | 'evidence_not_passed'
+  | 'finding_not_confirmed';
 
 export interface PresentedClaim {
   assertionId: AssertionId;
@@ -97,6 +98,7 @@ const row = z.object({
   sentences_json: z.string().nullable(),
   evidence_count: z.number().int(),
   evidence_not_passed: z.number().int(),
+  finding_status: z.string(),
 });
 const evidenceRow = z.object({ assertion_id: z.string(), evidence_id: z.string() });
 
@@ -177,9 +179,11 @@ export class BaselineLoader {
               (SELECT count(*) FROM assertion_evidence ae WHERE ae.assertion_id = a.id) AS evidence_count,
               (SELECT count(*) FROM assertion_evidence ae
                  JOIN evidence_statements e ON e.id = ae.evidence_id
-                WHERE ae.assertion_id = a.id AND e.verification_status <> 'pass') AS evidence_not_passed
+                WHERE ae.assertion_id = a.id AND e.verification_status <> 'pass') AS evidence_not_passed,
+              f.current_status AS finding_status
          FROM assertions a
          JOIN messages m ON m.id = a.message_id AND m.user_id = a.user_id
+         JOIN findings f ON f.id = a.finding_id
         WHERE a.user_id = ? AND a.presented_at IS NOT NULL AND a.turn_id <> ?${where}
         ORDER BY a.presented_at DESC, a.id`,
       row,
@@ -215,6 +219,8 @@ export class BaselineLoader {
       if (value === null) reasons.push('missing_or_invalid_value');
       if (r.evidence_count === 0) reasons.push('no_evidence');
       else if (r.evidence_not_passed > 0) reasons.push('evidence_not_passed');
+      // A statement about a contested, stale, unknown or unverifiable finding records an uncertainty, not a fact.
+      if (r.finding_status !== 'confirmed') reasons.push('finding_not_confirmed');
       return {
         claim: {
           assertionId: parseId('asr', r.id),

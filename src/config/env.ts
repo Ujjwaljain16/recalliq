@@ -10,12 +10,15 @@ export interface AppConfig {
   port: number;
   allowedOrigin: string;
   models: { fast: string; main: string };
+  /** Free-tier Gemini model id for the Gemini adapter (GEMINI_MODEL). No default: the owner picks an eligible model. */
+  gemini: { model: string | undefined };
   /**
-   * Secrets are optional at this layer: the milestone-1 database tooling needs none of them.
+   * Secrets are optional at this layer: the database tooling needs none of them.
    * The composition root of the research pipeline asserts the ones it uses are present.
    */
   secrets: {
     anthropicApiKey: string | undefined;
+    geminiApiKey: string | undefined;
     exaApiKey: string | undefined;
     sessionSecret: string | undefined;
   };
@@ -41,6 +44,8 @@ const envSchema = z.object({
   MODEL_FAST: z.preprocess(blankToUndefined, z.string().min(1).default('claude-haiku-5-5')),
   MODEL_MAIN: z.preprocess(blankToUndefined, z.string().min(1).default('claude-sonnet-5-5')),
   ANTHROPIC_API_KEY: optionalString,
+  GEMINI_API_KEY: optionalString,
+  GEMINI_MODEL: optionalString,
   EXA_API_KEY: optionalString,
   // Signs the anonymous user cookie, so a short value is a security defect rather than a typo.
   SESSION_SECRET: z.preprocess(blankToUndefined, z.string().min(32).optional()),
@@ -71,8 +76,10 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
     port: e.PORT,
     allowedOrigin: e.ALLOWED_ORIGIN,
     models: { fast: e.MODEL_FAST, main: e.MODEL_MAIN },
+    gemini: { model: e.GEMINI_MODEL },
     secrets: {
       anthropicApiKey: e.ANTHROPIC_API_KEY,
+      geminiApiKey: e.GEMINI_API_KEY,
       exaApiKey: e.EXA_API_KEY,
       sessionSecret: e.SESSION_SECRET,
     },

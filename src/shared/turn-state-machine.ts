@@ -1,7 +1,7 @@
 import type { TurnState } from './turn.js';
 
 /**
- * The turn state machine, exactly as drawn in docs/stage-3-architecture.md §4 (19 edges).
+ * The turn state machine, exactly as drawn in docs/architecture.md §4 (19 edges).
  *
  * This table is the application-level source of truth. Migration 004 enforces the same table in the
  * database; tests/integration/db/turn-lifecycle.test.ts checks every (from, to) pair against both.

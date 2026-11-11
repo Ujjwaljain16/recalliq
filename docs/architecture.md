@@ -2,9 +2,9 @@
 
 **Status:** approved direction, reconciled in Stage 3.1 on 2026-11-11.
 **Companion documents:**
-- [stage-3-contracts.md](stage-3-contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
-- [design-doc-blueprint.md](design-doc-blueprint.md): plan for DESIGN.md.
-- [stage-3.1-review.md](stage-3.1-review.md): what changed in 3.1 and why.
+- [contracts.md](contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
+- [design-doc-blueprint.md](history/design-doc-blueprint.md): the plan for the final design document (historical).
+- [design-review.md](history/design-review.md): the record of the first design reconciliation (historical).
 
 The Stage 2 decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, Exa as provisional search provider, and Haiku + Sonnet as provisional models.
 
@@ -251,7 +251,12 @@ resolve(key, S_all, prev, now, policy):
 | `unchecked` | Needed T3b, but no result arrived before the deadline or the judge failed |
 | `truncated` | The last, incomplete sentence of an interrupted stream |
 
-5. **Timing: what happens when verification arrives after the sentence has streamed.**
+5. **Timing.** *(Revised 2026-11-12, [ADR-40](adr/ADR-40.md): factual sentences are released only after validation. The previous text, which streamed every sentence immediately and let late checks downgrade it, is kept below as history. Where they differ, this item wins.)*
+   - There are three states: **received** (model text held in the pipeline, never sent or stored), **validated** (passed placeholder authorisation, rendering, the render-integrity check, T3a and, where it applies, T3b) and **presented** (acknowledged as rendered by the browser).
+   - The unit of release is the sentence. A validated sentence is sent as one `answer.delta` with its complete rendered text, then `answer.sentence_end` with its final status. A sentence that fails a check, or needs T3b and gets no result within the cap, is **withheld**: not sent, not stored, no index consumed, and a `warning sentence_withheld` names the issues. An interrupted stream never sends its incomplete trailing sentence.
+   - `pending_judge` and the later `verification` event remain in the contract only for a defect found after release; they should not occur in normal operation.
+
+   *Previous text (superseded): how verification arriving after the sentence had streamed was handled.*
    - Sentence text streams immediately. **There is no hold-back.** This is safe because high-risk facts can only enter the text through placeholders that were verified beforehand.
    - The server emits `answer.sentence_end {index, status}` as soon as a sentence completes. The status is the T3a result, or `pending_judge`.
    - If T3b is still needed, a `verification {index, status, issues}` event follows later.
@@ -661,7 +666,7 @@ The two proofs:
   - **Re-observation bracketing.** All of: (1) an observation of `vB` made **after** T0 (the baseline's own fetch precedes T0 and does not count); (2) a later observation of `C.value`; (3) both from the same source identity, the same `url_norm` (semantically meaningful query parameters are kept; only tracking parameters are removed); (4) `comparableKeys === 'equal'` for the two observations and the baseline, across every pricing dimension including locale ([ADR-37](adr/ADR-37.md)); (5) the locale is known, not `und`: an unknown locale cannot independently establish `changed`. `changeWindow = {after: the vB observation, notAfter: C's observation of C.value}`.
   - **Explicit effective date.** Some `pass` statement at tier A1 or A2 for `C.value` carries an `effectiveFrom` that the extraction explicitly associates with that price (a date stated in the text about that price, not the page's publication date or the fetch time) and `effectiveFrom > T0`. `changeWindow` is "from `effectiveFrom`". Only an explicitly associated, reliable effective date can establish timing; **publication dates and fetch dates alone never do** (a fresh fetch never sets `effectiveFrom`, T-BEL-22).
 
-  An observation here is an immutable, timestamped source snapshot with sufficient content and a validated supporting pricing statement (`pass`), timed by `observed_at`. "Sufficient content" is read strictly: a snapshot from a successful fresh crawl (`fresh_fetch` and `crawl_status = ok`), because a provider-cached copy does not show what the page displayed at `observed_at`. The baseline's original fetch never counts as the independent post-answer observation. Provider-reported dates are hints and do not count. Neither route is implemented: the change detector is milestone 4.
+  An **observation** is an immutable, timestamped source snapshot that (1) was successfully retrieved after the relevant event (the previous answer for the old value, the old-value observation for the new value), with its retrieval timestamp (`observed_at`) recorded independently of the source's publication or modification timestamps; (2) keeps any cache metadata and age the provider reports; and (3) has content sufficient to support the specific pricing claim (a validated `pass` statement). A provider-cached copy can be an observation. **A fresh retrieval is not necessarily fresh source content:** a cached result establishes what the provider returned at a particular time, not that the underlying source had that value at that time. So each observation also needs a **content as-of time**: `observed_at` when the provider reports a successful live crawl (`fresh_fetch` and `crawl_status = ok`); otherwise the provider's last-updated time when it gives one (the conservative choice: the earlier time); otherwise unknown. If the as-of time cannot be established, the observation cannot support a positive `changed` verdict. For the proof, the old-value observation's retrieval and as-of times must both be later than the previous answer, and the new-value observation's must be later than the old-value observation's. This introduces no crawler: it only reads what the search provider returned. Whether the contract can hold a provider-reported cache age or capture time is open: Q-019. Neither route is implemented: the change detector is milestone 4.
 
   *Superseded text, kept as history:* "same-source bracketing: there is an observation of `vB` from C's winning `url_norm` with `displayedAt ≥ T0 − 48 h` (usually the baseline's own fresh fetch), and C's winning observation of `C.value` is later."
 
@@ -770,8 +775,8 @@ The DDL is in contracts §1. Changes in 3.1:
 
 **Ownership and isolation**
 - Idempotency is unique per user.
-- Owner triggers check that `messages.user_id` and `turns.user_id` match the conversation's owner. *(Extended in implementation to evidence, findings and assertions by migration 003; `decisions` and `decision_entities` by migration 006; `search_requests`, `search_results`, snapshots by turn, `beliefs` and `belief_history` are not yet covered, [ADR-27](adr/ADR-27.md), Q-007.)*
-- Origin triggers block fixture or non-live rows in a database whose `db_mode = 'real'`. *(Narrowed in implementation: migration 002 covers messages, entities and decisions on insert plus relabelling and `db_mode`; it does not cover every table, so isolation is partial. See [contracts §1.2](stage-3-contracts.md#12-migrations-applied-on-top-of-the-schema), [ADR-28](adr/ADR-28.md).)*
+- Owner triggers check that `messages.user_id` and `turns.user_id` match the conversation's owner. *(Extended in implementation to evidence, findings and assertions by migration 003; `decisions` and `decision_entities` by migration 006, `search_requests` and `search_results` by migration 007; snapshots by turn (they have none), `beliefs` and `belief_history` are not yet covered, [ADR-27](adr/ADR-27.md), Q-007.)*
+- Origin triggers block fixture or non-live rows in a database whose `db_mode = 'real'`. *(Narrowed in implementation: migration 002 covers messages, entities and decisions on insert plus relabelling and `db_mode`; it does not cover every table, so isolation is partial. See [contracts §1.2](contracts.md#12-migrations-applied-on-top-of-the-schema), [ADR-28](adr/ADR-28.md).)*
 
 **Immutability**
 - Append-only triggers on snapshots, evidence, assertion events and belief history (UPDATE is blocked; DELETE is allowed for privacy).
@@ -908,7 +913,7 @@ The architecture is unchanged: replay through the orchestrator with a FixedClock
 
 ### 18. TypeScript contracts
 
-See [stage-3-contracts.md](stage-3-contracts.md) §2.
+See [contracts.md](contracts.md) §2.
 
 ### 19. Repository structure
 
@@ -986,7 +991,7 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
 
 ## Part V: Roadmap
 
-The roadmap is unchanged from Stage 3, phases 0–14, each with a doc gate from the [blueprint](design-doc-blueprint.md) §6. Within those phases, 3.1 adds:
+The roadmap is unchanged from Stage 3, phases 0–14, each with a doc gate from the [blueprint](history/design-doc-blueprint.md) §6. Within those phases, 3.1 adds:
 
 | Phase | Additions |
 |---|---|
@@ -999,7 +1004,7 @@ The roadmap is unchanged from Stage 3, phases 0–14, each with a doc gate from 
 
 ## Part VI: DESIGN.md outline
 
-See the [blueprint](design-doc-blueprint.md).
+See the [blueprint](history/design-doc-blueprint.md).
 
 ## Part VII: Open decisions
 

@@ -365,9 +365,9 @@ export const turnMetricsSchema = z.object({
 }) satisfies z.ZodType<TurnMetrics>;
 
 /**
- * The parts of a TurnCompletion that milestone 2 stores and relies on. `analysis`, `context` and `events` are
- * checked only as JSON-shaped envelopes here: their full schemas arrive with their producers (turn analysis
- * and memory in milestone 3, the SSE writer in milestone 5). See docs/questions.md Q-014.
+ * The parts of a TurnCompletion that the persistence layer stores and relies on. `analysis`, `context` and `events` are
+ * checked only as JSON-shaped envelopes here: their full schemas arrive with their producers (turn analysis,
+ * memory, and the SSE writer). See docs/questions.md, "JSON columns are only partly validated".
  */
 export const turnCompletionSchema = z.object({
   status: terminalStatus,

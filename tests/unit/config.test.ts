@@ -11,9 +11,19 @@ describe('loadConfig', () => {
     expect(config.models).toEqual({ fast: 'claude-haiku-5-5', main: 'claude-sonnet-5-5' });
     expect(config.secrets).toEqual({
       anthropicApiKey: undefined,
+      geminiApiKey: undefined,
       exaApiKey: undefined,
       sessionSecret: undefined,
     });
+  });
+
+  it('reads the Gemini key and model, and treats blanks as unset', () => {
+    const set = loadConfig({ GEMINI_API_KEY: 'g-key', GEMINI_MODEL: 'some-free-model' });
+    expect(set.secrets.geminiApiKey).toBe('g-key');
+    expect(set.gemini.model).toBe('some-free-model');
+    const blank = loadConfig({ GEMINI_API_KEY: '', GEMINI_MODEL: '' });
+    expect(blank.secrets.geminiApiKey).toBeUndefined();
+    expect(blank.gemini.model).toBeUndefined();
   });
 
   it('demo mode defaults to a different database file than real mode', () => {

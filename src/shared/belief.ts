@@ -8,7 +8,7 @@ import type {
 import type { EntityId, EvidenceId, Ms } from './ids.js';
 
 // Belief-key functions (encodePriceKey, decodePriceKey, keyForEvidence, comparableKeys) are part
-// of the contract but are implemented in src/belief/belief-key.ts in the evidence/belief milestone.
+// of the contract but are implemented in src/belief/belief-key.ts with the evidence and belief code.
 // keyForEvidence takes the source as { domain, urlNorm }: locale is derived by code from the URL (ADR-37).
 
 export type Arrangement = 'list' | 'conditional' | 'promotional' | 'planned';

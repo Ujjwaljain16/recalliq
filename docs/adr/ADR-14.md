@@ -28,7 +28,7 @@ Not final. Anthropic is provisional.
 
 ## Evidence and implementation references
 
-- [stage-2-research.md](../stage-2-research.md) §5: pricing and capabilities from provider documentation; latency figures there are third-party. The recommendation discloses that the author is itself an Anthropic model.
+- [research-notes.md](../history/research-notes.md) §5: pricing and capabilities from provider documentation; latency figures there are third-party. The recommendation discloses that the author is itself an Anthropic model.
 - **Claude latency was not measured**, no adapter or prompt exists, and no cost figure is a result. The per-turn cost is an estimate.
 
 ## Revisit when

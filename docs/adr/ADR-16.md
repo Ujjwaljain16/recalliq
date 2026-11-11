@@ -1,6 +1,6 @@
 # ADR-16: Streaming: findings first, no hold-back, late verification only downgrades
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Implementation:** partly implemented
 - **Decided:** Owner approval, 2026-11-11 (3.1)
 - **Recorded:** 2026-11-11
@@ -21,13 +21,15 @@ Unverified numbers must not be shown as confirmed; waiting for verification woul
 
 The third.
 
+**Superseded by [ADR-40](ADR-40.md) on 2026-11-12.** Factual sentences are no longer streamed before validation. The findings-first design and the placeholder rules in this decision still apply.
+
 ## Consequences and trade-offs
 
 - The client must restyle a sentence in place.
 
 ## Evidence and implementation references
 
-- Contracts ([stage-3-contracts.md](../stage-3-contracts.md) §2 `SseEvent`) and the persisted sentence statuses are implemented as types and storage ([src/db/schemas.ts](../../src/db/schemas.ts)). No stream code exists.
+- Contracts ([contracts.md](../contracts.md) §2 `SseEvent`) and the persisted sentence statuses are implemented as types and storage ([src/db/schemas.ts](../../src/db/schemas.ts)). No stream code exists.
 
 ## Revisit when
 

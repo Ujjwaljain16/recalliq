@@ -299,7 +299,7 @@ describe('T-DB-06: rendered_through never decreases', () => {
   });
 });
 
-/// Migration 002 (Q-002): the database itself refuses non-live data, and relabelling, in a real database.
+/// Migration 002 (demo isolation): the database itself refuses non-live data, and relabelling, in a real database.
 describe('T-DB-07: demo data cannot enter a real database', () => {
   type Test = ReturnType<typeof openTestDb>;
 
@@ -452,7 +452,7 @@ describe('T-DB-07: demo data cannot enter a real database', () => {
 });
 
 describe('T-DB-09: rebuild after deletion equals a fresh rebuild', () => {
-  // Needs BeliefResolver and rebuildBeliefs (evidence/belief milestone).
+  // Needs BeliefResolver and rebuildBeliefs (the belief resolver, which does not exist yet).
   it.todo(
     'beliefs and belief_history after deleteConversation equal a rebuild from the remaining evidence',
   );

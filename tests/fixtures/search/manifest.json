@@ -1,0 +1,9 @@
+{
+  "note": "Every file in this directory is hand-authored [SYNTHETIC] data following the Exa POST /search response shape documented at docs.exa.ai/reference/search (read 2026-11-12). None is a recording of a real API call; there were no API keys. Vendors use fictional names and .example domains. The statuses[] array and its source field are modelled on the /contents documentation and are UNVERIFIED for /search.",
+  "files": {
+    "exa-pricing-text.json": { "class": "synthetic", "kind": "provider-raw" },
+    "exa-malformed-items.json": { "class": "synthetic", "kind": "provider-raw" },
+    "exa-empty.json": { "class": "synthetic", "kind": "provider-raw" },
+    "replay-synthetic.json": { "class": "synthetic", "kind": "recording" }
+  }
+}

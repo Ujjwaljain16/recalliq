@@ -7,7 +7,7 @@ the code does meanwhile.
 Status values: **open** (needs a decision), **decided** (owner decision recorded, implementation pending),
 **applied** (implemented as described).
 
-The normative contracts (`stage-3-contracts.md`) were **not** modified in Milestones 1 and 2. The final documentation pass (2026-11-12) added a correction note and §1.2 to contracts §1 and corrected architecture §8; contracts §2 (including the locale change) is still unedited.
+The normative contracts (`contracts.md`) were **not** modified in Milestones 1 and 2. The final documentation pass (2026-11-12) added a correction note and §1.2 to contracts §1 and corrected architecture §8; contracts §2 (including the locale change) is still unedited.
 Proposed contract edits are written here for review instead. Decisions are recorded in [adr/README.md](adr/README.md); this file keeps the
 questions, including resolved ones and their history.
 
@@ -19,7 +19,7 @@ questions, including resolved ones and their history.
 | Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — | — |
 | Q-005 | Deletion and the belief rebuilder | **applied**, rebuild correctness untested until M4 | T-DB-09 | [ADR-35](adr/ADR-35.md) |
 | Q-006 | `begin` while a different key is running | **applied** (M2) | — | [ADR-30](adr/ADR-30.md) |
-| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003 in M2, 006 in M3 for `decisions`); plan recorded (2026-11-12); `search_requests`, `search_results`, snapshots, `beliefs`, `belief_history` **not yet enforced** | Each table, before its first use in M4 | [ADR-27](adr/ADR-27.md) |
+| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003 in M2, 006 in M3 for `decisions`); plan recorded (2026-11-12); `search_requests` and `search_results` (migration 007, M4); `beliefs` and `belief_history` **not yet enforced** (Agent B, migration 008) | Each table, before its first use in M4 | [ADR-27](adr/ADR-27.md) |
 | Q-008 | Declared-only contract functions | applied | — | — |
 | Q-009 | Type-identical lint edits | applied | — | — |
 | Q-010 | Small implementation choices | applied | — | — |
@@ -27,10 +27,11 @@ questions, including resolved ones and their history.
 | Q-012 | Acknowledgement before the answer is stored | open | — | [ADR-23](adr/ADR-23.md) |
 | Q-013 | Meaning of `AckRequest.complete` | open | — | [ADR-31](adr/ADR-31.md) |
 | Q-014 | JSON columns only partly validated | open | Milestones 3, 5 | [ADR-32](adr/ADR-32.md), [ADR-05](adr/ADR-05.md) |
-| Q-015 | Which assertions may become baselines | **applied** (rules and loader, M3); no caller until M5 | — | [ADR-38](adr/ADR-38.md) |
+| Q-015 | Which assertions may become baselines | **applied** (rules and loader); no caller until M5 | — | [ADR-38](adr/ADR-38.md) |
 | Q-016 | `recoverRunning` assumes one process | open | — | [ADR-34](adr/ADR-34.md), [ADR-33](adr/ADR-33.md) |
 | Q-017 | Behaviour added beyond the contract | applied | — | [ADR-30](adr/ADR-30.md), [ADR-32](adr/ADR-32.md) |
 | Q-018 | Test IDs introduced in M2 | applied → [testing.md](testing.md) | — | — |
+| Q-019 | Provider cache age or capture time is not in the contract | open | Milestone 4 change detector | [ADR-36](adr/ADR-36.md) |
 
 ---
 
@@ -93,7 +94,7 @@ as 48 h *before* T0 followed by a later different observation. The decision abov
 
 ### Sub-questions the decision leaves open
 
-The following need an answer before `ChangeDetector` is written. All rows are decided (d on 2026-11-12, then a, b, c and e as approved definitions on 2026-11-12): an observation is an immutable, timestamped snapshot with sufficient content and validated supporting evidence; source identity is `url_norm` (meaningful query parameters kept, only tracking parameters removed); comparable means `comparableKeys === 'equal'` including locale; the baseline's own fetch never counts; an unknown locale cannot independently establish `changed`. One reading is the orchestrator's and stricter: "sufficient content" is a successful fresh crawl.
+The following need an answer before `ChangeDetector` is written. All rows are decided (d on 2026-11-12, then a, b, c and e as approved definitions on 2026-11-12): an observation is an immutable, timestamped snapshot with sufficient content and validated supporting evidence; source identity is `url_norm` (meaningful query parameters kept, only tracking parameters removed); comparable means `comparableKeys === 'equal'` including locale; the baseline's own fetch never counts; an unknown locale cannot independently establish `changed`. The first reading of "sufficient content" as a successful fresh crawl was **relaxed by the owner on 2026-11-12**: a provider-cached copy can be an observation if it was retrieved after the relevant event, its retrieval time is recorded separately, its cache metadata is kept, and its content supports the claim; it needs an established content as-of time to support a positive `changed` (see ADR-36).
 
 | # | Question | Proposed answer |
 |---|---|---|
@@ -166,7 +167,7 @@ and any change to or deletion of `meta.db_mode`. The tests are the `T-DB-07` gro
 the characterisation tests that documented the gap were removed because the gap no longer exists.
 
 The migration goes slightly beyond the three tables Q-002 named (relabelling and `db_mode` immutability): those
-were the extra findings in [proposals/q-002-demo-isolation.md](proposals/q-002-demo-isolation.md), and without them the three
+were the extra findings in [proposals/demo-isolation.md](proposals/demo-isolation.md), and without them the three
 tables could still be bypassed.
 
 **Still not claimed:** complete isolation. The proposal's residual list stands: `belief_history`, `search_cache`
@@ -253,9 +254,8 @@ one winner, five `TurnInProgressError`, one running turn, one stored message.
 **History:** Raised in M1 → partly applied in M2 (migration 003). **Still open** for the tables listed there.
 
 Applied for evidence (turn, snapshot, entity), findings (entity), assertions (turn, message, finding-to-turn) and
-`assertion_evidence` (migration 003), and for `decisions` and `decision_entities` (migration 006, milestone 3, 8 triggers, 24 tests). Still open:
+`assertion_evidence` (migration 003), and for `decisions` and `decision_entities` (migration 006, milestone 3, 8 triggers, 24 tests) and for `search_requests` and `search_results` (migration 007, milestone 4, 5 triggers). Still open:
 
-- `search_requests` (`user_id` vs its turn);
 - `source_snapshots`, which has no turn;
 - `beliefs` and `belief_history`.
 
@@ -367,7 +367,7 @@ The database records every assertion and its delivery state; it does not decide 
 - `F<n>:baseline`, `F<n>:verdict` and `F<n>:derived:<k>` are **not** baselines; only `F<n>` is;
 - an assertion in a sentence with status `unverified`, `unchecked` or `truncated` is recallable but **not** a baseline.
 
-Applied in milestone 3: `BaselineLoader` ([ADR-38](adr/ADR-38.md)) implements rules 1 to 5 and a separate `recallUnverified`; 20 tests. It has no caller until the audit lane (milestone 5).
+Applied in milestone 3: `BaselineLoader` ([ADR-38](adr/ADR-38.md)) implements rules 1 to 6 and a separate `recallUnverified`; 24 tests. It has no caller until the audit lane (milestone 5).
 
 ### Q-016: `recoverRunning` assumes one application process per database file — open
 
@@ -402,3 +402,12 @@ acked then disconnect; never rendered; duplicate and out-of-order acks; reconnec
 original) without numbers, and only T-DLV-02 is cited by number elsewhere. The eighth (interrupted turns keep the exact
 extent) comes from the Milestone 2 requirements. `T-TRN-*` (turn lifecycle) and `T-ASR-*` (assertion persistence) are new
 IDs assigned in Milestone 2 and do not exist in the contract documents.
+
+### Q-019: provider cache age or capture time is not in the contract — open
+
+**ADR:** [ADR-36](adr/ADR-36.md)
+**History:** Raised 2026-11-12 when the observation definition was relaxed to allow provider-cached copies. **Open.**
+
+ADR-36 needs a content as-of time for a cached observation, and asks that cache metadata and age be preserved when the provider reports them. `SearchHit` and `SourceSnapshot` have only `observedAt`, `providerPublishedAt`, `providerLastUpdatedAt`, `freshFetch` and `crawlStatus`, and the schema has no column for a capture time or cache age. Until this is settled the change detector derives the as-of time from the fields that exist: `observedAt` for a live crawl, otherwise `providerLastUpdatedAt`, otherwise unknown (which cannot support `changed`). Proposed resolution, once the search adapter shows what the provider actually returns: a nullable `contentAsOf` on `SearchHit`, `SourceSnapshot` and the evidence time fields, with an additive migration. Not applied: it changes shared contracts and the schema.
+
+**Finding from the search adapter (2026-11-12, from reading docs.exa.ai; nothing was run against the live API):** the documented search API has no per-result capture time or cache age. A live crawl is requested with `contents.maxAgeHours: 0` (content fetched within the last 60 seconds); a cached result is marked only by `statuses[].source = "cached"`, a field documented for the contents endpoint and **not confirmed** for search. Consequently a cached hit can be dated no better than `publishedAt`, which is a hint. The adapter sets `freshFetch` only when a live fetch was requested, the crawl status is ok and the status source is `live` (an assumption: only `cached` is documented), so it errs towards false. A `contentAsOf` field would therefore usually be null, and the change detector will mostly derive an as-of time from `observedAt` of a live crawl. Raw `source` and `status` are kept in recordings. Decision on adding the field is deferred until a real recording exists.

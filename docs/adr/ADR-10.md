@@ -27,7 +27,7 @@ Adaptive packing with a deterministic algorithm, bounded concurrency and per-ent
 
 ## Evidence and implementation references
 
-- [stage-3-architecture.md](../stage-3-architecture.md) R1. The wall-time figures behind the choice are **hypotheses, not measurements**. Nothing is implemented. Which model extracts (Haiku or Sonnet) is open (ADR-14).
+- [architecture.md](../architecture.md) R1. The wall-time figures behind the choice are **hypotheses, not measurements**. Nothing is implemented. Which model extracts (Haiku or Sonnet) is open (ADR-14).
 
 ## Revisit when
 

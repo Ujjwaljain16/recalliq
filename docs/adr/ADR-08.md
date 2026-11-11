@@ -30,7 +30,7 @@ Not final. Exa is provisional because its documentation shows inline text, a fre
 
 ## Evidence and implementation references
 
-- [stage-2-research.md](../stage-2-research.md) §4: official documentation reviewed on 2026-11-11, with unverifiable items marked UNVERIFIED.
+- [research-notes.md](../history/research-notes.md) §4: official documentation reviewed on 2026-11-11, with unverifiable items marked UNVERIFIED.
 - **No bake-off has been run and nothing has been measured.** No provider adapter exists.
 
 ## Revisit when

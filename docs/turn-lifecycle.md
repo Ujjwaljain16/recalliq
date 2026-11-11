@@ -1,7 +1,7 @@
 # Turn lifecycle, delivery and migrations (Milestone 2)
 
 What the persistence layer guarantees about turns, acknowledgements and assertions, and where each guarantee is
-enforced. The normative contracts ([stage-3-contracts.md](stage-3-contracts.md)) were **not** modified; the
+enforced. The normative contracts ([contracts.md](contracts.md)) were **not** modified; the
 migrations below add to them.
 
 ## Migrations
@@ -15,7 +15,7 @@ migrations below add to them.
 | 005 | `005_delivery_acknowledgement.sql` | Streamed vs rendered extents, "presented only if acknowledged", the rules for `presented` / `not_presented` / verdict events | Delivery boundary (architecture R4) |
 
 Migration 002 went slightly beyond the three tables Q-002 named (relabelling and `db_mode` immutability); that
-was the validated proposal in [proposals/q-002-demo-isolation.md](proposals/q-002-demo-isolation.md), and it is
+was the validated proposal in [proposals/demo-isolation.md](proposals/demo-isolation.md), and it is
 reported as such. Migration 003 does not cover `search_requests`, `decisions`, `beliefs` or snapshot-to-turn links:
 Q-007 stays partly open.
 

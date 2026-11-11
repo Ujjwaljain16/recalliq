@@ -9,10 +9,10 @@ This brief is self-contained. Four documents in `docs/` hold the detail; this br
 
 | Document | Role |
 |---|---|
-| [stage-3-contracts.md](stage-3-contracts.md) | **Normative.** SQL schema, TypeScript contracts, SSE events, placeholder grammar. Where any other document disagrees with it, the contracts file wins |
-| [stage-3-architecture.md](stage-3-architecture.md) | Behaviour: rules R1–R5 and H, lanes, the state machine, verdict tables, failure handling, evaluation |
+| [contracts.md](../contracts.md) | **Normative.** SQL schema, TypeScript contracts, SSE events, placeholder grammar. Where any other document disagrees with it, the contracts file wins |
+| [architecture.md](../architecture.md) | Behaviour: rules R1–R5 and H, lanes, the state machine, verdict tables, failure handling, evaluation |
 | [design-doc-blueprint.md](design-doc-blueprint.md) | How `DESIGN.md` is written and which evidence it requires |
-| [stage-3.1-review.md](stage-3.1-review.md) | Why the latest rules exist |
+| [design-review.md](design-review.md) | Why the latest rules exist |
 
 Read this brief completely before writing any code. Read the contracts file in full before Phase 1.
 
@@ -440,7 +440,7 @@ Deliver:
 - `report:perf`: p50/p95 TTFP, TTFT and TTC per lane, tokens and cost per turn, search counts, cache hit rate, deadline hits, sentence status distribution.
 - A live run of at least 20 turns across lanes, with the date stated.
 
-Compare against the latency targets in [stage-2-research.md §7.3](stage-2-research.md). Missed targets are reported as missed.
+Compare against the latency targets in [research-notes.md §7.3](research-notes.md). Missed targets are reported as missed.
 
 ### Phase 13: Documentation
 Write `DESIGN.md` following the blueprint: its sections, voice, language rules, claim labels and the generated fragments. `docs:check` must pass and the word count must stay at or under 12k. The README covers quick start only.
