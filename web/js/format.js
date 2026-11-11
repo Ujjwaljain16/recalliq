@@ -138,3 +138,35 @@ export function outcomeNote(status, context) {
 export function conversationLabel(c) {
   return c.title ?? c.preview ?? 'Empty conversation';
 }
+
+/**
+ * A streamed sentence arrives with the whitespace that separated it from the previous one. A line break there
+ * starts a new paragraph; the whitespace itself is not shown.
+ *
+ * @param {string} text  the first delta of a sentence
+ * @returns {{ newParagraph: boolean, text: string }}
+ */
+export function leadingBreak(text) {
+  const m = /^\s*/.exec(text);
+  const lead = m ? m[0] : '';
+  return { newParagraph: lead.includes('\n'), text: text.slice(lead.length) };
+}
+
+/**
+ * For stored sentences (whose text has no separators), which ones start a new paragraph in the stored
+ * message content. Sentences that cannot be found in the content never start one.
+ *
+ * @param {string} content  the stored message text
+ * @param {string[]} texts  the sentences in order
+ * @returns {boolean[]}
+ */
+export function paragraphStarts(content, texts) {
+  let at = 0;
+  return texts.map((t, i) => {
+    const found = t.length > 0 ? content.indexOf(t, at) : -1;
+    if (found === -1) return false;
+    const gap = content.slice(at, found);
+    at = found + t.length;
+    return i > 0 && gap.includes('\n');
+  });
+}
