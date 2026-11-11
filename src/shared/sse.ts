@@ -1,4 +1,4 @@
-import type { PersistedSentence, SentenceIssue, SentenceStatus } from './answer.js';
+import type { PersistedSentence, SentenceIssue, SentenceKind, SentenceStatus } from './answer.js';
 import type { AuthorityTier } from './evidence.js';
 import type { Finding } from './findings.js';
 import type { DecisionId, MessageId, Ms, SnapshotId, TurnId } from './ids.js';
@@ -39,7 +39,13 @@ export type SseEvent =
   | { event: 'answer.delta'; data: { sentenceIndex: number; text: string } }
   | {
       event: 'answer.sentence_end';
-      data: { index: number; status: SentenceStatus | 'pending_judge'; issues: SentenceIssue[] };
+      data: {
+        index: number;
+        status: SentenceStatus | 'pending_judge';
+        issues: SentenceIssue[];
+        /** Optional and additive: what the sentence rests on (see SentenceKind). */
+        kind?: SentenceKind;
+      };
     }
   | {
       event: 'verification';

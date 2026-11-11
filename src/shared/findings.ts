@@ -142,12 +142,32 @@ export interface Finding {
   evidenceIds: EvidenceId[];
 }
 
+/**
+ * What a source obtained by this turn's own searches says, as stored. Untrusted text: it is shown to the answer
+ * model as data and it is what a sourced sentence is checked against. It never reaches the client or memory
+ * through the finding set.
+ */
+export interface SourceContent {
+  /** The stored snapshot text the search returned. */
+  text: string;
+  /** The provider's publication date, a hint only. */
+  publishedAt: Ms | null;
+}
+
 export interface FindingSet {
   turnId: TurnId;
   createdAt: Ms;
   findings: Finding[];
   sources: Record<
     SnapshotId,
-    { url: string; title: string | null; domain: string; tier: AuthorityTier; observedAt: Ms }
+    {
+      url: string;
+      title: string | null;
+      domain: string;
+      tier: AuthorityTier;
+      observedAt: Ms;
+      /** Present only for a source of this turn's searches: what a sourced sentence may quote. */
+      content?: SourceContent;
+    }
   >;
 }
