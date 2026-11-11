@@ -10,15 +10,26 @@
     <a class="skip-link" href="#message-input">Skip to the message box</a>
     <div id="banner" class="banner" role="status" hidden></div>
     <div class="app">
-      <aside class="sidebar" aria-label="Conversations">
+      <aside id="sidebar" class="sidebar" aria-label="Conversations">
         <button id="new-conversation" type="button" class="button button--primary">
           New conversation
         </button>
         <ul id="conversation-list" class="conversation-list"></ul>
       </aside>
+      <div id="scrim" class="scrim" aria-hidden="true"></div>
 
       <main class="chat">
         <header class="chat-header">
+          <button
+            id="menu-toggle"
+            type="button"
+            class="button button--quiet menu-toggle"
+            aria-controls="sidebar"
+            aria-expanded="false"
+          >
+            <span class="menu-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Conversations</span>
+          </button>
           <h1>RecallIQ</h1>
           <button id="delete-conversation" type="button" class="button button--quiet" hidden>
             Delete conversation
@@ -35,11 +46,16 @@
           aria-label="Conversation"
         >
           <div id="empty" class="empty">
-            <p>Ask a question, or ask what you asked earlier.</p>
+            <h2>What can I look up for you?</h2>
+            <p>
+              A research assistant with web search that remembers your conversations and checks its
+              earlier answers against current sources.
+            </p>
             <div id="suggestions" class="suggestions" hidden></div>
           </div>
         </div>
         <p id="status" class="status" role="status" aria-live="polite"></p>
+        <p id="announcer" class="visually-hidden" role="status" aria-live="polite"></p>
 
         <form id="composer" class="composer" autocomplete="off">
           <label for="message-input" class="visually-hidden">Your message</label>
@@ -48,7 +64,7 @@
             name="message"
             rows="2"
             maxlength="4000"
-            placeholder="Type a message. Enter sends, Shift+Enter adds a line."
+            placeholder="Ask anything. Enter sends, Shift+Enter adds a line."
             required
           ></textarea>
           <button id="send" type="submit" class="button button--primary">Send</button>
