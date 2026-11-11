@@ -3,7 +3,7 @@
 **Status:** approved direction, reconciled in Stage 3.1 on 2026-11-11.
 **Companion documents:**
 - [contracts.md](contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
-- [design-doc-blueprint.md](design-doc-blueprint.md): plan for DESIGN.md.
+- [design-doc-blueprint.md](history/design-doc-blueprint.md): the plan for the final design document (historical).
 - [design-review.md](history/design-review.md): the record of the first design reconciliation (historical).
 
 The Stage 2 decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, Exa as provisional search provider, and Haiku + Sonnet as provisional models.
@@ -986,7 +986,7 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
 
 ## Part V: Roadmap
 
-The roadmap is unchanged from Stage 3, phases 0–14, each with a doc gate from the [blueprint](design-doc-blueprint.md) §6. Within those phases, 3.1 adds:
+The roadmap is unchanged from Stage 3, phases 0–14, each with a doc gate from the [blueprint](history/design-doc-blueprint.md) §6. Within those phases, 3.1 adds:
 
 | Phase | Additions |
 |---|---|
@@ -999,7 +999,7 @@ The roadmap is unchanged from Stage 3, phases 0–14, each with a doc gate from 
 
 ## Part VI: DESIGN.md outline
 
-See the [blueprint](design-doc-blueprint.md).
+See the [blueprint](history/design-doc-blueprint.md).
 
 ## Part VII: Open decisions
 

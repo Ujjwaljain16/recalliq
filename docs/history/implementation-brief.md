@@ -11,7 +11,7 @@ This brief is self-contained. Four documents in `docs/` hold the detail; this br
 |---|---|
 | [contracts.md](../contracts.md) | **Normative.** SQL schema, TypeScript contracts, SSE events, placeholder grammar. Where any other document disagrees with it, the contracts file wins |
 | [architecture.md](../architecture.md) | Behaviour: rules R1–R5 and H, lanes, the state machine, verdict tables, failure handling, evaluation |
-| [design-doc-blueprint.md](../design-doc-blueprint.md) | How `DESIGN.md` is written and which evidence it requires |
+| [design-doc-blueprint.md](design-doc-blueprint.md) | How `DESIGN.md` is written and which evidence it requires |
 | [design-review.md](design-review.md) | Why the latest rules exist |
 
 Read this brief completely before writing any code. Read the contracts file in full before Phase 1.
