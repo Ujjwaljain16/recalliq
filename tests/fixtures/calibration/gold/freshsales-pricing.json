@@ -1,0 +1,193 @@
+{
+  "pageId": "freshsales-pricing",
+  "vendor": "Freshworks (Freshsales)",
+  "categories": ["per_seat", "tiered_billing"],
+  "entity": {
+    "name": "Freshsales",
+    "aliases": ["Freshsales", "Freshworks"],
+    "knownPlans": ["growth", "pro", "enterprise"],
+    "officialDomains": ["freshworks.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "growth-annual",
+      "plan": "Growth",
+      "planNorm": "growth",
+      "value": {
+        "amount": 9,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$9/user/month, billed annuallyFor startups and SMBs\n\n### Growth",
+      "contextQuote": "# Plans forFreshsales",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); plan_binding: weak (the plan appears, but not with the value); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "medium",
+      "note": "The price line precedes the plan heading; read as a card with the heading after the price."
+    },
+    {
+      "id": "pro-annual",
+      "plan": "Pro",
+      "planNorm": "pro",
+      "value": {
+        "amount": 39,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$39/user/month, billed annuallyFor growing and mid-sized businesses\n\n### Pro",
+      "contextQuote": "# Plans forFreshsales",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); plan_binding: weak (the plan appears, but not with the value); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "enterprise-annual",
+      "plan": "Enterprise",
+      "planNorm": "enterprise",
+      "value": {
+        "amount": 59,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$59/user/month, billed annuallyFor mid to large-sized businesses\n\n### Enterprise",
+      "contextQuote": "# Plans forFreshsales",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); plan_binding: weak (the plan appears, but not with the value); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "branded-documents-addon",
+      "plan": "Branded documents add-on",
+      "planNorm": "branded documents add-on",
+      "value": {
+        "amount": 19,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Branded documents $19 /user/month",
+      "contextQuote": "### Growth",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); plan_binding: fail (the plan does not appear in the quote or its header)"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "freddy-ai-agent-addon",
+      "plan": "Freddy AI Agent add-on",
+      "planNorm": "freddy ai agent add-on",
+      "value": {
+        "amount": 49,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "100 sessions",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Freddy AI Agent $49 /100 sessions",
+      "contextQuote": "### Growth",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); plan_binding: fail (the plan does not appear in the quote or its header); unit: fail (usage claimed without a metered marker)"
+      },
+      "confidence": "low",
+      "note": "Metered per 100 sessions; whether \"usage\" with usageUnit \"100 sessions\" is the right typing is a judgement call."
+    },
+    {
+      "id": "starts-from-usd",
+      "plan": null,
+      "planNorm": null,
+      "value": {
+        "amount": 9,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "unspecified",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Freshsales pricing starts from $9 USD",
+      "contextQuote": null,
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "medium",
+      "note": "Structured-data description inside the page text: \"$9 USD\" names the currency explicitly."
+    }
+  ],
+  "traps": [
+    {
+      "id": "pro-price-on-growth",
+      "kind": "other_plan",
+      "description": "The $39 line sits directly under the Growth heading in reading order; it is Pro’s price.",
+      "match": {
+        "amount": 39,
+        "planNorm": "growth"
+      }
+    },
+    {
+      "id": "enterprise-price-on-pro",
+      "kind": "other_plan",
+      "description": "The $59 line sits under the Pro heading in reading order; it is Enterprise’s price.",
+      "match": {
+        "amount": 59,
+        "planNorm": "pro"
+      }
+    },
+    {
+      "id": "save-20",
+      "kind": "other",
+      "description": "\"Save 20%\" is a discount, not a price.",
+      "match": {
+        "amount": 20
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "other-addon-rows",
+      "description": "The same two add-ons repeat under every plan.",
+      "match": {
+        "quoteContains": ["Available add-ons"]
+      }
+    }
+  ],
+  "notes": "Layout trap: each price line comes BEFORE the heading of the plan it belongs to (\"$39/user/month ... ### Pro\"), so the nearest heading above a price is the previous plan. Text extraction glued words (\"billed annuallyFor\", \"forFreshsales\"). Bare $ everywhere except the page metadata, which says \"$9 USD\"."
+}

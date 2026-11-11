@@ -1,0 +1,262 @@
+{
+  "pageId": "salesforce-sales-pricing",
+  "vendor": "Salesforce",
+  "categories": ["per_seat", "conditions"],
+  "entity": {
+    "name": "Salesforce",
+    "aliases": ["Salesforce", "Sales Cloud"],
+    "knownPlans": ["free suite", "starter suite", "pro suite", "core", "advanced", "max"],
+    "officialDomains": ["salesforce.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "starter-usd",
+      "plan": "Starter Suite",
+      "planNorm": "starter suite",
+      "value": {
+        "amount": 25,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$ 25 USD/User/Month (Billed monthly or annually)",
+      "contextQuote": "### Starter Suite",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium",
+      "note": "\"Billed monthly or annually\": period labelled monthly (the price is per month; both billing schedules are offered)."
+    },
+    {
+      "id": "starter-eur",
+      "plan": "Starter Suite",
+      "planNorm": "starter suite",
+      "value": {
+        "amount": 25,
+        "currency": "EUR",
+        "currencySymbol": "€",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "25 € EUR/User/Month (Billed monthly or annually)",
+      "contextQuote": "### Starter Suite",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "starter-aud",
+      "plan": "Starter Suite",
+      "planNorm": "starter suite",
+      "value": {
+        "amount": 35,
+        "currency": "AUD",
+        "currencySymbol": "AU$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "AU$ 35 AUD/User/Month (Billed monthly or annually)",
+      "contextQuote": "### Starter Suite",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "pro-usd",
+      "plan": "Pro Suite",
+      "planNorm": "pro suite",
+      "value": {
+        "amount": 100,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$ 100 USD/User/Month (Billed annually)",
+      "contextQuote": "### Pro Suite",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "pro-jpy",
+      "plan": "Pro Suite",
+      "planNorm": "pro suite",
+      "value": {
+        "amount": 12000,
+        "currency": "JPY",
+        "currencySymbol": "円",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "12,000 円 JPY/User/Month (Billed annually)",
+      "contextQuote": "### Pro Suite",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); value_presence: weak (the amount has no adjacent currency marker, so it may not be a price); currency: fail (quote resolves to unknown, extraction says JPY)"
+      },
+      "confidence": "medium",
+      "note": "The yen is written after the amount as the character for yen, followed by the code JPY."
+    },
+    {
+      "id": "core-usd",
+      "plan": "Core",
+      "planNorm": "core",
+      "value": {
+        "amount": 195,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$ 195 USD/User/Month (Billed annually)",
+      "contextQuote": "### Core",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "advanced-usd",
+      "plan": "Advanced",
+      "planNorm": "advanced",
+      "value": {
+        "amount": 395,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$ 395 USD/User/Month (Billed annually)",
+      "contextQuote": "### Advanced",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "max-usd",
+      "plan": "Max",
+      "planNorm": "max",
+      "value": {
+        "amount": 550,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$ 550 USD/User/Month (Billed annually)",
+      "contextQuote": "### Max",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    }
+  ],
+  "traps": [
+    {
+      "id": "starter-price-on-pro",
+      "kind": "other_plan",
+      "description": "The Starter price (25) must not be attached to Pro Suite.",
+      "match": {
+        "amount": 25,
+        "planNorm": "pro suite"
+      }
+    },
+    {
+      "id": "pro-price-on-core",
+      "kind": "other_plan",
+      "description": "The Pro Suite price (100) must not be attached to Core.",
+      "match": {
+        "amount": 100,
+        "planNorm": "core"
+      }
+    },
+    {
+      "id": "usd-amount-as-eur",
+      "kind": "other",
+      "description": "A USD amount must not be labelled with another currency (e.g. 100 as EUR for Pro is a different gold row; 195 as EUR is not on the page for USD).",
+      "match": {
+        "amount": 195,
+        "currency": ["EUR", "GBP"]
+      }
+    },
+    {
+      "id": "flex-credits",
+      "kind": "other",
+      "description": "\"2.75M Flex Credits per org per year\" is an allowance, not a price.",
+      "match": {
+        "quoteContains": ["Flex Credits"]
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "other-currencies",
+      "description": "The remaining currency variants (AUD, JPY, SEK, GBP, EUR for plans other than the labelled ones) are true but not enumerated.",
+      "match": {
+        "currency": ["EUR", "AUD", "GBP", "JPY", "SEK"]
+      }
+    },
+    {
+      "id": "free-suite",
+      "description": "Free Suite is $0 in the comparison table.",
+      "match": {
+        "quoteContains": ["Free Suite"]
+      }
+    },
+    {
+      "id": "comparison-table",
+      "description": "The comparison table repeats every price in one long row.",
+      "match": {
+        "quoteContains": ["user/month"]
+      }
+    }
+  ],
+  "notes": "Seven currencies for every plan, each written like \"$ 25 USD/User/Month (Billed ...)\" (symbol and ISO code both shown) or \"25 € EUR/...\". The vendor name never appears next to a price. Only a subset of currencies is labelled; the rest are ignorable."
+}

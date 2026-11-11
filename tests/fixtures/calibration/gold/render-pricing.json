@@ -1,0 +1,208 @@
+{
+  "pageId": "render-pricing",
+  "vendor": "Render",
+  "categories": ["usage_based", "tiered_billing"],
+  "entity": {
+    "name": "Render",
+    "aliases": ["Render"],
+    "knownPlans": ["hobby", "pro", "scale", "enterprise", "free"],
+    "officialDomains": ["render.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "hobby-tier",
+      "plan": "Hobby",
+      "planNorm": "hobby",
+      "value": {
+        "amount": 0,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| Hobby | $0/month + compute |",
+      "contextQuote": "# Render Pricing",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "high",
+      "note": "\"+ compute\": compute is billed separately."
+    },
+    {
+      "id": "pro-tier",
+      "plan": "Pro",
+      "planNorm": "pro",
+      "value": {
+        "amount": 25,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| Pro | $25/month + compute |",
+      "contextQuote": "# Render Pricing",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "high",
+      "note": "\"+ compute\": compute is billed separately."
+    },
+    {
+      "id": "scale-tier",
+      "plan": "Scale",
+      "planNorm": "scale",
+      "value": {
+        "amount": 499,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| Scale | $499/month + compute |",
+      "contextQuote": "# Render Pricing",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "high",
+      "note": "\"+ compute\": compute is billed separately."
+    },
+    {
+      "id": "postgres-free",
+      "plan": "0.1c-256mb",
+      "planNorm": "0.1c-256mb",
+      "value": {
+        "amount": 6,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| Less than 1 CPU | $6/month | 256 MB RAM | 100 connections | 0.1c-256mb |",
+      "contextQuote": "### Postgres",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium",
+      "note": "Plan identified by its Plan ID because the row does not say Postgres; the vendor is not named in the row or its heading."
+    },
+    {
+      "id": "postgres-1c-2g",
+      "plan": "1c-2g",
+      "planNorm": "1c-2g",
+      "value": {
+        "amount": 40,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| 1 CPU | $40/month | 2GB RAM | 100 connections | 1c-2g |",
+      "contextQuote": "### Postgres",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium",
+      "note": "The 1c-2g Plan ID also exists in the Services table at $25/month: the price depends on the table."
+    },
+    {
+      "id": "postgres-storage",
+      "plan": null,
+      "planNorm": null,
+      "value": {
+        "amount": 0.3,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "gb",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Expandable storage ($0.30/GB)",
+      "contextQuote": "### Postgres",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "traps": [
+    {
+      "id": "services-1c-2g",
+      "kind": "other_plan",
+      "description": "The Services table prices a 1c-2g plan at $25/month; that is not the Postgres price ($40).",
+      "match": {
+        "amount": 25,
+        "planNorm": "1c-2g"
+      }
+    },
+    {
+      "id": "key-value-price",
+      "kind": "other_plan",
+      "description": "Key Value and Cron prices ($10, $20, $0.00016/minute) are different products.",
+      "match": {
+        "amount": 20,
+        "planNorm": "0.1c-256mb"
+      }
+    },
+    {
+      "id": "compute-less-than-1-cpu",
+      "kind": "other_plan",
+      "description": "The Services \"Less than 1 CPU\" row is $7, the Postgres row $6; do not mix them.",
+      "match": {
+        "amount": 7,
+        "planNorm": "0.1c-256mb"
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "postgres-rows",
+      "description": "Other Postgres instance rows.",
+      "match": {
+        "quoteContains": ["connections"]
+      }
+    },
+    {
+      "id": "service-rows",
+      "description": "Services / Key Value / Cron rows.",
+      "match": {
+        "quoteContains": ["RAM"]
+      }
+    },
+    {
+      "id": "ssd-storage",
+      "description": "SSD price in the Services list.",
+      "match": {
+        "quoteContains": ["SSDs"]
+      }
+    }
+  ],
+  "notes": "Workspace tiers are a table (\"| Pro | $25/month + compute |\"). The Postgres instance tables never name the product or the vendor in the row (\"| Less than 1 CPU | $6/month | 256 MB RAM | ... | 0.1c-256mb |\"); the heading above the table is \"### Postgres\". The same row labels (1 CPU, 2 CPU) repeat across the Services, Postgres, Key Value and Cron tables with different prices."
+}

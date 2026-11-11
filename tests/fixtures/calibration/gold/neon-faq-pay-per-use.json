@@ -1,0 +1,128 @@
+{
+  "pageId": "neon-faq-pay-per-use",
+  "vendor": "Neon",
+  "categories": ["usage_based", "conditions"],
+  "entity": {
+    "name": "Neon",
+    "aliases": ["Neon"],
+    "knownPlans": ["free", "launch", "scale"],
+    "officialDomains": ["neon.com"],
+    "otherEntityAliases": ["Supabase", "Aurora Serverless", "RDS for Postgres"]
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "storage-gb-month",
+      "plan": null,
+      "planNorm": null,
+      "value": {
+        "amount": 0.35,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "gb-month",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Storage is billed separately at $0.35/GB-month",
+      "contextQuote": "## How Neon's billing works",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "high",
+      "note": "Storage rate; not tied to a single plan."
+    },
+    {
+      "id": "launch-cu-hour",
+      "plan": "Launch",
+      "planNorm": "launch",
+      "value": {
+        "amount": 0.106,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "cu-hour",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Launch plan: $0.106/CU-hour",
+      "contextQuote": "## How Neon's billing works",
+      "expected": {
+        "status": "fail",
+        "reason": "unit: fail (usage claimed without a metered marker)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "scale-cu-hour",
+      "plan": "Scale",
+      "planNorm": "scale",
+      "value": {
+        "amount": 0.222,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "cu-hour",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Scale plan: $0.222/CU-hour",
+      "contextQuote": "## How Neon's billing works",
+      "expected": {
+        "status": "fail",
+        "reason": "unit: fail (usage claimed without a metered marker)"
+      },
+      "confidence": "high"
+    }
+  ],
+  "traps": [
+    {
+      "id": "supabase-pro-25",
+      "kind": "competitor",
+      "description": "Supabase’s \"Pro starts at $25/month\" is a competitor price on a Neon page.",
+      "match": {
+        "amount": 25
+      }
+    },
+    {
+      "id": "worked-example-totals",
+      "kind": "other",
+      "description": "Worked-example totals ($1.06, $2.31, $40.50, $48) are illustrations.",
+      "match": {
+        "amount": 2.31
+      }
+    },
+    {
+      "id": "worked-example-total-4050",
+      "kind": "other",
+      "description": "The heavier workload total ($40.50) is an illustration.",
+      "match": {
+        "amount": 40.5
+      }
+    },
+    {
+      "id": "invoice-threshold",
+      "kind": "other",
+      "description": "Invoices under $0.50 are not collected: a threshold, not a price.",
+      "match": {
+        "amount": 0.5
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "worked-example-lines",
+      "description": "Line items of the worked example.",
+      "match": {
+        "quoteContains": ["CU-hours of compute"]
+      }
+    }
+  ],
+  "notes": "Vendor FAQ that also describes competitors: the last bullets give Supabase’s price (\"Pro starts at $25/month\"), and the worked example lists totals ($1.06, $2.31, $40.50) that are not rates."
+}
