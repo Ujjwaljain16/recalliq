@@ -144,7 +144,7 @@ function sweep(
 ): string {
   let out = text;
   for (const m of text.matchAll(re)) {
-    if (onMatch(m as RegExpExecArray) === 'flag') issues.add(issue);
+    if (onMatch(m) === 'flag') issues.add(issue);
     out = mask(out, m.index, m[0].length);
   }
   return out;

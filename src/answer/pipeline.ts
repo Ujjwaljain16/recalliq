@@ -18,7 +18,7 @@ import {
 } from '../llm/prompts/synthesis.js';
 import { SentenceAssembler } from './assembler.js';
 import { PlaceholderParser } from './placeholders.js';
-import { buildRecords, resolveRef, type AnswerRecords, type RecordsInput } from './records.js';
+import { buildRecords, resolveRef, type AnswerRecords } from './records.js';
 import { defaultRenderer, recordCitations, type Renderer } from './render.js';
 import type { T3aContext } from './t3a.js';
 import type { SnapshotId } from '../shared/ids.js';
@@ -74,7 +74,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
 
   async run(input: RunInput, budget: TurnBudget, emit: (e: SseEvent) => void): Promise<RunResult> {
     const opts = this.deps.options ?? {};
-    const records = buildRecords(input as RecordsInput);
+    const records = buildRecords(input);
     const log = this.deps.logger;
 
     let sinkBroken = false;
@@ -150,15 +150,14 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         ...promptData(findings, records, this.renderer, input),
         compact,
       });
-      const iterator = this.deps.llm
-        .stream({
-          role: 'synthesis',
-          system: SYNTHESIS_SYSTEM,
-          messages,
-          maxTokens: compact ? (opts.compactMaxTokens ?? 600) : (opts.maxTokens ?? 1200),
-          signal,
-        })
-        [Symbol.asyncIterator]();
+      const stream = this.deps.llm.stream({
+        role: 'synthesis',
+        system: SYNTHESIS_SYSTEM,
+        messages,
+        maxTokens: compact ? (opts.compactMaxTokens ?? 600) : (opts.maxTokens ?? 1200),
+        signal,
+      });
+      const iterator = stream[Symbol.asyncIterator]();
       const aborted = new Promise<never>((_, reject) => {
         const fire = (): void => reject(new LlmError('cancelled', 'synthesis aborted'));
         if (signal.aborted) fire();

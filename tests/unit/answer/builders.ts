@@ -1,6 +1,6 @@
 import type { NormalizedValue } from '../../../src/shared/evidence.js';
 import type { Coverage, Finding, FindingSet } from '../../../src/shared/findings.js';
-import type { MessageId, SnapshotId, TurnId } from '../../../src/shared/ids.js';
+import type { MessageId, SnapshotId } from '../../../src/shared/ids.js';
 import type { ResolvedContext } from '../../../src/shared/memory.js';
 import type { SseEvent } from '../../../src/shared/sse.js';
 import { buildRecords, type RecordsInput } from '../../../src/answer/records.js';
@@ -57,7 +57,7 @@ export function finding(ord: number, over: Partial<Finding> = {}): Finding {
 
 export function findingSet(findings: Finding[]): FindingSet {
   return {
-    turnId: 'trn_1' as TurnId,
+    turnId: 'trn_1',
     createdAt: T_NOV_3,
     findings,
     sources: {

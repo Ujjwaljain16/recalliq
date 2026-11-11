@@ -57,7 +57,7 @@ export function pickTz(input: RecordsInput): IanaTz {
 export function buildRecords(input: RecordsInput): AnswerRecords {
   const set = input.findings;
   const findings = new Map<number, Finding>((set?.findings ?? []).map((f) => [f.ord, f]));
-  const sources = set?.sources ?? ({} as FindingSet['sources']);
+  const sources = set?.sources ?? {};
   const order = Object.keys(sources);
   const hitIds = new Set(input.ctx.memoryHits.map((h) => h.messageId));
   const messages = new Map<MessageId, { text: string; localTime: string }>();

@@ -24,7 +24,7 @@ export function fakeFetch(handler: Handler): { fetch: typeof fetch; calls: Recor
   const impl = (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const body: unknown = JSON.parse(typeof init?.body === 'string' ? init.body : '{}');
     const call: RecordedCall = {
-      url: String(input),
+      url: typeof input === 'string' ? input : input instanceof URL ? input.href : input.url,
       headers: Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>)),
       body: body as Record<string, unknown>,
       signal: init?.signal ?? undefined,
@@ -32,7 +32,7 @@ export function fakeFetch(handler: Handler): { fetch: typeof fetch; calls: Recor
     calls.push(call);
     return Promise.resolve(handler(call, calls.length));
   };
-  return { fetch: impl as typeof fetch, calls };
+  return { fetch: impl, calls };
 }
 
 export function jsonResponse(

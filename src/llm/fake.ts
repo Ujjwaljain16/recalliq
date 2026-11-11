@@ -34,10 +34,10 @@ export interface StreamScript {
 export class FakeLlm implements LlmPort {
   readonly structuredCalls: Array<StructuredRequest<unknown>> = [];
   readonly streamCalls: StreamRequest[] = [];
-  private readonly structuredQueue: Array<unknown | Error> = [];
+  private readonly structuredQueue: unknown[] = [];
   private readonly streamQueue: StreamScript[] = [];
 
-  queueStructured(...replies: Array<unknown | Error>): this {
+  queueStructured(...replies: unknown[]): this {
     this.structuredQueue.push(...replies);
     return this;
   }
@@ -48,7 +48,7 @@ export class FakeLlm implements LlmPort {
   }
 
   structured<T>(r: StructuredRequest<T>): Promise<StructuredResult<T>> {
-    this.structuredCalls.push(r as StructuredRequest<unknown>);
+    this.structuredCalls.push(r);
     if (r.signal.aborted) return Promise.reject(new LlmError('cancelled', 'aborted'));
     if (this.structuredQueue.length === 0) {
       return Promise.reject(new LlmError('unavailable', 'FakeLlm: no structured reply queued'));
