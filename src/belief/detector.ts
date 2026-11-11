@@ -134,7 +134,11 @@ export class RuleChangeDetector implements ChangeDetector {
           (dateOf(e) as Ms) >= t0,
       )
       .sort((a, b) => (dateOf(a) as Ms) - (dateOf(b) as Ms) || a.id.localeCompare(b.id));
-    return { verdict: items.length > 0 ? 'releases_found' : 'none_found', items };
+    if (items.length > 0) return { verdict: 'releases_found', items };
+    // Not finding a release is not proof that none occurred: a negative conclusion needs coverage that supports it.
+    if (releaseCoverageGap(coverage, t0) !== null)
+      return { verdict: 'unable_to_verify', items: [] };
+    return { verdict: 'none_found', items: [] };
   }
 }
 
@@ -231,4 +235,30 @@ function postBaseline(
     }
   }
   return result;
+}
+
+/**
+ * The least coverage that supports "none found" for releases. A negative claim is only as strong as the search
+ * behind it, so it needs all of: a search that succeeded and none that failed, a source obtained by a search made
+ * for releases (not only pricing pages), and a release source dated inside the interval (so the sources are
+ * recent enough to have shown a release if there was one). Extraction must also have succeeded; that is checked
+ * with the coverage failure. Anything less is `unable_to_verify`, never `none_found`.
+ */
+export const MIN_RELEASE_COVERAGE = {
+  successfulSearches: 1,
+  releaseSources: 1,
+  datedReleaseSourcesInInterval: 1,
+} as const;
+
+/** What is missing for a negative release conclusion, or null when the coverage supports it. */
+export function releaseCoverageGap(
+  c: Coverage,
+  t0: Ms,
+): 'search_failed' | 'too_few_searches' | 'no_release_source' | 'no_source_in_interval' | null {
+  if (c.searchesFailed > 0) return 'search_failed';
+  if (c.searchesOk < MIN_RELEASE_COVERAGE.successfulSearches) return 'too_few_searches';
+  if ((c.releaseSources ?? 0) < MIN_RELEASE_COVERAGE.releaseSources) return 'no_release_source';
+  const newest = c.newestDatedReleaseSource ?? null;
+  if (newest === null || newest < t0) return 'no_source_in_interval';
+  return null;
 }

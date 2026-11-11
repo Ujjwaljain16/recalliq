@@ -55,6 +55,8 @@ interface EntityState {
   searchesOk: number;
   searchesFailed: number;
   searchFailure: CoverageFailure | null;
+  /** Snapshots obtained by searches made for releases. */
+  releaseSnapshots: Set<SnapshotId>;
   extractionFailure: Extract<CoverageFailure, 'extraction_failed' | 'deadline'> | null;
   snapshots: Map<SnapshotId, SourceSnapshot>;
   verified: VerifiedEvidence[];
@@ -105,6 +107,7 @@ export class PipelineResearchService implements ResearchService {
           searchesOk: 0,
           searchesFailed: 0,
           searchFailure: null,
+          releaseSnapshots: new Set(),
           extractionFailure: null,
           snapshots: new Map(),
           verified: [],
@@ -209,6 +212,8 @@ export class PipelineResearchService implements ResearchService {
         st.searchesFailed++;
         st.searchFailure ??= mapSearchFailure(o.errorCode);
       } else st.searchesOk++;
+      if (o.spec.intent === 'releases' && o.status !== 'failed')
+        for (const id of o.snapshotIds) st.releaseSnapshots.add(id);
       const list = ids.get(st.entity.id) ?? [];
       list.push(...o.snapshotIds);
       ids.set(st.entity.id, list);
@@ -348,6 +353,10 @@ export class PipelineResearchService implements ResearchService {
     const dated = snaps
       .map((x) => x.providerLastUpdatedAt ?? x.providerPublishedAt)
       .filter((x): x is Ms => x !== null);
+    const releaseSnaps = snaps.filter((x) => s.releaseSnapshots.has(x.id));
+    const datedRelease = releaseSnaps
+      .map((x) => x.providerLastUpdatedAt ?? x.providerPublishedAt)
+      .filter((x): x is Ms => x !== null);
     const tierAPass =
       s.verified.some((e) => e.verification.status === 'pass' && isTierA(e) && e.freshFetch) ||
       [...evidenceByKey.values()]
@@ -364,6 +373,8 @@ export class PipelineResearchService implements ResearchService {
       extractionFailed: s.extractionFailure !== null,
       sourcesChecked: snaps.length,
       newestDatedSource: dated.length > 0 ? Math.max(...dated) : null,
+      releaseSources: releaseSnaps.length,
+      newestDatedReleaseSource: datedRelease.length > 0 ? Math.max(...datedRelease) : null,
       freshOfficialFetched: snaps.some(
         (x) =>
           x.freshFetch &&

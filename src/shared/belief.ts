@@ -61,7 +61,16 @@ export interface Belief {
   entityId: EntityId;
   status: BeliefStatus;
   value: NormalizedValue | null;
-  contestedValues?: Array<{ value: NormalizedValue; evidenceIds: EvidenceId[] }>;
+  /**
+   * One entry per distinct value. `conditions` carries the extraction's condition text of that value's
+   * evidence (for example "Access the features available in Professional subscriptions"), so an answer can say
+   * which subscription each price belongs to. Absent when no evidence of the value states one.
+   */
+  contestedValues?: Array<{
+    value: NormalizedValue;
+    evidenceIds: EvidenceId[];
+    conditions?: string[];
+  }>;
   displayedAt: Ms | null;
   /** Latest fresh_fetch winner. */
   verifiedAt: Ms | null;

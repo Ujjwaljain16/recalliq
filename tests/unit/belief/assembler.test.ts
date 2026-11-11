@@ -18,6 +18,7 @@ import {
   LIST_KEY,
   NOW,
   OK_COVERAGE,
+  RELEASE_COVERAGE_AFTER_T0,
   resolveAll,
   T0,
 } from './support.js';
@@ -280,7 +281,9 @@ describe('finding assembly', () => {
       ['Title early', true, 'major'],
       ['Title plain', false, null],
     ]);
-    const none = assembler().assemble(inputFor([], [], { intents: ['releases'] }));
+    const none = assembler().assemble(
+      inputFor([], [], { intents: ['releases'], coverage: RELEASE_COVERAGE_AFTER_T0 }),
+    );
     expect(none.findings[0]).toMatchObject({ verdict: 'none_found', currentStatus: 'unknown' });
     const unable = assembler().assemble(
       inputFor([], [], {

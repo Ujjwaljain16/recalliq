@@ -302,7 +302,11 @@ export class FindingAssembler {
       beliefKey: null,
       currentStatus: status,
       verdict: r.verdict,
-      verdictReason: r.verdict === 'unable_to_verify' ? isFailure(ent.coverage) : null,
+      verdictReason:
+        r.verdict === 'unable_to_verify'
+          ? (isFailure(ent.coverage) ??
+            (ent.coverage.searchesFailed > 0 ? 'search_unavailable' : 'insufficient_coverage'))
+          : null,
       coverage: ent.coverage,
       evidenceIds: r.items.map((e) => e.id),
     };

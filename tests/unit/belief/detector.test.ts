@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { RuleChangeDetector } from '../../../src/belief/detector.js';
 import type { Baseline, Belief, Coverage, VerifiedEvidence } from '../../../src/shared/index.js';
-import { baseline, DAY, ev, LIST_KEY, NOW, OK_COVERAGE, resolveAll, T0, usd } from './support.js';
+import {
+  baseline,
+  DAY,
+  ev,
+  LIST_KEY,
+  NOW,
+  OK_COVERAGE,
+  RELEASE_COVERAGE_AFTER_T0,
+  resolveAll,
+  T0,
+  usd,
+} from './support.js';
 
 const detector = new RuleChangeDetector();
 const H = 3_600_000;
@@ -408,10 +419,11 @@ describe('release verdicts', () => {
     expect(out.items.map((i) => i.id)).toEqual(['ev_at', 'ev_fallback', 'ev_later']);
   });
 
-  it('T-BEL-61: none found when searches succeeded and nothing is dated in the interval', () => {
-    expect(detector.releases([rel('old', { eventDate: T0 - DAY })], OK_COVERAGE, T0).verdict).toBe(
-      'none_found',
-    );
+  it('T-BEL-61: none found only when the coverage supports it and nothing qualifying was found', () => {
+    expect(
+      detector.releases([rel('old', { eventDate: T0 - DAY })], RELEASE_COVERAGE_AFTER_T0, T0)
+        .verdict,
+    ).toBe('none_found');
   });
 
   it('T-BEL-62: a coverage failure is unable_to_verify, never none_found', () => {

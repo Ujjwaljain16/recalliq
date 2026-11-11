@@ -27,7 +27,13 @@ const pendingSchema = z.array(
     evidenceIds: z.array(z.string()),
   }),
 );
-const contestedSchema = z.array(z.object({ value: valueSchema, evidenceIds: z.array(z.string()) }));
+const contestedSchema = z.array(
+  z.object({
+    value: valueSchema,
+    evidenceIds: z.array(z.string()),
+    conditions: z.array(z.string()).optional(),
+  }),
+);
 
 const rowSchema = z.object({
   belief_key: z.string(),
@@ -67,6 +73,7 @@ function toBelief(r: z.output<typeof rowSchema>): Belief {
     belief.contestedValues = contestedSchema.parse(JSON.parse(r.contested_json)).map((g) => ({
       value: g.value,
       evidenceIds: g.evidenceIds.map((id) => parseId('ev', id)),
+      ...(g.conditions ? { conditions: g.conditions } : {}),
     }));
   return belief;
 }

@@ -104,6 +104,22 @@ export const LIST_KEY = (() => {
   return k;
 })();
 
+/**
+ * Coverage that supports a negative release conclusion: a successful search, no failed one, a release source
+ * dated inside the interval that starts at T0.
+ */
+export const RELEASE_COVERAGE_AFTER_T0: Coverage = {
+  searchesOk: 2,
+  searchesFailed: 0,
+  extractionFailed: false,
+  sourcesChecked: 11,
+  newestDatedSource: T0 + 5 * DAY,
+  freshOfficialFetched: true,
+  failure: null,
+  releaseSources: 3,
+  newestDatedReleaseSource: T0 + 5 * DAY,
+};
+
 export const OK_COVERAGE: Coverage = {
   searchesOk: 2,
   searchesFailed: 0,

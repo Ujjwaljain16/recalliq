@@ -32,6 +32,7 @@ export type PriceVerdictReason =
   | 'same_source_bracketing'
   | 'stated_effective_date'
   | 'listed_differently'
+  | 'insufficient_coverage'
   | CoverageFailure;
 
 export type ReleaseVerdict = 'releases_found' | 'none_found' | 'unable_to_verify';
@@ -44,6 +45,13 @@ export interface Coverage {
   newestDatedSource: Ms | null;
   freshOfficialFetched: boolean;
   failure: CoverageFailure | null;
+  /**
+   * Sources obtained by searches made for releases (news, blog, changelog, announcements), as opposed to pricing
+   * pages. A negative release conclusion needs at least one. Absent means unknown, which counts as none.
+   */
+  releaseSources?: number;
+  /** The newest provider date among those release sources, or null when none is dated. */
+  newestDatedReleaseSource?: Ms | null;
 }
 
 /** The change occurred in (after, notAfter]. */
