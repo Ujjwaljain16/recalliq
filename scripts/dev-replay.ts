@@ -11,6 +11,13 @@ const root = path.resolve(import.meta.dirname, '..');
 process.env['APP_COMPONENTS'] = 'replay';
 process.env['APP_MODE'] = 'demo';
 process.env['REPLAY_FIXTURE'] ??= path.join(root, 'tests', 'fixtures', 'e2e', 'demo.json');
+process.env['OFFICIAL_DOMAINS_FILE'] ??= path.join(
+  root,
+  'tests',
+  'fixtures',
+  'e2e',
+  'official-domains.example.json',
+);
 process.env['DB_PATH'] ??= path.join(root, 'data', 'replay-demo.db');
 
 const db = process.env['DB_PATH'];

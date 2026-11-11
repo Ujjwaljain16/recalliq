@@ -9,6 +9,7 @@ import type { Origin } from '../shared/ids.js';
 import type { ComponentFactory } from './components.js';
 import type { AppEnv } from './env.js';
 import { loadReplayFixture, type ReplayFixture } from './live/fixture.js';
+import { OfficialDomains } from './live/registry.js';
 import { buildRealComponents } from './live/pipeline.js';
 import { FixtureLlm, FixtureSearchPort, MissLog } from './live/replay-providers.js';
 
@@ -48,6 +49,13 @@ export interface LiveOptions {
   fetch?: typeof fetch;
 }
 
+/** The owner's registry from OFFICIAL_DOMAINS_FILE; no file means no official domains. Fails on an unreadable or malformed file. */
+function loadRegistry(env: AppEnv): OfficialDomains {
+  return env.officialDomainsFile === undefined
+    ? OfficialDomains.none()
+    : OfficialDomains.fromFile(path.resolve(env.officialDomainsFile));
+}
+
 /** Checks everything the live set needs, before the database is opened. */
 export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFactory {
   const problems: string[] = [];
@@ -62,6 +70,7 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
     );
   }
   if (problems.length > 0) throw new LiveConfigurationError(problems);
+  const registry = loadRegistry(env);
 
   const doFetch = options.fetch ?? fetch;
   return (c) => {
@@ -77,7 +86,7 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
       fetch: (input, init) => doFetch(input, init),
       clock: c.clock,
     });
-    return buildRealComponents(c, { kind: 'live', llm, search, origin: 'live' });
+    return buildRealComponents(c, { kind: 'live', llm, search, origin: 'live', registry });
   };
 }
 
@@ -101,6 +110,7 @@ export function assertReplayRunnable(env: AppEnv): void {
 export function replayFactoryFromFixture(
   fixture: ReplayFixture,
   recorded?: ReplaySearchAdapter,
+  registry: OfficialDomains = OfficialDomains.none(),
 ): ComponentFactory {
   const origin: Origin = fixture.class === 'recorded' ? 'recorded' : 'synthetic';
   return (c) => {
@@ -114,6 +124,7 @@ export function replayFactoryFromFixture(
       search: new FixtureSearchPort({ entries: fixture.search, recorded, clock: c.clock, log }),
       origin,
       missLog: log,
+      registry,
     });
   };
 }
@@ -131,5 +142,5 @@ export function replayFactory(env: AppEnv): ComponentFactory {
           first.response.provider,
           exchanges.map((e) => ({ key: e.key, response: e.response })),
         );
-  return replayFactoryFromFixture(fixture, recorded);
+  return replayFactoryFromFixture(fixture, recorded, loadRegistry(env));
 }

@@ -1,7 +1,9 @@
+import path from 'node:path';
 import type { Components } from '../../../src/app/components.js';
 import { startApplication, type Application } from '../../../src/app/application.js';
 import { loadAppEnv, type AppEnv } from '../../../src/app/env.js';
 import { replayFactoryFromFixture } from '../../../src/app/live.js';
+import { OfficialDomains } from '../../../src/app/live/registry.js';
 import { parseReplayFixture, type ReplayFixtureInput } from '../../../src/app/live/fixture.js';
 import { FixedClock } from '../../../src/temporal/clock.js';
 import { Client, SECRET, type RawSse, type SseRead } from '../server/harness.js';
@@ -30,6 +32,8 @@ export interface E2eOptions {
   dbPath?: string;
   mode?: 'demo' | 'real';
   decorate?: (c: Components) => Components;
+  /** The owner's official-domain registry. Default: the synthetic example registry (`.example` domains). */
+  registry?: OfficialDomains;
 }
 
 /**
@@ -48,7 +52,11 @@ export async function startE2e(o: E2eOptions): Promise<E2eApp> {
   const env: AppEnv = { ...base, config: { ...base.config, dbPath: o.dbPath ?? ':memory:' } };
   const app = await startApplication({
     env,
-    factory: replayFactoryFromFixture(parseReplayFixture(o.fixture)),
+    factory: replayFactoryFromFixture(
+      parseReplayFixture(o.fixture),
+      undefined,
+      o.registry ?? EXAMPLE_REGISTRY(),
+    ),
     clock,
     port: 0,
     ...(o.decorate ? { decorate: o.decorate } : {}),
@@ -151,3 +159,9 @@ export function dbContains(app: Application, needle: string): boolean {
 
 export const eventsOf = (t: TurnOutcome, name: string): unknown[] =>
   t.read.events.filter((e) => e.event === name).map((e) => e.data);
+
+export const EXAMPLE_REGISTRY_FILE = path.resolve(
+  'tests/fixtures/e2e/official-domains.example.json',
+);
+export const EXAMPLE_REGISTRY = (): OfficialDomains =>
+  OfficialDomains.fromFile(EXAMPLE_REGISTRY_FILE);

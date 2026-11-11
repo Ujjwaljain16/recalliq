@@ -2,7 +2,7 @@ import { FindingAssembler } from '../../belief/assembler.js';
 import { RuleChangeDetector } from '../../belief/detector.js';
 import type { BeliefRepository } from '../../belief/repository.js';
 import type { Db } from '../../db/index.js';
-import { DomainAuthorityClassifier, registrableDomain } from '../../evidence/authority.js';
+import { DomainAuthorityClassifier } from '../../evidence/authority.js';
 import { AdaptiveBatcher } from '../../evidence/batcher.js';
 import { EntailmentJudge } from '../../evidence/entailment.js';
 import { ExtractionRunner, LlmEvidenceExtractor } from '../../evidence/extractor.js';
@@ -13,13 +13,13 @@ import { SearchResearchExecutor } from '../../research/executor.js';
 import { PipelineResearchService } from '../../research/service.js';
 import { SnapshotStore } from '../../sources/snapshot-store.js';
 import type { Origin } from '../../shared/ids.js';
-import type { Clock, TurnBudget } from '../../shared/infrastructure.js';
+import type { Clock } from '../../shared/infrastructure.js';
 import type { LlmPort } from '../../shared/llm.js';
 import type { ResearchService } from '../../shared/pipeline.js';
-import type { ResearchPlan, ResearchExecutor, SearchOutcome } from '../../shared/research.js';
+import type { ResearchPlan } from '../../shared/research.js';
 import type { SearchPort } from '../../shared/search.js';
-import type { EventSink } from '../../shared/sse.js';
-import { EntityDirectory, nameMatchesDomain, type EntityRow } from './entities.js';
+import { EntityDirectory, type EntityRow } from './entities.js';
+import type { OfficialDomains } from './registry.js';
 
 export interface TurnResearchDeps {
   db: Db;
@@ -29,29 +29,7 @@ export interface TurnResearchDeps {
   /** Stored on every snapshot and entity: 'live' for the real provider, 'synthetic' or 'recorded' for replay. */
   origin: Origin;
   beliefs: BeliefRepository;
-}
-
-/**
- * Learns an entity's official domain from the result of an official-site discovery search: a hit whose domain
- * name evidently is the entity's name (nameMatchesDomain). It runs between the search and the verification of
- * the same round, so the pages of that round are classified with the domain it found.
- */
-class DomainLearningExecutor implements ResearchExecutor {
-  constructor(
-    private readonly inner: ResearchExecutor,
-    private readonly learn: (outcomes: SearchOutcome[]) => void,
-  ) {}
-
-  async execute(
-    plan: ResearchPlan,
-    round: 1 | 2,
-    budget: TurnBudget,
-    emit: EventSink,
-  ): Promise<SearchOutcome[]> {
-    const outcomes = await this.inner.execute(plan, round, budget, emit);
-    this.learn(outcomes);
-    return outcomes;
-  }
+  registry: OfficialDomains;
 }
 
 /**
@@ -70,20 +48,19 @@ export class PerTurnResearchService implements ResearchService {
 
   async run(req: Parameters<ResearchService['run']>[0]): ReturnType<ResearchService['run']> {
     const plan = this.materialize(req);
+    // Official-domain status comes only from the owner's registry and the entity's own stored domains.
+    this.d.registry.apply(req.ctx.entities);
     const snapshots = new SnapshotStore(this.d.db);
     const classifier = new DomainAuthorityClassifier();
     const entities = req.ctx.entities;
-    const executor = new DomainLearningExecutor(
-      new SearchResearchExecutor({
-        db: this.d.db,
-        port: this.d.search,
-        clock: this.d.clock,
-        userId: req.userId,
-        turnId: req.turnId,
-        origin: this.d.origin,
-      }),
-      (outcomes) => this.learnDomains(req, snapshots, outcomes),
-    );
+    const executor = new SearchResearchExecutor({
+      db: this.d.db,
+      port: this.d.search,
+      clock: this.d.clock,
+      userId: req.userId,
+      turnId: req.turnId,
+      origin: this.d.origin,
+    });
     const extractor = new LlmEvidenceExtractor({
       llm: this.d.llm,
       snapshots: (ids) => snapshots.getMany(req.userId, [...ids]),
@@ -137,22 +114,5 @@ export class PerTurnResearchService implements ResearchService {
       specs: req.plan.specs.map(rewrite),
       fallback: req.plan.fallback.map(rewrite),
     };
-  }
-
-  private learnDomains(
-    req: Parameters<ResearchService['run']>[0],
-    snapshots: SnapshotStore,
-    outcomes: SearchOutcome[],
-  ): void {
-    for (const o of outcomes) {
-      if (o.spec.intent !== 'official_domain_discovery' || o.spec.entityId === null) continue;
-      const entity = req.ctx.entities.find((e) => e.id === o.spec.entityId);
-      if (entity === undefined) continue;
-      for (const snap of snapshots.getMany(req.userId, o.snapshotIds)) {
-        if (nameMatchesDomain(entity.name, snap.domain)) {
-          this.directory.addDomain(entity, registrableDomain(snap.domain), 'name_match');
-        }
-      }
-    }
   }
 }

@@ -22,6 +22,7 @@ describe('the shipped replay fixture (the one `npm run dev:replay` uses)', () =>
       APP_COMPONENTS: 'replay',
       SESSION_SECRET: SECRET,
       REPLAY_FIXTURE: FIXTURE,
+      OFFICIAL_DOMAINS_FILE: path.resolve('tests/fixtures/e2e/official-domains.example.json'),
     });
     const env = { ...base, config: { ...base.config, dbPath: ':memory:' } };
     const app = await startApplication({
