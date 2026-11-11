@@ -5,10 +5,7 @@ Server-Sent Events API under `/api`. The event types are the `SseEvent` union in
 [src/shared/sse.ts](../src/shared/sse.ts); the contract is in [contracts.md](contracts.md) and
 [architecture.md](architecture.md) section 13.
 
-> **Scripted components.** Until the real analyzer, research service and answer pipeline are wired in
-> (`src/app/live.ts`), the server runs a scripted demo set (`APP_COMPONENTS=scripted`). It gives canned answers
-> and does no search and no model call. `GET /api/health` reports which set is active, and the client shows
-> a banner while it is scripted.
+> **Component sets.** The server runs one of three sets, chosen at startup with `APP_COMPONENTS` and fixed for the process: `scripted` (canned demo answers: no search, no model), `replay` (the real pipeline over recorded fixtures) or `live` (the real pipeline over Gemini and Exa). `GET /api/health` reports which set is active, and the client shows a banner for `scripted` and `replay`. See [running.md](running.md).
 
 ## Configuration
 
