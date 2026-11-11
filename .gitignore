@@ -10,3 +10,13 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# local tooling and OS files
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+*.log
+.eslintcache
+*.tsbuildinfo
+.vscode/
+.idea/
