@@ -59,13 +59,14 @@ describe('migrations: fresh database', () => {
     expect(getMeta(db, 'created_at')).toBe(String(T0));
   });
 
-  it('ships migrations 001 to 005, numbered contiguously', () => {
+  it('ships migrations 001 to 006, numbered contiguously', () => {
     expect(loadMigrations().map((m) => `${m.version}_${m.name}`)).toEqual([
       '1_init',
       '2_demo_isolation',
       '3_ownership_consistency',
       '4_turn_lifecycle',
       '5_delivery_acknowledgement',
+      '6_decision_ownership',
     ]);
   });
 
