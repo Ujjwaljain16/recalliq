@@ -30,7 +30,13 @@ import {
   T0,
   type TestDb,
 } from '../../helpers/db.js';
-import { advance, buildCompletion, completedAnswer, startTurn } from '../../helpers/turns.js';
+import {
+  advance,
+  buildCompletion,
+  completedAnswer,
+  emptyMetrics,
+  startTurn,
+} from '../../helpers/turns.js';
 import { insertEntity } from '../../helpers/db.js';
 
 /** Shortest path from RECEIVED to `target` in the state machine. */
@@ -77,7 +83,7 @@ function turnInState(t: TestDb, state: TurnState): TurnId {
 }
 
 describe('T-TRN-01: the database enforces the state machine, and agrees with the TypeScript table', () => {
-  it('accepts exactly the 19 edges and rejects every other ordered pair (182 probes)', () => {
+  it('accepts exactly the 26 edges and rejects every other ordered pair (182 probes)', () => {
     const t = openTestDb();
     let accepted = 0;
     let rejected = 0;
@@ -102,8 +108,8 @@ describe('T-TRN-01: the database enforces the state machine, and agrees with the
         else rejected += 1;
       }
     }
-    expect(accepted).toBe(19);
-    expect(rejected).toBe(182 - 19);
+    expect(accepted).toBe(26);
+    expect(rejected).toBe(182 - 26);
   });
 
   it('rejects a state value that is not part of the state machine', () => {
@@ -310,20 +316,62 @@ describe('T-TRN-03: TurnRepository.setState validates every transition', () => {
     expect(t.turns.get(user, turnId)?.state).toBe('ANALYZING');
   });
 
-  it('reaches PERSISTING early only through the two documented shortcuts', () => {
+  it('every non-final state can move to PERSISTING (failure edges), and the turn can then be finalised', () => {
     const t = openTestDb();
     const user = t.users.create();
-    const c1 = t.conversations.create({ userId: user });
-    const outage = startTurn(t, user, c1.id);
-    t.turns.setState(user, outage.turnId, 'ANALYZING');
-    expect(() => t.turns.setState(user, outage.turnId, 'PERSISTING')).not.toThrow(); // LLM outage
-
-    const c2 = t.conversations.create({ userId: user });
-    const midway = startTurn(t, user, c2.id);
-    advance(t, user, midway.turnId, ['ANALYZING', 'RESOLVING_CONTEXT', 'PLANNING', 'SEARCHING']);
-    expect(() => t.turns.setState(user, midway.turnId, 'PERSISTING')).toThrow(
-      InvalidTransitionError,
+    const A: TurnState = 'ANALYZING';
+    const RC: TurnState = 'RESOLVING_CONTEXT';
+    const WALKS: Partial<Record<TurnState, TurnState[]>> & Record<string, TurnState[]> = {
+      RECEIVED: [],
+      ANALYZING: [A],
+      RESOLVING_CONTEXT: [A, RC],
+      CLARIFYING: [A, RC, 'CLARIFYING'],
+      PLANNING: [A, RC, 'PLANNING'],
+      SEARCHING: [A, RC, 'PLANNING', 'SEARCHING'],
+      EXTRACTING: [A, RC, 'PLANNING', 'SEARCHING', 'EXTRACTING'],
+      VERIFYING: [A, RC, 'PLANNING', 'SEARCHING', 'EXTRACTING', 'VERIFYING'],
+      RESOLVING_BELIEFS: [A, RC, 'PLANNING', 'SEARCHING', 'RESOLVING_BELIEFS'],
+      SYNTHESIZING: [A, RC, 'SYNTHESIZING'],
+      POST_VERIFYING: [A, RC, 'SYNTHESIZING', 'POST_VERIFYING'],
+    };
+    for (const [state, walk] of Object.entries(WALKS) as Array<[TurnState, TurnState[]]>) {
+      const conversation = t.conversations.create({ userId: user });
+      const { turnId } = startTurn(t, user, conversation.id);
+      advance(t, user, turnId, walk);
+      expect(t.turns.get(user, turnId)?.state, state).toBe(state);
+      expect(() => t.turns.setState(user, turnId, 'PERSISTING'), state).not.toThrow();
+      t.turns.complete(user, turnId, {
+        status: 'failed',
+        assistant: null,
+        findings: null,
+        assertions: [],
+        baselineEvents: [],
+        touchedBeliefKeys: [],
+        enrichment: { tags: [], entities: [], decisions: [] },
+        analysis: null,
+        context: null,
+        events: [],
+        metrics: emptyMetrics(),
+        errorCode: 'internal_error',
+      });
+      expect(t.turns.get(user, turnId), state).toMatchObject({
+        state: 'COMPLETED',
+        status: 'failed',
+      });
+    }
+    expect(Object.keys(WALKS).sort()).toEqual(
+      TURN_STATES.filter((s) => !isFinalState(s) && s !== 'PERSISTING').sort(),
     );
+  });
+
+  it('a state that is not a failure edge is still refused: PLANNING cannot skip ahead', () => {
+    const t = openTestDb();
+    const user = t.users.create();
+    const conversation = t.conversations.create({ userId: user });
+    const { turnId } = startTurn(t, user, conversation.id);
+    advance(t, user, turnId, ['ANALYZING', 'RESOLVING_CONTEXT', 'PLANNING']);
+    expect(() => t.turns.setState(user, turnId, 'EXTRACTING')).toThrow(InvalidTransitionError);
+    expect(() => t.turns.setState(user, turnId, 'SYNTHESIZING')).toThrow(InvalidTransitionError);
   });
 
   it('refuses final states: only complete() and fail() set them', () => {
