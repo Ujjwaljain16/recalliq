@@ -172,7 +172,7 @@ describe('the evaluation records what the model did, and survives its failures',
 
   it('the selected prompt reaches the model, unchanged message and schema name', async () => {
     const llm = new FakeLlm().queueStructured({ statements: [] }, { statements: [] });
-    await runExtraction(one, { llm, now: NOW });
+    await runExtraction(one, { llm, now: NOW, prompt: extractionPromptFor('extract-v1') });
     await runExtraction(one, { llm, now: NOW, prompt: extractionPromptFor('extract-v2') });
     const [a, b] = llm.structuredCalls;
     expect(a?.system).toBe(extractionPromptFor('extract-v1').system);

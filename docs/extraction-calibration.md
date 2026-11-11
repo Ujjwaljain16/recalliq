@@ -257,5 +257,53 @@ rather than as a false pass of another kind.
 
 ## Results
 
-Not run yet. The BEFORE run (extract-v1) and AFTER run (extract-v2) on the same dataset, with the same model, are to
-be added here with the model name, the date and the report files.
+### Four-way comparison on the same 20 pages (2026-11-12, one run per cell)
+
+Model `gemini-3.5-flash-lite` through the project's own adapter (free tier, no retries), 20 requests per run, 80 gold claims in 20 captured pages (see the labelling caveat above: the labels were made by an AI and have had only a partial review). Verification is the unchanged T0 to T2 checks (including the billing-period binding fix and the ownership rule of ADR-41). "Registry" means a measurement aid built from each gold page's own URL (the vendor's registrable domain); it is **not** an owner registry and is a ceiling, not a typical case.
+
+| Experiment | Prompt | Registry | Extraction calls that failed | Input / output tokens |
+|---|---|---|---|---|
+| A | extract-v1 | none | 2 (salesforce: output cut off; aiven: HTTP 503) | 36,999 / 17,640 |
+| B | extract-v1 | measurement aid | 1 (salesforce: output cut off) | 36,364 / 19,360 (2,848 cached) |
+| C | extract-v2 | none | 1 (dropbox: provider not reachable) | 60,989 / 23,653 |
+| D | extract-v2 | measurement aid | 2 (jira, dropbox: provider not reachable) | 48,806 / 26,247 (15,772 cached) |
+
+**The four runs did not all succeed on the same pages.** A failed extraction call counts as nothing extracted, so each raw row is penalised on different pages. The shared-pages table uses only the 16 pages that succeeded in all four runs (the failed pages were salesforce-sales-pricing, aiven-postgresql-pricing, dropbox-standard-plan and jira-pricing). Every number below is a single sample; a second sample of the same prompt differed noticeably in earlier runs (extract-v2 claim precision 52.6% to 63.6%), so differences of a few points are noise.
+
+Raw (all 20 pages, failed pages count as nothing extracted):
+
+| | Predicted | Matched gold | Claim precision | Claim recall | Verified (pass) | Verified recall | False passes | Weak | Fail |
+|---|---|---|---|---|---|---|---|---|---|
+| A v1, no registry | 54 | 20 | 37.0% | 25.0% | 6 | 7.5% | 0 | 11 | 37 |
+| B v1, registry | 58 | 19 | 32.8% | 23.8% | 11 | 13.8% | 0 | 5 | 42 |
+| C v2, no registry | 62 | 36 | 58.1% | 45.0% | 1 | 1.3% | 0 | 21 | 40 |
+| D v2, registry | 66 | 46 | 69.7% | 57.5% | 24 | 30.0% | 0 | 5 | 37 |
+
+Shared pages only (16 pages, 66 gold claims):
+
+| | Predicted | Matched gold | Claim precision | Claim recall | Verified (pass) | Verified recall | False passes |
+|---|---|---|---|---|---|---|---|
+| A v1, no registry | 54 | 20 | 37.0% | 30.3% | 6 | 9.1% | 0 |
+| B v1, registry | 52 | 19 | 36.5% | 28.8% | 11 | 16.7% | 0 |
+| C v2, no registry | 57 | 31 | 54.4% | 47.0% | 1 | 1.5% | 0 |
+| D v2, registry | 58 | 38 | 65.5% | 57.6% | 20 | 30.3% | 0 |
+
+Other measurements (raw runs):
+
+- **Supporting-quote accuracy:** v1 quotes were verbatim in the page in 72 of 72 (A) and 78 of 78 (B) statements. v2 quotes were verbatim in 81 of 87 (C, 93.1%) and 84 of 90 (D, 93.3%); the rest are rejected by the verbatim check. Every quote of both prompts contained the claimed value.
+- **Field accuracy over gold claims that were matched to a statement (A, B, C, D):** plan and subject 81.1%, 85.7%, 92.3%, 90.6%; unit 100%, 100%, 96.9%, 95.3%; currency 62.3%, 53.6%, 83.1%, 100%; billing period 73.6%, 76.8%, 83.1%, 82.8%; modality 98.1%, 100%, 93.8%, 95.3%; conditions 98.1%, 100%, 90.8%, 89.1%. Currency is the largest gain of v2 (bare symbols are reported as unknown instead of an assumed code); unit, modality and conditions are slightly worse.
+- **Subject binding:** weak statements for v1 without and with the registry: 65 and 44; for v2: 79 and 32. Statements failing unit: 15, 14, 14, 21; failing billing period: 14, 17, 18, 19; failing plan binding: 12, 7, 17, 17.
+- **False passes:** 0 in all four runs (0 of 6, 11, 1 and 24 passing statements on the raw rows). In a separate earlier v2 sample, before the billing-period binding fix, 3 statements on the Close page passed verification and contradicted the labels; that defect is fixed and tested, and has not recurred.
+- **Usefulness of the final answer** was not measured in this experiment (it ends at verified statements). It is assessed only in the end-to-end runs recorded in docs/testing.md.
+
+### What the comparison supports, and what it does not
+
+- Prompt v2 extracts more correct claims than v1 on the same pages: claim precision 37% to 54 to 58% and recall 25 to 30% to 45 to 47% without a registry, with higher accuracy on plan, subject and currency. It costs more input tokens (about 1.6 times), writes a few quotes that are not verbatim, and fails the unit check more often.
+- Without a registry almost nothing verifies for either prompt (1 to 6 of 80), because the vendor's name is rarely near the price. With a registry that lists the page's vendor, v2 verifies about 30% of the gold claims (24 of 80 raw, 20 of 66 on shared pages) with no false pass in these runs; v1 verifies 14 to 17%.
+- Neither result shows how often an owner's registry will cover a real question, and the registry in these runs knows exactly the vendor of every page, which a real one will not. The pages are 20 captured pages from 18 vendors, mostly plain pricing pages; three show plan names without amounts because their prices are rendered in the browser.
+- The labels are AI-made and only partly reviewed. A wrong label moves precision and recall in either direction.
+- With one sample per cell and 503 errors from the free tier, the experiment cannot separate small differences. It does not show the model is reliable, and it says nothing about other models.
+
+### Decision taken from it
+
+`extract-v2` is now the default extraction prompt (`DEFAULT_EXTRACTION_PROMPT_VERSION` in `src/evidence/prompts/extraction.ts`); `extract-v1` stays selectable. The basis is claim precision and recall, subject and currency accuracy and the absence of false passes, **not** the verification pass rate alone. The measured costs are listed above. Setting the constant back to `'extract-v1'` reverts it.

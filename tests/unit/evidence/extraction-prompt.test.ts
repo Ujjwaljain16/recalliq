@@ -143,8 +143,9 @@ describe('the extractor uses the selected prompt', () => {
     return call.system;
   }
 
-  it('defaults to v1', async () => {
-    expect(await systemUsed()).toBe(EXTRACTION_SYSTEM_PROMPT);
+  it('defaults to v2 (see docs/extraction-calibration.md) and v1 stays selectable', async () => {
+    expect(await systemUsed()).toBe(v2);
+    expect(await systemUsed(extractionPromptFor('extract-v1'))).toBe(EXTRACTION_SYSTEM_PROMPT);
   });
 
   it('sends v2 when asked, with the same message and limits', async () => {

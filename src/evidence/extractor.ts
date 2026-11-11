@@ -14,7 +14,8 @@ import {
 import { estimateTokens, MAX_SNAPSHOT_CHARS } from './batcher.js';
 import {
   EXTRACTION_MAX_TOKENS,
-  EXTRACTION_SYSTEM_PROMPT,
+  DEFAULT_EXTRACTION_PROMPT_VERSION,
+  extractionPromptFor,
   MAX_STATEMENTS_PER_ENTITY_KIND,
   buildExtractionMessage,
   extractionOutputSchema,
@@ -111,7 +112,7 @@ export class LlmEvidenceExtractor implements EvidenceExtractor {
     try {
       const out = await this.deps.llm.structured({
         role: 'extraction',
-        system: this.deps.prompt?.system ?? EXTRACTION_SYSTEM_PROMPT,
+        system: (this.deps.prompt ?? extractionPromptFor(DEFAULT_EXTRACTION_PROMPT_VERSION)).system,
         messages: [
           { role: 'user', content: buildExtractionMessage(promptEntities, promptSources) },
         ],

@@ -6,7 +6,16 @@ import type { SourceSnapshot } from '../../shared/evidence.js';
  * schema changes in a way that could change what is extracted; it is stored with run metadata, not with the
  * evidence (L2 rows are immutable and carry no prompt version column).
  */
+/** The version the first prompt carried; kept so it stays selectable for comparison. */
 export const EXTRACTION_PROMPT_VERSION = 'extract-v1';
+
+/**
+ * The prompt the extractor uses unless told otherwise. Changed from extract-v1 to extract-v2 after the same-dataset
+ * comparison in docs/extraction-calibration.md (claim precision and recall up, currency and subject accuracy up, no
+ * false passes in any run), with its measured cost: about 7% of v2's quotes are not verbatim (the verbatim check
+ * rejects them) and more unit failures. It is one constant: set it back to 'extract-v1' to revert.
+ */
+export const DEFAULT_EXTRACTION_PROMPT_VERSION = 'extract-v2';
 
 /**
  * A system prompt and the version it is stored under. `extract-v1` is the prompt in use. `extract-v2` is a
