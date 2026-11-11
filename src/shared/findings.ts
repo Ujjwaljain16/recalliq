@@ -1,5 +1,6 @@
 import type { Belief, BeliefStatus, PendingSignal } from './belief.js';
 import type { AuthorityTier, NormalizedValue, VerifiedEvidence } from './evidence.js';
+import type { CrawlBasis } from './search.js';
 import type {
   AssertionId,
   EntityId,
@@ -97,6 +98,12 @@ export interface Finding {
     value: NormalizedValue | null;
     displayedAt: Ms | null;
     verifiedAt: Ms | null;
+    /**
+     * What the winning evidence's freshness rests on: the strongest basis among the snapshots it came from.
+     * Reported only, so wording can say a result rests on a live crawl that was requested but not confirmed
+     * (`requested_live`). It feeds no status and no verdict. Absent when the snapshots carry no basis.
+     */
+    crawlBasis?: CrawlBasis;
     citations: SnapshotId[];
     contested?: Belief['contestedValues'];
     pendingSignals: PendingSignal[];

@@ -59,7 +59,7 @@ describe('migrations: fresh database', () => {
     expect(getMeta(db, 'created_at')).toBe(String(T0));
   });
 
-  it('ships migrations 001 to 008, numbered contiguously', () => {
+  it('ships migrations 001 to 009, numbered contiguously', () => {
     expect(loadMigrations().map((m) => `${m.version}_${m.name}`)).toEqual([
       '1_init',
       '2_demo_isolation',
@@ -69,6 +69,7 @@ describe('migrations: fresh database', () => {
       '6_decision_ownership',
       '7_search_ownership',
       '8_belief_ownership',
+      '9_snapshot_crawl_basis',
     ]);
   });
 

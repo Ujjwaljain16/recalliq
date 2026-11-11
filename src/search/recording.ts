@@ -21,6 +21,7 @@ const hitSchema = z.object({
   lastUpdatedAt: z.number().nullable(),
   providerScore: z.number().nullable(),
   freshFetch: z.boolean(),
+  crawlBasis: z.enum(['confirmed_live', 'requested_live', 'cached', 'unknown']).optional(),
   crawlStatus: z.enum(['ok', 'failed', 'unknown']),
 });
 

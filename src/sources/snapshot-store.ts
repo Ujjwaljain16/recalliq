@@ -12,7 +12,7 @@ import {
   type UserId,
 } from '../shared/ids.js';
 import type { SnapshotReader } from '../shared/pipeline.js';
-import type { SearchHit } from '../shared/search.js';
+import type { CrawlBasis, SearchHit } from '../shared/search.js';
 import { InvalidUrlError, normalizeUrl } from './url.js';
 
 export function sha256Hex(text: string): string {
@@ -33,9 +33,31 @@ const rowSchema = z.object({
   provider_last_updated_at: z.number().nullable(),
   observed_at: z.number(),
   fresh_fetch: z.number(),
+  crawl_basis: z.enum(['confirmed_live', 'requested_live', 'cached', 'unknown']),
   crawl_status: z.enum(['ok', 'failed', 'unknown']),
   origin: z.enum(['live', 'recorded', 'synthetic']),
 });
+
+/**
+ * The basis a hit is stored with. A hit without one (an older recording, a scripted source) is `confirmed_live`
+ * when it says `freshFetch` and `unknown` otherwise. A hit whose two fields disagree is a bug in its producer
+ * and is refused rather than stored, so `freshFetch === (crawlBasis === 'confirmed_live')` always holds.
+ */
+export function crawlBasisOfHit(hit: Pick<SearchHit, 'freshFetch' | 'crawlBasis'>): CrawlBasis {
+  const basis = hit.crawlBasis ?? (hit.freshFetch ? 'confirmed_live' : 'unknown');
+  if (hit.freshFetch !== (basis === 'confirmed_live')) {
+    throw new Error('Search hit freshFetch contradicts its crawlBasis');
+  }
+  return basis;
+}
+
+/**
+ * Read-time rule for rows written before migration 009: they carry the column default 'unknown', but a row with
+ * fresh_fetch = 1 was marked by a per-result provider marker and is therefore confirmed_live.
+ */
+export function crawlBasisOfRow(row: { fresh_fetch: number; crawl_basis: CrawlBasis }): CrawlBasis {
+  return row.fresh_fetch === 1 ? 'confirmed_live' : row.crawl_basis;
+}
 
 const idRow = z.object({ id: z.string() });
 
@@ -68,14 +90,15 @@ export class SnapshotStore implements SnapshotReader {
       if (e instanceof InvalidUrlError) return null;
       throw e;
     }
+    const basis = crawlBasisOfHit(input.hit);
     const sha = sha256Hex(input.hit.text);
     const id = newId('src');
     this.db
       .prepare(
         `INSERT OR IGNORE INTO source_snapshots (id, user_id, url, url_norm, domain, title, content_text,
            content_mode, content_sha256, provider, provider_published_at, provider_last_updated_at,
-           observed_at, fresh_fetch, crawl_status, origin)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           observed_at, fresh_fetch, crawl_basis, crawl_status, origin)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -92,6 +115,7 @@ export class SnapshotStore implements SnapshotReader {
         input.hit.lastUpdatedAt,
         input.observedAt,
         input.hit.freshFetch ? 1 : 0,
+        basis,
         input.hit.crawlStatus,
         input.origin,
       );
@@ -116,7 +140,7 @@ export class SnapshotStore implements SnapshotReader {
       const rows = queryAll(
         this.db,
         `SELECT id, url, url_norm, domain, title, content_text, content_mode, content_sha256, provider,
-           provider_published_at, provider_last_updated_at, observed_at, fresh_fetch, crawl_status, origin
+           provider_published_at, provider_last_updated_at, observed_at, fresh_fetch, crawl_basis, crawl_status, origin
          FROM source_snapshots WHERE user_id = ? AND id IN (${chunk.map(() => '?').join(',')})`,
         rowSchema,
         [userId, ...chunk],
@@ -136,6 +160,7 @@ export class SnapshotStore implements SnapshotReader {
           providerLastUpdatedAt: r.provider_last_updated_at,
           observedAt: r.observed_at,
           freshFetch: r.fresh_fetch === 1,
+          crawlBasis: crawlBasisOfRow(r),
           crawlStatus: r.crawl_status,
           origin: r.origin,
         });

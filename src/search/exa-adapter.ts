@@ -8,6 +8,7 @@ import {
   type SearchRequest,
   type SearchResponse,
 } from '../shared/search.js';
+import { classifyCrawlBasis } from './crawl-basis.js';
 import { buildExaBody, MAX_CONTENT_CHARS } from './exa-request.js';
 import {
   exaEnvelopeSchema,
@@ -200,6 +201,15 @@ function toHit(
   const st = (r.id !== undefined ? statuses.get(r.id) : undefined) ?? statuses.get(r.url);
   const crawlStatus = crawlStatusOf(st);
   const published = r.publishedDate ? Date.parse(r.publishedDate) : Number.NaN;
+  // The basis is the only place a live request is interpreted. It never reads the HTTP status, and a
+  // `maxAgeHours: 0` request alone cannot reach `confirmed_live`: that needs this result's own marker.
+  const crawlBasis = classifyCrawlBasis({
+    freshness: req.freshness,
+    contentMode: req.contentMode,
+    contentChars: Math.min(req.contentChars, MAX_CONTENT_CHARS),
+    text,
+    marker: st ? { crawlStatus, source: st.source } : undefined,
+  });
   return {
     url: r.url,
     title: r.title ?? null,
@@ -207,9 +217,10 @@ function toHit(
     publishedAt: Number.isNaN(published) ? null : published,
     lastUpdatedAt: null,
     providerScore: r.score ?? null,
-    // True only when a live fetch was requested AND the provider reports a successful crawl whose source is
-    // "live". The only documented source value is "cached"; anything else, or no status, is not a fresh fetch.
-    freshFetch: req.freshness === 'live' && crawlStatus === 'ok' && st?.source === 'live',
+    // Equals `crawlBasis === 'confirmed_live'`: a live request AND a per-result marker reporting a successful
+    // crawl whose source is "live". Exa search sends no such marker today, so this is false for real responses.
+    freshFetch: crawlBasis === 'confirmed_live',
+    crawlBasis,
     crawlStatus,
   };
 }
