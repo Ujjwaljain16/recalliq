@@ -1,3 +1,4 @@
+import type { Components } from '../../../src/app/components.js';
 import { startApplication, type Application } from '../../../src/app/application.js';
 import { loadAppEnv, type AppEnv } from '../../../src/app/env.js';
 import { replayFactoryFromFixture } from '../../../src/app/live.js';
@@ -28,6 +29,7 @@ export interface E2eOptions {
   /** A file path to share one database between application instances; default is a private in-memory one. */
   dbPath?: string;
   mode?: 'demo' | 'real';
+  decorate?: (c: Components) => Components;
 }
 
 /**
@@ -49,6 +51,7 @@ export async function startE2e(o: E2eOptions): Promise<E2eApp> {
     factory: replayFactoryFromFixture(parseReplayFixture(o.fixture)),
     clock,
     port: 0,
+    ...(o.decorate ? { decorate: o.decorate } : {}),
   });
   const url = `http://127.0.0.1:${app.port}`;
   return {
@@ -131,3 +134,20 @@ export function scalar<T = number>(app: Application, sql: string, ...params: unk
     .pluck()
     .get(...params) as T;
 }
+
+/** True when any text in any table of the database contains `needle` (used to show something was never stored). */
+export function dbContains(app: Application, needle: string): boolean {
+  const tables = app.db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .pluck()
+    .all() as string[];
+  for (const table of tables) {
+    for (const row of app.db.prepare(`SELECT * FROM "${table}"`).all()) {
+      if (JSON.stringify(row).includes(needle)) return true;
+    }
+  }
+  return false;
+}
+
+export const eventsOf = (t: TurnOutcome, name: string): unknown[] =>
+  t.read.events.filter((e) => e.event === name).map((e) => e.data);

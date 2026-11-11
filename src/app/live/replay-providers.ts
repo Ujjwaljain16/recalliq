@@ -132,7 +132,7 @@ export class FixtureLlm implements LlmPort {
         (x.whenDataContains === undefined || has(content, x.whenDataContains)),
     );
     if (!rule) throw this.log.record(`no synthesis fixture for: ${message.slice(0, 120)}`);
-    const recalled = [...content.matchAll(/\[\[M:(msg_[A-Za-z0-9_]+)\]\] will say/g)].map(
+    const recalled = [...content.matchAll(/\[\[M:(msg_[A-Za-z0-9_-]+)\]\] will say/g)].map(
       (m) => m[1] ?? '',
     );
     for (const raw of rule.deltas) {
