@@ -1,6 +1,6 @@
 import { startApplication } from './app/application.js';
 import { loadAppEnv } from './app/env.js';
-import { liveFactory } from './app/live.js';
+import { liveFactory, replayFactory } from './app/live.js';
 import { createLogger } from './app/logger.js';
 import { scriptedFactory } from './app/scripted/index.js';
 
@@ -18,9 +18,14 @@ async function main(): Promise<void> {
     );
   }
 
-  // `live` throws here, before the database is touched, when its components are missing.
+  // The set is chosen once, explicitly, and fixed for the life of the process. `live` and `replay` check their
+  // settings here, before the database is touched, and throw with a message naming what is missing.
   const factory =
-    env.components === 'live' ? liveFactory() : scriptedFactory({ paceMs: env.scriptedPaceMs });
+    env.components === 'live'
+      ? liveFactory(env)
+      : env.components === 'replay'
+        ? replayFactory(env)
+        : scriptedFactory({ paceMs: env.scriptedPaceMs });
   const app = await startApplication({ env, factory, logger });
   logger.info(
     { port: app.port, host: env.host, mode: env.config.mode, components: env.components },
@@ -28,6 +33,12 @@ async function main(): Promise<void> {
   );
   if (env.components === 'scripted') {
     logger.warn({}, 'scripted components are active: demo responses only, no real search or model');
+  }
+  if (env.components === 'replay') {
+    logger.warn(
+      {},
+      'replay components are active: recorded fixtures stand in for search and the model',
+    );
   }
 
   let stopping = false;
@@ -51,7 +62,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  // ConfigError and the live-components error carry messages that name variables and components, never values.
+  // ConfigError and the live and replay configuration errors carry messages that name variables and components, never values.
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(`${message}\n`);
   process.exit(1);

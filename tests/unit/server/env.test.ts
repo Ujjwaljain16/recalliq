@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LiveComponentsUnavailableError, liveFactory } from '../../../src/app/live.js';
+import { LiveConfigurationError, liveFactory } from '../../../src/app/live.js';
 import { loadAppEnv } from '../../../src/app/env.js';
 import { ConfigError } from '../../../src/config/env.js';
 
@@ -67,15 +67,16 @@ describe('application environment', () => {
 });
 
 describe('live component selection', () => {
-  it('fails fast, naming what is missing, and never falls back', () => {
-    expect(() => liveFactory()).toThrow(LiveComponentsUnavailableError);
+  it('fails fast, naming each missing variable, and never falls back', () => {
+    const env = loadAppEnv({ APP_COMPONENTS: 'live' });
+    expect(() => liveFactory(env)).toThrow(LiveConfigurationError);
     try {
-      liveFactory();
+      liveFactory(env);
     } catch (e) {
       const message = (e as Error).message;
-      expect(message).toContain('TurnAnalyzer');
-      expect(message).toContain('ResearchService');
-      expect(message).toContain('AnswerPipeline');
+      expect(message).toContain('GEMINI_API_KEY');
+      expect(message).toContain('GEMINI_MODEL');
+      expect(message).toContain('EXA_API_KEY');
       expect(message).toContain('Not falling back');
     }
   });

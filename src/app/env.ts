@@ -15,6 +15,8 @@ export interface AppEnv {
   shutdownGraceMs: number;
   /** Pause between scripted deltas so a person can watch the stream. */
   scriptedPaceMs: number;
+  /** REPLAY_FIXTURE: path of the replay fixture file (replay set only). */
+  replayFixture: string | undefined;
 }
 
 function blank(v: string | undefined): string | undefined {
@@ -63,8 +65,9 @@ export function loadAppEnv(
   const requested = blank(env['APP_COMPONENTS']);
   let components: ComponentKind = providerKeys ? 'live' : 'scripted';
   if (requested !== undefined) {
-    if (requested === 'scripted' || requested === 'live') components = requested;
-    else problems.push('APP_COMPONENTS: must be "scripted" or "live"');
+    if (requested === 'scripted' || requested === 'replay' || requested === 'live')
+      components = requested;
+    else problems.push('APP_COMPONENTS: must be "scripted", "replay" or "live"');
   }
 
   const host = blank(env['HOST']) ?? '127.0.0.1';
@@ -105,5 +108,6 @@ export function loadAppEnv(
     sessionSecretEphemeral: ephemeral,
     shutdownGraceMs,
     scriptedPaceMs,
+    replayFixture: blank(env['REPLAY_FIXTURE']),
   };
 }
