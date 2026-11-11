@@ -219,9 +219,10 @@ function generalDrafts(ctx: ResolvedContext, a: TurnAnalysis): Draft[] {
  * priority so that every entity keeps its round-1 search before anyone gets a fallback). Queries are
  * de-duplicated within the turn. An entity beyond the cap is dropped; the orchestrator tells the user.
  *
- * With no entity at all and no pricing or releases intent, the analysis queries are planned on the general
- * research path (see `generalDrafts`). A price or release question with no entity has nothing to verify against
- * and plans nothing, so the lane asks which company is meant; so does a turn with neither an entity nor a query.
+ * With no entity at all, whatever the intents, the analysis queries are planned on the general research path
+ * (see `generalDrafts`): a category question ("managed Postgres hosting pricing") is searched as it is, never
+ * turned into an entity, and nothing is extracted or verified for it. The plan is empty only when there is
+ * neither an entity nor a query; the lane then asks what to look up.
  */
 export class DefaultResearchPlanner implements ResearchPlanner {
   plan(ctx: ResolvedContext, a: TurnAnalysis, now: Ms): ResearchPlan {
@@ -231,9 +232,8 @@ export class DefaultResearchPlanner implements ResearchPlanner {
     const seenQueries = new Set<string>();
 
     const targets = targetsOf(ctx, a);
-    const generalOnly = !intents.includes('pricing') && !intents.includes('releases');
     const groups: Array<{ key: string; candidates: Draft[] }> =
-      targets.length > 0 || !generalOnly
+      targets.length > 0
         ? targets.map((target) => ({
             key: String(target.id ?? normalizeEntityName(target.name)),
             candidates: intents

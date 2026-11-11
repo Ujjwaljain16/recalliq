@@ -43,7 +43,7 @@ export async function runResearch(
       input,
       ctx,
       'nothing_to_research',
-      'Which company or product should I look into?',
+      "I need something to look up: which company, product or topic should I search for? I'll check current sources and cite them.",
       [],
     );
   }

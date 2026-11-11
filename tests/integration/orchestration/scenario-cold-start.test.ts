@@ -157,8 +157,26 @@ describe('cold start, question three: "Last Tuesday I asked about Postgres hosti
     expect(occurrences(reply, 'no record of a conversation')).toBe(1);
   });
 
-  it('when nothing can be searched for the subject, asks which providers, saying why, with the date once', async () => {
+  it('with the stated subject and no vendor, the real planner searches the subject itself, extracting nothing', async () => {
     const w = world(S3_WITH_SUBJECT);
+    await w.ask(S3_MESSAGE, LONDON);
+    expect(w.research.calls).toHaveLength(1);
+    const specs = w.research.calls[0]?.plan.specs ?? [];
+    expect(specs.map((x) => [x.request.query, x.entityId, x.intent])).toEqual([
+      ['managed Postgres hosting pricing', null, 'general'],
+    ]);
+  });
+
+  it('when nothing can be searched for the subject, asks which providers, saying why, with the date once', async () => {
+    // the real planner now searches a stated subject, so an empty plan is simulated here
+    const empty: ResearchPlanner = {
+      plan: () => ({
+        specs: [],
+        fallback: [],
+        budget: { maxSearches: 0, maxPerEntity: 0, concurrency: 1 },
+      }),
+    };
+    const w = world(S3_WITH_SUBJECT, { planner: empty });
     const { result, reply } = await w.ask(S3_MESSAGE, LONDON);
     expect(result.status).toBe('clarify');
     expect(reply).toBe(
