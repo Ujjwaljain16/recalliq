@@ -51,11 +51,11 @@ statements (matched by entity and by text in a source), and synthesis templates.
 ## live
 
 ```
-APP_COMPONENTS=live APP_MODE=real GEMINI_API_KEY=... GEMINI_MODEL=... EXA_API_KEY=... npm start
+APP_COMPONENTS=live APP_MODE=real GEMINI_API_KEY=... EXA_API_KEY=... npm start
 ```
 
-Needs all three variables. A missing one stops the process before the database is opened, with a message naming
-it. There is no default model and no other provider is used. The model calls go through a client-side limiter
+Needs both keys (GEMINI_MODEL is optional and defaults to gemini-3.5-flash). A missing key stops the process before the database is opened, with a message naming
+it. No other provider is used. The model calls go through a client-side limiter
 (one request at a time, four seconds apart) that is a conservative guess for a free tier; a turn with analysis,
 extraction and synthesis takes a while.
 

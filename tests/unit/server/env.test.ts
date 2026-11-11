@@ -75,7 +75,7 @@ describe('live component selection', () => {
     } catch (e) {
       const message = (e as Error).message;
       expect(message).toContain('GEMINI_API_KEY');
-      expect(message).toContain('GEMINI_MODEL');
+      expect(message).not.toContain('GEMINI_MODEL');
       expect(message).toContain('EXA_API_KEY');
       expect(message).toContain('Not falling back');
     }

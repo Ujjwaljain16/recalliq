@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig } from '../../src/config/env.js';
+import { ConfigError, DEFAULT_GEMINI_MODEL, loadConfig } from '../../src/config/env.js';
 
 describe('loadConfig', () => {
   it('uses safe defaults when nothing is set', () => {
@@ -23,7 +23,8 @@ describe('loadConfig', () => {
     expect(set.gemini.model).toBe('some-free-model');
     const blank = loadConfig({ GEMINI_API_KEY: '', GEMINI_MODEL: '' });
     expect(blank.secrets.geminiApiKey).toBeUndefined();
-    expect(blank.gemini.model).toBeUndefined();
+    // A blank model falls back to the default, so only keys are required.
+    expect(blank.gemini.model).toBe(DEFAULT_GEMINI_MODEL);
   });
 
   it('demo mode defaults to a different database file than real mode', () => {

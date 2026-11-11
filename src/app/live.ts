@@ -16,7 +16,7 @@ import { FixtureLlm, FixtureSearchPort, MissLog } from './live/replay-providers.
 /**
  * INTEGRATION POINT: the single place where the real components are wired to a provider.
  *
- *   live    Gemini (GEMINI_API_KEY, GEMINI_MODEL) for every model role and Exa (EXA_API_KEY) for search.
+ *   live    Gemini (GEMINI_API_KEY, GEMINI_MODEL with a default) for every model role and Exa (EXA_API_KEY) for search.
  *   replay  the same real components, with a fixture search port and a fixture model reading REPLAY_FIXTURE.
  *
  * Both go through buildRealComponents (src/app/live/pipeline.ts), so only the two provider ports differ.
@@ -61,8 +61,7 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
   const problems: string[] = [];
   const { secrets, gemini } = env.config;
   if (secrets.geminiApiKey === undefined) problems.push('GEMINI_API_KEY is not set');
-  if (gemini.model === undefined)
-    problems.push('GEMINI_MODEL is not set (there is no default model)');
+  if (gemini.model === undefined) problems.push('GEMINI_MODEL is not set');
   if (secrets.exaApiKey === undefined) problems.push('EXA_API_KEY is not set');
   if (env.config.mode !== 'real') {
     problems.push(
