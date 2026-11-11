@@ -57,6 +57,14 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ PORT: 'abc' })).toThrow(/PORT/);
   });
 
+  it('leaves ALLOWED_ORIGIN unset by default, so no cross-origin access is allowed', () => {
+    expect(loadConfig({}).allowedOrigin).toBeUndefined();
+    expect(loadConfig({ ALLOWED_ORIGIN: '' }).allowedOrigin).toBeUndefined();
+    expect(loadConfig({ ALLOWED_ORIGIN: 'https://app.example' }).allowedOrigin).toBe(
+      'https://app.example',
+    );
+  });
+
   it('rejects a malformed ALLOWED_ORIGIN', () => {
     expect(() => loadConfig({ ALLOWED_ORIGIN: 'not a url' })).toThrow(/ALLOWED_ORIGIN/);
   });

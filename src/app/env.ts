@@ -1,6 +1,7 @@
 import { DEFAULT_LIMITER } from '../llm/limiter.js';
 import { randomBytes } from 'node:crypto';
 import { ConfigError, loadConfig, type AppConfig } from '../config/env.js';
+import { DEFAULT_SERVER_LIMITS, type ServerLimits } from '../server/limits.js';
 import type { ComponentKind } from './components.js';
 
 /** Everything the server process needs from the environment, validated. Secrets are never echoed in errors. */
@@ -18,6 +19,12 @@ export interface AppEnv {
   scriptedPaceMs: number;
   /** The client-side Gemini limiter (GEMINI_MAX_CONCURRENT, GEMINI_MIN_SPACING_MS); free-tier-safe defaults. */
   geminiLimiter: { maxConcurrent: number; minSpacingMs: number };
+  /** The client-side Exa limiter (EXA_MAX_CONCURRENT); no spacing between starts. */
+  exaLimiter: { maxConcurrent: number; minSpacingMs: number };
+  /** Request quotas and node:http limits of the server. */
+  limits: ServerLimits;
+  /** Startup warnings to log (for example a non-loopback HOST). Never contain secret values. */
+  warnings: string[];
   /** REPLAY_FIXTURE: path of the replay fixture file (replay set only). */
   replayFixture: string | undefined;
   /** OFFICIAL_DOMAINS_FILE: the owner's registry of official domains. Optional; none ships and none is assumed. */
@@ -27,6 +34,14 @@ export interface AppEnv {
 function blank(v: string | undefined): string | undefined {
   return v === undefined || v === '' ? undefined : v;
 }
+
+/** True for an address or name that only this machine can reach. */
+export function isLoopbackHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, '');
+  return h === 'localhost' || h === '::1' || /^127(?:\.\d{1,3}){3}$/.test(h);
+}
+
+export const DEFAULT_EXA_MAX_CONCURRENT = 4;
 
 function intInRange(
   raw: string | undefined,
@@ -84,6 +99,21 @@ export function loadAppEnv(
   if (ephemeral && production) {
     problems.push('SESSION_SECRET: required (at least 32 characters) when NODE_ENV=production');
   }
+  const warnings: string[] = [];
+  if (!isLoopbackHost(host)) {
+    // Another machine can reach a non-loopback address, and the session cookie is then the only barrier
+    // between it and the owner's provider keys: allow it only for a deliberate production deployment.
+    if (!production || ephemeral) {
+      problems.push(
+        'HOST: a non-loopback address is refused unless NODE_ENV=production and SESSION_SECRET is set',
+      );
+    } else {
+      warnings.push(
+        'HOST is not a loopback address: the server is reachable from other machines. Put it behind TLS and ' +
+          'set ALLOWED_ORIGIN to the public origin.',
+      );
+    }
+  }
 
   const shutdownGraceMs = intInRange(
     env['SHUTDOWN_GRACE_MS'],
@@ -121,6 +151,34 @@ export function loadAppEnv(
     ),
   };
 
+  const exaLimiter = {
+    maxConcurrent: intInRange(
+      env['EXA_MAX_CONCURRENT'],
+      'EXA_MAX_CONCURRENT',
+      1,
+      32,
+      DEFAULT_EXA_MAX_CONCURRENT,
+      problems,
+    ),
+    minSpacingMs: 0,
+  };
+
+  const d = DEFAULT_SERVER_LIMITS;
+  const int = (name: string, min: number, max: number, fallback: number): number =>
+    intInRange(env[name], name, min, max, fallback, problems);
+  const limits: ServerLimits = {
+    maxRunningTurnsPerUser: int('MAX_RUNNING_TURNS_PER_USER', 1, 50, d.maxRunningTurnsPerUser),
+    turnsPerMinute: int('TURN_RATE_PER_MINUTE', 1, 1_000, d.turnsPerMinute),
+    turnBurst: int('TURN_RATE_BURST', 1, 1_000, d.turnBurst),
+    newSessionsPerHour: int('NEW_SESSIONS_PER_HOUR', 1, 100_000, d.newSessionsPerHour),
+    maxConnections: int('SERVER_MAX_CONNECTIONS', 1, 100_000, d.maxConnections),
+    headersTimeoutMs: int('SERVER_HEADERS_TIMEOUT_MS', 1_000, 600_000, d.headersTimeoutMs),
+    requestTimeoutMs: int('SERVER_REQUEST_TIMEOUT_MS', 1_000, 600_000, d.requestTimeoutMs),
+  };
+  if (limits.headersTimeoutMs > limits.requestTimeoutMs) {
+    problems.push('SERVER_HEADERS_TIMEOUT_MS: must not exceed SERVER_REQUEST_TIMEOUT_MS');
+  }
+
   if (problems.length > 0 || config === undefined) throw new ConfigError(problems);
   sessionSecret ??= generateSecret();
   return {
@@ -133,6 +191,9 @@ export function loadAppEnv(
     shutdownGraceMs,
     scriptedPaceMs,
     geminiLimiter,
+    exaLimiter,
+    limits,
+    warnings,
     replayFixture: blank(env['REPLAY_FIXTURE']),
     officialDomainsFile: blank(env['OFFICIAL_DOMAINS_FILE']),
   };

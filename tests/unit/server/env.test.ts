@@ -1,7 +1,8 @@
 import { DEFAULT_LIMITER } from '../../../src/llm/limiter.js';
 import { describe, expect, it } from 'vitest';
 import { LiveConfigurationError, liveFactory } from '../../../src/app/live.js';
-import { loadAppEnv } from '../../../src/app/env.js';
+import { isLoopbackHost, loadAppEnv } from '../../../src/app/env.js';
+import { DEFAULT_SERVER_LIMITS } from '../../../src/server/limits.js';
 import { ConfigError } from '../../../src/config/env.js';
 
 const SECRET = 's'.repeat(40);
@@ -91,5 +92,99 @@ describe('Gemini pacing', () => {
     ).toEqual({ maxConcurrent: 4, minSpacingMs: 0 });
     expect(() => loadAppEnv({ GEMINI_MAX_CONCURRENT: '0' })).toThrow(/GEMINI_MAX_CONCURRENT/);
     expect(() => loadAppEnv({ GEMINI_MIN_SPACING_MS: '-1' })).toThrow(/GEMINI_MIN_SPACING_MS/);
+  });
+});
+
+describe('quotas and server limits', () => {
+  it('defaults to the documented limits', () => {
+    const env = loadAppEnv({});
+    expect(env.limits).toEqual(DEFAULT_SERVER_LIMITS);
+    expect(env.limits).toMatchObject({
+      maxRunningTurnsPerUser: 2,
+      turnsPerMinute: 10,
+      turnBurst: 5,
+      newSessionsPerHour: 20,
+    });
+    expect(env.exaLimiter).toEqual({ maxConcurrent: 4, minSpacingMs: 0 });
+  });
+
+  it('accepts overrides within range and names each variable out of range', () => {
+    const env = loadAppEnv({
+      MAX_RUNNING_TURNS_PER_USER: '3',
+      TURN_RATE_PER_MINUTE: '30',
+      TURN_RATE_BURST: '10',
+      NEW_SESSIONS_PER_HOUR: '100',
+      EXA_MAX_CONCURRENT: '8',
+      SERVER_MAX_CONNECTIONS: '1000',
+      SERVER_HEADERS_TIMEOUT_MS: '5000',
+      SERVER_REQUEST_TIMEOUT_MS: '60000',
+    });
+    expect(env.limits).toEqual({
+      maxRunningTurnsPerUser: 3,
+      turnsPerMinute: 30,
+      turnBurst: 10,
+      newSessionsPerHour: 100,
+      maxConnections: 1000,
+      headersTimeoutMs: 5000,
+      requestTimeoutMs: 60000,
+    });
+    expect(env.exaLimiter.maxConcurrent).toBe(8);
+    const list = problems({
+      MAX_RUNNING_TURNS_PER_USER: '0',
+      TURN_RATE_PER_MINUTE: '1.5',
+      TURN_RATE_BURST: 'many',
+      NEW_SESSIONS_PER_HOUR: '-1',
+      EXA_MAX_CONCURRENT: '33',
+      SERVER_MAX_CONNECTIONS: '0',
+      SERVER_HEADERS_TIMEOUT_MS: '10',
+      SERVER_REQUEST_TIMEOUT_MS: '9999999',
+    }).join('\n');
+    for (const name of [
+      'MAX_RUNNING_TURNS_PER_USER',
+      'TURN_RATE_PER_MINUTE',
+      'TURN_RATE_BURST',
+      'NEW_SESSIONS_PER_HOUR',
+      'EXA_MAX_CONCURRENT',
+      'SERVER_MAX_CONNECTIONS',
+      'SERVER_HEADERS_TIMEOUT_MS',
+      'SERVER_REQUEST_TIMEOUT_MS',
+    ]) {
+      expect(list, name).toContain(name);
+    }
+    expect(
+      problems({ SERVER_HEADERS_TIMEOUT_MS: '40000', SERVER_REQUEST_TIMEOUT_MS: '30000' }).join(),
+    ).toContain('must not exceed SERVER_REQUEST_TIMEOUT_MS');
+  });
+});
+
+describe('listening address', () => {
+  it('accepts loopback addresses without a warning', () => {
+    for (const host of ['127.0.0.1', '127.0.0.2', 'localhost', '::1']) {
+      expect(loadAppEnv({ HOST: host }).warnings, host).toEqual([]);
+    }
+  });
+
+  it('refuses a non-loopback HOST unless NODE_ENV=production and SESSION_SECRET are set', () => {
+    for (const host of ['0.0.0.0', '192.168.1.20', 'my-box.lan', '::']) {
+      const dev = problems({ HOST: host, SESSION_SECRET: SECRET }).join();
+      expect(dev, host).toContain('HOST');
+      expect(dev).toContain('NODE_ENV=production');
+      expect(dev).toContain('SESSION_SECRET');
+    }
+    expect(problems({ HOST: '0.0.0.0', NODE_ENV: 'production' }).join()).toMatch(
+      /HOST: a non-loopback address is refused/,
+    );
+  });
+
+  it('allows a non-loopback HOST in production with a secret, and warns', () => {
+    const env = loadAppEnv({ HOST: '0.0.0.0', NODE_ENV: 'production', SESSION_SECRET: SECRET });
+    expect(env.host).toBe('0.0.0.0');
+    expect(env.warnings.join()).toContain('not a loopback address');
+  });
+
+  it('recognises loopback names exactly', () => {
+    expect(isLoopbackHost('127.255.0.1')).toBe(true);
+    expect(isLoopbackHost('localhost.evil.example')).toBe(false);
+    expect(isLoopbackHost('1127.0.0.1')).toBe(false);
   });
 });

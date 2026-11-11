@@ -14,7 +14,8 @@ export interface AppConfig {
   /** Absolute path of the SQLite file for this mode. */
   dbPath: string;
   port: number;
-  allowedOrigin: string;
+  /** ALLOWED_ORIGIN: the one cross-origin origin allowed to call the API. Unset by default: no CORS at all. */
+  allowedOrigin: string | undefined;
   models: { fast: string; main: string };
   /** Gemini model id for the Gemini adapter (GEMINI_MODEL); DEFAULT_GEMINI_MODEL when unset. */
   gemini: { model: string | undefined };
@@ -46,7 +47,7 @@ const envSchema = z.object({
   APP_MODE: z.preprocess(blankToUndefined, z.enum(['real', 'demo']).default('real')),
   DB_PATH: optionalString,
   PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65535).default(3001)),
-  ALLOWED_ORIGIN: z.preprocess(blankToUndefined, z.url().default('http://localhost:5173')),
+  ALLOWED_ORIGIN: z.preprocess(blankToUndefined, z.url().optional()),
   MODEL_FAST: z.preprocess(blankToUndefined, z.string().min(1).default('claude-haiku-5-5')),
   MODEL_MAIN: z.preprocess(blankToUndefined, z.string().min(1).default('claude-sonnet-5-5')),
   ANTHROPIC_API_KEY: optionalString,

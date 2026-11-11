@@ -42,6 +42,8 @@ export interface ApplicationOptions {
 
 export interface Application {
   readonly port: number;
+  /** The node:http server, for inspection; the application owns its lifecycle. */
+  readonly server: AppServer['server'];
   readonly db: Db;
   readonly components: Components;
   readonly turns: SqliteTurnRepository;
@@ -114,6 +116,9 @@ export async function startApplication(options: ApplicationOptions): Promise<App
       logger,
       sessionSecret: env.sessionSecret,
       allowedOrigin: env.config.allowedOrigin,
+      bindHost: env.host,
+      production: env.production,
+      limits: env.limits,
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
       info: {
         mode: env.config.mode,
@@ -133,6 +138,7 @@ export async function startApplication(options: ApplicationOptions): Promise<App
     const running = server;
     return {
       port,
+      server: running.server,
       db,
       components,
       turns,
