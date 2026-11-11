@@ -347,8 +347,8 @@ describe('audit lane', () => {
     expect(out.ctx.memoryHits[0]?.excerpt).toMatch(/^\[not verified\]/);
   });
 
-  it('with no earlier claim at all, says so and runs no research', async () => {
-    const research = new FakeResearch((r) => findingSet(r.turnId, []));
+  it('with no earlier claim but a company to research, researches it and opens with the no-baseline statement', async () => {
+    const research = new FakeResearch((r) => findingSet(r.turnId, [finding(1)]));
     const out = await auditLane(
       laneInput(auditing).input,
       laneDeps({
@@ -356,6 +356,17 @@ describe('audit lane', () => {
         baselines: new SpyBaselines(),
         research,
       }),
+    );
+    expect(out.kind).toBe('synthesize');
+    expect(research.calls).toHaveLength(1);
+    expect(out).toMatchObject({ lead: [expect.stringContaining('no earlier answer of my own')] });
+  });
+
+  it('with no earlier claim and nothing to research, replies with the fixed text and runs no research', async () => {
+    const research = new FakeResearch((r) => findingSet(r.turnId, []));
+    const out = await auditLane(
+      laneInput(analysis({ laneHint: 'audit', intents: ['pricing'] })).input,
+      laneDeps({ baselines: new SpyBaselines(), research }),
     );
     expect(out).toMatchObject({ kind: 'reply', reason: 'no_prior_claims' });
     expect(research.calls).toEqual([]);

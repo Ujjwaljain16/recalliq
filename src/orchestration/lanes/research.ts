@@ -5,8 +5,10 @@ import {
   ambiguousEntityOutcome,
   clarifyOutcome,
   emitContext,
+  emitEntityCap,
   emptyContext,
   resolveEntities,
+  resolveShortlist,
   resolveTemporal,
 } from './common.js';
 import { runResearch } from './research-core.js';
@@ -34,7 +36,31 @@ export const researchLane: LaneHandler = async (input, deps) => {
     (r) => r.kind === 'decision' || r.kind === 'entity_set',
   );
   let decisions = base.decisions;
-  if (wantsStored) {
+  let unresolved: EntityMention[] = [];
+  // The user points at a day they talked ('On Monday we shortlisted 5 tools'): the one shortlist stored on that
+  // day names the companies. Several shortlists on it are a question, not a pick.
+  const referenceDays = base.temporal
+    .filter((t) => t.mention.role === 'reference_conversation')
+    .flatMap((t) => t.candidates);
+  const asksAboutASet = input.analysis.references.some((r) => r.kind === 'entity_set');
+  let fromReferenceDay = false;
+  if (
+    asksAboutASet &&
+    referenceDays.length > 0 &&
+    entities.length === 0 &&
+    input.analysis.entities.length === 0
+  ) {
+    const shortlist = resolveShortlist(input, deps, base, referenceDays);
+    if (shortlist.kind === 'clarify') return shortlist.outcome;
+    if (shortlist.kind === 'found') {
+      fromReferenceDay = true;
+      entities = shortlist.entities;
+      unresolved = shortlist.unresolved;
+      decisions = shortlist.decisions;
+      capped = shortlist.capped;
+    }
+  }
+  if (wantsStored && !fromReferenceDay) {
     const intervals: DayInterval[] = base.temporal
       .filter((t) => t.mention.role !== 'reference_conversation')
       .flatMap((t) => t.candidates);
@@ -73,14 +99,13 @@ export const researchLane: LaneHandler = async (input, deps) => {
 
   const ctx = { ...base, entities, decisions };
   emitContext(input, ctx);
-  if (capped) {
-    input.emit({
-      event: 'warning',
-      data: {
-        code: 'entity_cap',
-        text: `I can check up to ${TURN_LIMITS.maxEntities} companies at a time, so I will cover the first ${TURN_LIMITS.maxEntities}.`,
-      },
-    });
-  }
-  return runResearch(input, deps, ctx, 'research');
+  if (capped) emitEntityCap(input);
+  const researchInput =
+    unresolved.length > 0
+      ? {
+          ...input,
+          analysis: { ...input.analysis, entities: [...input.analysis.entities, ...unresolved] },
+        }
+      : input;
+  return runResearch(researchInput, deps, ctx, 'research');
 };

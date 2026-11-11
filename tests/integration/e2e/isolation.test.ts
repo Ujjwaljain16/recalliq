@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { acknowledge, ask, DAY, scalar, startE2e, TUE, type E2eApp } from './harness.js';
 import {
   analysis,
-  auditOf,
+  mention,
   extractionOf,
   fixture,
   priceSearch,
@@ -24,7 +24,16 @@ const scenario = (acmePrices: number[]) =>
   fixture({
     analysis: [
       researchOf(Q, ['Acme CRM']),
-      auditOf(AUDIT, 'Acme CRM'),
+      {
+        whenMessageContains: AUDIT,
+        // a mention with a domain guess: a user with no stored entity needs it to find the official site
+        reply: analysis({
+          laneHint: 'audit',
+          intents: ['pricing'],
+          entities: [mention('Acme CRM')],
+          asksStillCorrect: true,
+        }),
+      },
       {
         whenMessageContains: RECALL,
         reply: analysis({
@@ -43,7 +52,7 @@ const scenario = (acmePrices: number[]) =>
     search: [priceSearch('Acme CRM', ...acmePrices)],
     synthesis: [
       say(Q, 'Acme CRM Pro is [[F1]].'),
-      say(AUDIT, 'I said [[F1:baseline]]. Acme CRM: [[F1:verdict]].'),
+      say(AUDIT, 'Acme CRM: [[F1]].'),
       say(RECALL, 'You wrote this: [[M:{{M1}}]].'),
     ],
   });
@@ -53,7 +62,7 @@ const count = (app: E2eApp, table: string, user: string): number =>
 
 describe('T-E2E users are isolated across the whole path', () => {
   it('one user cannot read, acknowledge, audit, recall or delete the data of another', async () => {
-    t = await startE2e({ fixture: scenario([90, 90]) });
+    t = await startE2e({ fixture: scenario([90, 90, 90]) });
     const alice = t.client();
     const bob = t.client();
     const aliceConv = await alice.newConversation();
@@ -89,9 +98,14 @@ describe('T-E2E users are isolated across the whole path', () => {
 
     // audit and recall see only the caller's own history: Bob has none
     t.clock.set(TUE + 8 * DAY);
+    // Bob has no earlier answer of his own: the audit researches and says so, and never shows Alice's price.
     const audit = await ask(bob, bobConv, AUDIT);
-    expect(audit.names).not.toContain('finding');
-    expect(audit.sentences.join(' ')).toContain('no earlier claim of mine');
+    expect(audit.sentences.join(' ')).toContain('no earlier answer of my own on record');
+    expect(
+      (audit.read.events.filter((e) => e.event === 'finding') as Array<{ data: object }>).every(
+        (e) => !('baseline' in e.data),
+      ),
+    ).toBe(true);
     const recall = await ask(bob, bobConv, RECALL);
     expect(recall.sentences.join(' ')).toContain('no record of a conversation');
 
@@ -168,7 +182,7 @@ describe('T-E2E privacy deletion', () => {
   });
 
   it('after deleting the only conversation, recall and audit find no record and nothing remains', async () => {
-    t = await startE2e({ fixture: scenario([90]) });
+    t = await startE2e({ fixture: scenario([90, 90]) });
     const user = t.client();
     const conv = await user.newConversation();
     await acknowledge(user, await ask(user, conv, Q));
@@ -192,7 +206,11 @@ describe('T-E2E privacy deletion', () => {
     const recall = await ask(user, next, RECALL);
     expect(recall.sentences.join(' ')).toContain('no record of a conversation');
     const audit = await ask(user, next, AUDIT);
-    expect(audit.names).not.toContain('finding');
-    expect(audit.sentences.join(' ')).toContain('no earlier claim of mine');
+    expect(audit.sentences.join(' ')).toContain('no earlier answer of my own on record');
+    expect(
+      (audit.read.events.filter((e) => e.event === 'finding') as Array<{ data: object }>).every(
+        (e) => !('baseline' in e.data),
+      ),
+    ).toBe(true);
   });
 });

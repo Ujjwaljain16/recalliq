@@ -566,6 +566,11 @@ stateDiagram-v2
 - `research` with no entities and no queries → `chat`.
 - Any referent that can't be resolved → `clarify`.
 
+*(Revised 2026-11-12: audit and shortlist resolution. Two real-run defects led to this; the earlier behaviour was a fixed "no earlier claim of mine" reply whenever there was no eligible baseline.)*
+- **Time roles.** `reference_conversation` marks a day the user says an earlier conversation or question happened ("on Monday we shortlisted", "what did I ask on 3 November"); only those mentions trigger memory retrieval. `change_since` is the lower bound of a "since" question; `event_time` is the date of a real-world event. The analysis prompt defines the three with examples (prompt version `analysis.v3`), and code removes a four-digit year from generated queries unless the user's message contains that year.
+- **A set of companies named only by reference** ("the 5 CRM tools"): when the analysis has no entities but an `entity_set` reference, the audit lane (and the research lane when a conversation day is referenced) reads the `shortlist` decisions stored on that day. Exactly one gives the entities to research, capped at 6 with a warning; none changes nothing; several is a clarifying question, never a pick.
+- **Audit with no eligible baseline** (ADR-38 unchanged). If there are companies to research, the research still runs and the answer opens with sentences written in code: what the user asked or wrote on the referenced day with its local time, quoted as stored (when the date reference found a stored message), then that no earlier answer of the system's own is on record, so no change since then can be established; the current verified findings, or their `unable_to_verify` state, follow. If there is nothing to research, the reply is fixed text (no model call): the same opening, that no earlier answer is on record to check, and an offer to look the question up now. With no stored message found for the date, the fixed reply says there is no record of a conversation that day and describes nothing.
+
 ### 5. Memory retrieval and persistence
 
 ```mermaid

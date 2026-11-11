@@ -507,6 +507,42 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
           });
         }
         c.progress('SYNTHESIZING', 'Writing the answer');
+        // Sentences written in code open the answer: they are released first and the model's sentences follow
+        // them, numbered after them. No model call is involved in them.
+        const lead = deterministicAnswer(outcome.lead ?? []);
+        const k = lead.sentences.length;
+        for (const sentence of lead.sentences) {
+          c.emit({
+            event: 'answer.delta',
+            data: {
+              sentenceIndex: sentence.index,
+              text: (sentence.index === 0 ? '' : ' ') + sentence.text,
+            },
+          });
+          c.emit({
+            event: 'answer.sentence_end',
+            data: { index: sentence.index, status: sentence.status, issues: sentence.issues },
+          });
+        }
+        const pipelineEmit: EventSink = (e) => {
+          if (k === 0) return c.emit(e);
+          switch (e.event) {
+            case 'answer.delta':
+              return c.emit({
+                event: 'answer.delta',
+                data: {
+                  sentenceIndex: e.data.sentenceIndex + k,
+                  text: e.data.sentenceIndex === 0 ? ' ' + e.data.text : e.data.text,
+                },
+              });
+            case 'answer.sentence_end':
+              return c.emit({ event: e.event, data: { ...e.data, index: e.data.index + k } });
+            case 'verification':
+              return c.emit({ event: e.event, data: { ...e.data, index: e.data.index + k } });
+            default:
+              return c.emit(e);
+          }
+        };
         let result: Awaited<ReturnType<AnswerPipeline['run']>>;
         try {
           result = await this.deps.answer.run(
@@ -519,7 +555,7 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
               tz: c.tz,
             },
             c.budget,
-            c.emit,
+            pipelineEmit,
           );
         } catch (error) {
           const cls = classifyError(error, c.budget.signal);
@@ -546,6 +582,19 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
             outcome.ctx,
             'synthesis_empty',
           );
+        }
+
+        if (k > 0) {
+          result = {
+            ...result,
+            sentences: [
+              ...lead.sentences,
+              ...result.sentences.map((x) => ({ ...x, index: x.index + k })),
+            ],
+            streamedThrough: result.streamedThrough + k,
+            template: lead.template + ' ' + result.template,
+            rendered: lead.rendered + ' ' + result.rendered,
+          };
         }
 
         // Defence in depth for the global-negative rule: only ever a downgrade, announced like T3b.

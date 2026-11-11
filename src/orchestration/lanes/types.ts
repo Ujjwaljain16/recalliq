@@ -40,6 +40,7 @@ export type ClarifyReason =
   | 'unresolved_date'
   | 'no_date'
   | 'ambiguous_entity'
+  | 'ambiguous_shortlist'
   | 'missing_referent'
   | 'nothing_to_research'
   | 'analysis_requested';
@@ -63,6 +64,12 @@ export type LaneOutcome =
       ctx: ResolvedContext;
       findings: FindingSet | null;
       recall: RecallTexts;
+      /**
+       * Sentences written in code that open the answer, before anything the answer model writes: what the user
+       * asked on the day they pointed at, and, when nothing earlier can be compared against, that no change
+       * since then can be established. Never model output.
+       */
+      lead?: string[];
     }
   | { kind: 'reply'; lane: Lane; ctx: ResolvedContext; reason: ReplyReason; sentences: string[] }
   | {
