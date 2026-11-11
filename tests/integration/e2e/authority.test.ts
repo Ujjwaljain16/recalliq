@@ -106,7 +106,7 @@ describe('T-E2E audit verdicts stay strict when the evidence is below tier A', (
     expect(f.verdict).toBe('differs_timing_unknown');
   });
 
-  it('changed still needs the re-observation bracketing, which does not depend on tier, with a known locale', async () => {
+  it('re-observation bracketing on tier C pages alone never proves a change', async () => {
     t = await startE2e({ registry: OfficialDomains.none(), fixture: lowerTier([90, 90, 100]) });
     const user = t.client();
     const conv = await user.newConversation();
@@ -120,7 +120,8 @@ describe('T-E2E audit verdicts stay strict when the evidence is below tier A', (
     t.clock.advance(8 * DAY);
     const third = await ask(user, conv, AUDIT);
     const f = eventsOf(third, 'finding')[0] as { verdict: string; verdictReason: string };
-    expect(f.verdict).toBe('changed');
-    expect(f.verdictReason).toBe('same_source_bracketing');
+    // A tier C baseline and tier C pages cannot support a computed change (docs/security.md, baseline poisoning)
+    expect(f.verdict).toBe('differs_timing_unknown');
+    expect(f.verdictReason).toBe('low_authority_source');
   });
 });

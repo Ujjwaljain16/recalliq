@@ -38,6 +38,16 @@ describe('.env.example', () => {
       'GEMINI_API_KEY',
       'GEMINI_MODEL',
       'EXA_API_KEY',
+      'EXA_MAX_CONCURRENT',
+      'GEMINI_MAX_CONCURRENT',
+      'GEMINI_MIN_SPACING_MS',
+      'MAX_RUNNING_TURNS_PER_USER',
+      'TURN_RATE_PER_MINUTE',
+      'TURN_RATE_BURST',
+      'NEW_SESSIONS_PER_HOUR',
+      'SERVER_MAX_CONNECTIONS',
+      'SERVER_HEADERS_TIMEOUT_MS',
+      'SERVER_REQUEST_TIMEOUT_MS',
       'OFFICIAL_DOMAINS_FILE',
       'MODEL_FAST',
       'MODEL_MAIN',
@@ -55,5 +65,22 @@ describe('.env.example', () => {
     expect(fs.readFileSync('.env.example', 'utf8')).not.toMatch(
       /AIza|sk-[A-Za-z0-9]{10,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
     );
+  });
+});
+
+describe('.env.example and the code agree', () => {
+  it('lists every variable src/app/env.ts and src/config/env.ts read', () => {
+    const { all } = exampleVariables();
+    const read = new Set<string>();
+    for (const file of ['src/app/env.ts', 'src/config/env.ts']) {
+      const text = fs.readFileSync(file, 'utf8');
+      for (const m of text.matchAll(
+        /(?:env\[|int\()'([A-Z][A-Z0-9_]+)'|^\s+([A-Z][A-Z0-9_]+):/gm,
+      )) {
+        read.add((m[1] ?? m[2]) as string);
+      }
+    }
+    expect(read.size).toBeGreaterThan(20);
+    for (const name of read) expect(all.has(name), name).toBe(true);
   });
 });

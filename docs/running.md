@@ -95,6 +95,12 @@ re-observation proof, `changed`, and otherwise the weaker "no sign of a change".
   run only when the provider variables are in the process environment (no `.env` file is read) and make at most two
   calls each.
 
+## Security
+
+What the server protects and its limits (DNS rebinding, quotas, cookies, baseline poisoning, prompt injection) are
+in [security.md](security.md). The defaults suit one person on one machine: `HOST=127.0.0.1`, no CORS, and per-user
+quotas on turns.
+
 ## Tests
 
 ```

@@ -16,6 +16,14 @@ import {
 } from './cookie.js';
 import { toHttpError } from './errors.js';
 import { HttpError, parseBody, readJsonBody, securityHeaders, sendJson } from './http.js';
+import {
+  DEFAULT_SERVER_LIMITS,
+  retryAfterSeconds,
+  RunningCounter,
+  RUNNING_TURNS_RETRY_AFTER_S,
+  TokenBuckets,
+  type ServerLimits,
+} from './limits.js';
 import { ackBodySchema, pathId, turnBodySchema } from './schemas.js';
 import { SseWriter } from './sse.js';
 import { serveStatic } from './static.js';
@@ -43,8 +51,14 @@ export interface ServerOptions {
   logger: Logger;
   /** Signs the session cookie (at least 32 characters). */
   sessionSecret: string;
-  /** The one cross-origin origin allowed to call the API (ALLOWED_ORIGIN). */
-  allowedOrigin: string;
+  /** The one cross-origin origin allowed to call the API (ALLOWED_ORIGIN). Unset: no CORS headers at all. */
+  allowedOrigin: string | undefined;
+  /** The configured listening address (HOST); a Host header naming it is accepted. */
+  bindHost: string;
+  /** NODE_ENV=production: the session cookie is marked Secure. */
+  production?: boolean;
+  /** Quotas and node:http limits; DEFAULT_SERVER_LIMITS for anything not given. */
+  limits?: Partial<ServerLimits>;
   /** Absolute path of the browser client directory. */
   webRoot: string;
   /** What `GET /api/health` reports about the running configuration. */
@@ -73,9 +87,61 @@ const PATTERNS = {
 
 type Session = { kind: 'none' } | { kind: 'invalid' } | { kind: 'user'; userId: UserId };
 
+const LOOPBACK_NAMES = ['localhost', '127.0.0.1', '[::1]'];
+const WILDCARD_ADDRESSES = new Set(['0.0.0.0', '[::]']);
+
+/** The lower-case host name of a Host header value (`[::1]` keeps its brackets), or null when it is malformed. */
+export function hostnameOf(value: string | undefined): string | null {
+  if (value === undefined || value === '') return null;
+  try {
+    const url = new URL(`http://${value}`);
+    if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) return null;
+    return url.hostname.toLowerCase().replace(/\.$/, '');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The host names a request may be addressed to: the loopback names, the configured HOST (not a wildcard
+ * address such as 0.0.0.0, which no client uses as a name) and the host of ALLOWED_ORIGIN. Anything else is a
+ * DNS-rebinding attempt or a misdirected request.
+ */
+export function allowedHostnames(bindHost: string, allowedOrigin: string | undefined): Set<string> {
+  const names = new Set(LOOPBACK_NAMES);
+  const bare = bindHost.includes(':') && !bindHost.startsWith('[') ? `[${bindHost}]` : bindHost;
+  const bind = hostnameOf(bare);
+  if (bind !== null && !WILDCARD_ADDRESSES.has(bind)) names.add(bind);
+  if (allowedOrigin !== undefined) {
+    try {
+      names.add(new URL(allowedOrigin).hostname.toLowerCase());
+    } catch {
+      // validated at startup; nothing to add
+    }
+  }
+  return names;
+}
+
 export function createAppServer(options: ServerOptions): AppServer {
   const { users, conversations, turns, view, orchestrator, clock, logger } = options;
-  const secure = options.allowedOrigin.startsWith('https:');
+  const allowedOrigin = options.allowedOrigin;
+  // Secure in production or behind an https front end; a plain-http localhost cookie must not be Secure.
+  const secure = options.production === true || (allowedOrigin?.startsWith('https:') ?? false);
+  const hosts = allowedHostnames(options.bindHost, allowedOrigin);
+  const limits: ServerLimits = { ...DEFAULT_SERVER_LIMITS, ...options.limits };
+  const runningTurns = new RunningCounter(limits.maxRunningTurnsPerUser);
+  const turnBuckets = new TokenBuckets(
+    { capacity: limits.turnBurst, perWindow: limits.turnsPerMinute, windowMs: 60_000 },
+    clock,
+  );
+  const sessionBuckets = new TokenBuckets(
+    {
+      capacity: limits.newSessionsPerHour,
+      perWindow: limits.newSessionsPerHour,
+      windowMs: 3_600_000,
+    },
+    clock,
+  );
   const inflight = new Set<Promise<unknown>>();
   let draining = false;
   const baseHeaders = securityHeaders();
@@ -100,7 +166,7 @@ export function createAppServer(options: ServerOptions): AppServer {
     const host = req.headers.host;
     const sameOrigin =
       host !== undefined && (origin === `http://${host}` || origin === `https://${host}`);
-    if (origin === options.allowedOrigin) {
+    if (allowedOrigin !== undefined && origin === allowedOrigin) {
       headers['Access-Control-Allow-Origin'] = origin;
       headers['Access-Control-Allow-Credentials'] = 'true';
       headers['Vary'] = 'Origin';
@@ -160,6 +226,13 @@ export function createAppServer(options: ServerOptions): AppServer {
       if (session.kind === 'user') {
         userId = session.userId;
       } else {
+        // Each new anonymous user is a fresh turn quota, so their creation is limited per client address.
+        const waitMs = sessionBuckets.take(req.socket.remoteAddress ?? 'unknown');
+        if (waitMs > 0) {
+          throw new HttpError(429, 'too_many_sessions', 'Too many new sessions from this address', {
+            retryAfter: retryAfterSeconds(waitMs),
+          });
+        }
         userId = users.create('real');
         out['Set-Cookie'] = sessionCookieHeader(signSession(userId, options.sessionSecret), {
           secure,
@@ -280,6 +353,38 @@ export function createAppServer(options: ServerOptions): AppServer {
       throw new HttpError(404, 'not_found', 'Not found');
     }
 
+    // Quotas, after the request is known to be valid: running turns across every conversation of the user,
+    // then the rate of new turns. A refused turn takes no token.
+    if (!runningTurns.tryStart(userId)) {
+      throw new HttpError(
+        429,
+        'too_many_turns',
+        'Too many turns are running; wait for one to finish',
+        {
+          retryAfter: RUNNING_TURNS_RETRY_AFTER_S,
+        },
+      );
+    }
+    try {
+      const waitMs = turnBuckets.take(userId);
+      if (waitMs > 0) {
+        throw new HttpError(429, 'turn_rate_limited', 'Too many turns; try again shortly', {
+          retryAfter: retryAfterSeconds(waitMs),
+        });
+      }
+      await streamTurn(res, headers, userId, conversationId, body);
+    } finally {
+      runningTurns.finish(userId);
+    }
+  }
+
+  async function streamTurn(
+    res: http.ServerResponse,
+    headers: Record<string, string>,
+    userId: UserId,
+    conversationId: ConversationId,
+    body: ReturnType<typeof turnBodySchema.parse>,
+  ): Promise<void> {
     const writer = new SseWriter(res, headers, options.heartbeatMs ?? 15_000);
     let errorSent = false;
     const sink = (e: SseEvent): void => {
@@ -367,6 +472,23 @@ export function createAppServer(options: ServerOptions): AppServer {
       return;
     }
     const headers: Record<string, string> = { ...baseHeaders };
+    // DNS rebinding: a page on another name that resolves here would be same-origin with its own Host. Only
+    // the names this server is known by are served, static files included.
+    const hostname = hostnameOf(req.headers.host);
+    if (hostname === null || !hosts.has(hostname)) {
+      sendJson(
+        res,
+        421,
+        {
+          error: {
+            code: 'misdirected_request',
+            message: 'This server does not answer for that host',
+          },
+        },
+        { ...headers, Connection: 'close' },
+      );
+      return;
+    }
     if (!url.pathname.startsWith('/api/')) {
       await serveStatic(options.webRoot, req, res, url.pathname, headers);
       return;
@@ -382,6 +504,9 @@ export function createAppServer(options: ServerOptions): AppServer {
       }
       const extra: Record<string, string> = { ...headers };
       if (mapped.closeConnection) extra['Connection'] = 'close';
+      if (typeof mapped.extra['retryAfter'] === 'number') {
+        extra['Retry-After'] = String(mapped.extra['retryAfter']);
+      }
       if (mapped.status === 405 && Array.isArray(mapped.extra['allow'])) {
         extra['Allow'] = (mapped.extra['allow'] as string[]).join(', ');
       }
@@ -396,6 +521,10 @@ export function createAppServer(options: ServerOptions): AppServer {
       if (mapped.closeConnection) res.once('finish', () => req.destroy());
     }
   }
+
+  server.maxConnections = limits.maxConnections;
+  server.headersTimeout = limits.headersTimeoutMs;
+  server.requestTimeout = limits.requestTimeoutMs;
 
   return {
     server,

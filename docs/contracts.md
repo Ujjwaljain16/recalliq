@@ -629,6 +629,7 @@ export type PriceVerdict =
 export type PriceVerdictReason =
   | 'unsupported_at_time' | 'other_value_in_effect_at_T0' | 'timing_conflict'
   | 'same_source_bracketing' | 'stated_effective_date' | 'listed_differently'
+  | 'insufficient_coverage' | 'low_authority_source'
   | CoverageFailure;
 export type ReleaseVerdict = 'releases_found' | 'none_found' | 'unable_to_verify';
 export type CoverageFailure = 'search_timeout' | 'search_unavailable' | 'quota_exhausted' | 'extraction_failed' | 'deadline';

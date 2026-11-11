@@ -1,11 +1,14 @@
 import path from 'node:path';
 import { ExaSearchAdapter } from '../search/exa-adapter.js';
+import { LimitedSearchPort } from '../search/limited.js';
 import { ReplaySearchAdapter } from '../search/replay.js';
 import { GeminiLlm } from '../llm/gemini/adapter.js';
 import { geminiConfigFromApp } from '../llm/gemini/config.js';
 import { realSleep } from '../llm/abort.js';
 import { ClientLimiter } from '../llm/limiter.js';
 import type { Origin } from '../shared/ids.js';
+import type { Clock } from '../shared/infrastructure.js';
+import type { SearchPort } from '../shared/search.js';
 import type { ComponentFactory } from './components.js';
 import type { AppEnv } from './env.js';
 import { loadReplayFixture, type ReplayFixture } from './live/fixture.js';
@@ -80,13 +83,24 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
       clock: c.clock,
       limiter,
     });
-    const search = new ExaSearchAdapter({
-      apiKey: secrets.exaApiKey ?? '',
-      fetch: (input, init) => doFetch(input, init),
-      clock: c.clock,
-    });
+    const search = liveSearchPort(env, doFetch, c.clock);
     return buildRealComponents(c, { kind: 'live', llm, search, origin: 'live', registry });
   };
+}
+
+/**
+ * The Exa search port of the live set, under one limiter for the process: every turn's searches share the
+ * EXA_MAX_CONCURRENT slots.
+ */
+export function liveSearchPort(env: AppEnv, doFetch: typeof fetch, clock: Clock): SearchPort {
+  return new LimitedSearchPort(
+    new ExaSearchAdapter({
+      apiKey: env.config.secrets.exaApiKey ?? '',
+      fetch: (input, init) => doFetch(input, init),
+      clock,
+    }),
+    new ClientLimiter(env.exaLimiter, { clock, sleep: realSleep }),
+  );
 }
 
 /**

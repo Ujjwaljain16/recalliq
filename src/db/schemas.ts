@@ -174,6 +174,7 @@ const verdictReason = exhaustive<PriceVerdictReason>()([
   'stated_effective_date',
   'listed_differently',
   'insufficient_coverage',
+  'low_authority_source',
   'search_timeout',
   'search_unavailable',
   'quota_exhausted',

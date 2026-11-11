@@ -99,10 +99,11 @@ const LIST: HoldoutCase[] = [
   {
     id: 'HO-02c',
     title: 'prior-effect proof on an unregistered domain (tier C baseline and tier C evidence)',
-    source: `${ARCH8} prior-effect proof ("a tier at least as high as tier_B")`,
-    expectation: 'baseline_incorrect (other_value_in_effect_at_T0)',
-    verdicts: ['baseline_incorrect'],
-    forbidden: ['changed', 'unchanged_confirmed'],
+    source: `${ARCH8} low-authority gate (docs/security.md, baseline poisoning)`,
+    expectation:
+      'differs_timing_unknown (low_authority_source): a tier C page can neither retract nor change a tier C baseline',
+    verdicts: ['differs_timing_unknown'],
+    forbidden: ['changed', 'unchanged_confirmed', 'baseline_incorrect'],
   },
 
   // 3. The world changed, with proof.
@@ -134,12 +135,12 @@ const LIST: HoldoutCase[] = [
   },
   {
     id: 'HO-03d',
-    title:
-      're-observation bracketing needs no registry: tier C pages still bracket on the same url',
-    source: `${ADR36} proof 1 (no tier requirement)`,
-    expectation: 'changed (same_source_bracketing)',
-    verdicts: ['changed'],
-    forbidden: ['unchanged_confirmed'],
+    title: 're-observation bracketing on tier C pages only (no registry)',
+    source: `${ADR36} proof 1; ${ARCH8} low-authority gate (docs/security.md, baseline poisoning)`,
+    expectation:
+      'differs_timing_unknown (low_authority_source): bracketing on tier C pages alone never proves a change',
+    verdicts: ['differs_timing_unknown'],
+    forbidden: ['changed', 'unchanged_confirmed', 'baseline_incorrect'],
   },
 
   // 4. The price changed, the timing is unknown.
