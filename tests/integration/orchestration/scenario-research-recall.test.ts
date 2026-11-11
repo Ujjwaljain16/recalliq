@@ -151,7 +151,7 @@ describe('research lane: the third question as captured now (nothing named, noth
     expect(w.research.calls).toHaveLength(0);
     expect(w.answer.calls).toHaveLength(0);
     expect(reply).toBe(
-      'On 2026-11-10 at 10:00 you asked: "Which managed Postgres host should we use?" I could not tell which company you mean from it. Which company or product should I look into?',
+      `On 2026-11-10 at 10:00 you asked: "Which managed Postgres host should we use?" I could not tell which company you mean from it, and I won't guess. Which company or product should I look into? I'll check its current pricing and recent releases.`,
     );
   });
 

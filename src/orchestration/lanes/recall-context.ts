@@ -99,7 +99,7 @@ export function severalConversations(
     input,
     { ...base, memoryHits: hits },
     'ambiguous_conversation',
-    'I found more than one conversation that day. Which one do you mean?',
+    "I found more than one conversation that day, so I can't tell which one you mean. Which one is it? I'll answer from the one you pick.",
     first.map((h) => ({ label: optionLabel(h), ref: `conv:${h.conversationId}` })),
   );
 }

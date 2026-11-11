@@ -58,6 +58,7 @@ function memoryOver(
   return {
     messagesInIntervals: (u, iv, terms) => messages.messagesInIntervals(u, iv, terms),
     searchAll: (u, terms, limit) => messages.searchAll(u, terms, limit),
+    conversationOverview: (...a) => messages.conversationOverview(...a),
     decisions: () => [],
     entitiesByAlias: entities,
   };
@@ -322,7 +323,7 @@ describe('lifecycle against the real turn repository', () => {
     const result = await h.run();
     expect(result.status).toBe('complete');
     const assistant = h.t.messages.listByConversation(h.userId, h.conversationId)[1];
-    expect(assistant?.content).toMatch(/no record of a conversation on 2026-11-10/);
+    expect(assistant?.content).toMatch(/no record of a conversation on Tuesday 10 November/);
     expect(h.answer.calls).toEqual([]);
     expect(count(h.t.db, 'assertions', 'turn_id = ?', result.turnId)).toBe(0);
   });

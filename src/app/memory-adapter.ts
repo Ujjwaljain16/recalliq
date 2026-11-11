@@ -61,6 +61,9 @@ export class SqliteMemoryRetriever implements MemoryRetriever {
   searchAll: MemoryRetriever['searchAll'] = (u, terms, limit) =>
     this.messages.searchAll(u, terms, limit);
 
+  conversationOverview: MemoryRetriever['conversationOverview'] = (...a) =>
+    this.messages.conversationOverview(...a);
+
   /**
    * The user's current decisions: a decision that a later one supersedes is left out. Optionally only one
    * kind, and only those recorded inside the given half-open day intervals. Newest first, at most 50.

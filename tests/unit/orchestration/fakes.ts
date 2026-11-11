@@ -9,7 +9,12 @@ import {
   type TurnId,
   type UserId,
 } from '../../../src/shared/ids.js';
-import type { Baseline, MemoryCandidate, MemoryRetriever } from '../../../src/shared/memory.js';
+import type {
+  Baseline,
+  ConversationOverview,
+  MemoryCandidate,
+  MemoryRetriever,
+} from '../../../src/shared/memory.js';
 import type {
   ResearchRequest,
   ResearchService,
@@ -183,8 +188,13 @@ export class SpyMemory implements MemoryRetriever {
       messages?: MemoryCandidate[];
       entities?: ReturnType<MemoryRetriever['entitiesByAlias']>;
       decisions?: ReturnType<MemoryRetriever['decisions']>;
+      conversation?: ConversationOverview;
     } = {},
   ) {}
+  conversationOverview(): ConversationOverview {
+    this.calls.push('conversationOverview');
+    return this.data.conversation ?? { hits: [], total: 0, otherConversations: 0 };
+  }
   messagesInIntervals(...args: Parameters<MemoryRetriever['messagesInIntervals']>) {
     this.calls.push('messagesInIntervals');
     const [, iv] = args;

@@ -191,7 +191,7 @@ describe('question two: "What did I ask you on 3 November? Is your answer still 
   it('never claims a conversation took place when none was found', async () => {
     const w = world(S2_ANALYSIS);
     const { reply } = await w.ask(S2_MESSAGE);
-    expect(reply).toContain('no record of a conversation on 2026-11-03');
+    expect(reply).toContain('no record of a conversation on Tuesday 3 November');
     expect(reply).not.toMatch(/you asked|you wrote/);
     expect(w.research.calls).toHaveLength(0);
   });

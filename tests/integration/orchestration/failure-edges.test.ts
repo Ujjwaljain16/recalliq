@@ -107,6 +107,7 @@ function memoryOver(
   return {
     messagesInIntervals: (u, iv, terms) => messages.messagesInIntervals(u, iv, terms),
     searchAll: (u, terms, limit) => messages.searchAll(u, terms, limit),
+    conversationOverview: (...a) => messages.conversationOverview(...a),
     decisions: () => [],
     entitiesByAlias: entitiesByAlias ?? (() => []),
   };

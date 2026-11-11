@@ -88,6 +88,8 @@ export const analysisModelSchema = z.object({
       correctsDecisionKind: z.enum(['shortlist', 'constraint', 'preference', 'choice']).optional(),
     }),
   ),
+  /** Optional, so an output without it (every output before it existed) stays valid. */
+  recallScope: z.enum(['conversation']).optional(),
 });
 
 export type AnalysisModelOutput = z.infer<typeof analysisModelSchema>;
@@ -152,5 +154,6 @@ export function toTurnAnalysis(m: AnalysisModelOutput): TurnAnalysis {
     alternateQueries: clean(m.alternateQueries, ANALYSIS_CAPS.queries),
     userFacts: m.userFacts.filter((f) => f.quote.trim() !== '').slice(0, ANALYSIS_CAPS.userFacts),
     degraded: false,
+    ...(m.recallScope === undefined ? {} : { recallScope: m.recallScope }),
   };
 }

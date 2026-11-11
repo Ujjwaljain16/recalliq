@@ -9,13 +9,26 @@ import {
   emitContext,
   emitEntityCap,
   emptyContext,
+  noRecordConsequence,
+  nothingToSearchOutcome,
   resolveEntities,
   resolveShortlist,
   resolveTemporal,
+  unknownShortlistOutcome,
 } from './common.js';
 import { deriveFromRecall, listNames, recallDay, severalConversations } from './recall-context.js';
 import { runResearch } from './research-core.js';
-import type { LaneHandler } from './types.js';
+import type { LaneDeps, LaneHandler, LaneInput, LaneOutcome } from './types.js';
+
+export interface ResearchOptions {
+  /**
+   * Set when the audit lane found nothing stored for the day the user pointed at and hands the turn over: that
+   * day, in words. A code-written sentence naming it opens the answer (or the question, when nothing can be
+   * searched), the day is not recalled a second time, and the "no change can be established" sentence is not
+   * added, because the opening one already says it.
+   */
+  noRecordDay?: string;
+}
 
 /**
  * Research lane: "what does X cost now?", "did Y launch anything since Monday?".
@@ -27,9 +40,18 @@ import type { LaneHandler } from './types.js';
  *  3. a day the user points at ("last Tuesday I asked ...") is recalled like the audit lane does; when no company
  *     was named, the companies come from the earlier message itself (its tags and the stored entities it
  *     names), several candidate conversations being a question and never a pick. What was asked opens the answer;
- *  4. the plan is built in code and executed by the injected ResearchService.
+ *  4. the plan is built in code and executed by the injected ResearchService. A plan with no search (only a
+ *     category was given) is a question about which companies to check, never a guessed search.
+ *
+ * The audit lane hands a turn over through `researchTurn` when nothing is stored for the day the user pointed at.
  */
-export const researchLane: LaneHandler = async (input, deps) => {
+export const researchLane: LaneHandler = (input, deps) => researchTurn(input, deps);
+
+export async function researchTurn(
+  input: LaneInput,
+  deps: LaneDeps,
+  options: ResearchOptions = {},
+): Promise<LaneOutcome> {
   const base = { ...emptyContext('research'), temporal: resolveTemporal(input, deps) };
 
   const named = resolveEntities(input, deps, input.analysis.entities);
@@ -37,7 +59,10 @@ export const researchLane: LaneHandler = async (input, deps) => {
   if (ambiguous) return ambiguous;
 
   // The day the user points at, recalled like the audit lane does. No record there changes nothing here.
-  const recalled = recallDay(input, deps, base);
+  const recalled =
+    options.noRecordDay === undefined
+      ? recallDay(input, deps, base)
+      : ({ kind: 'not_referenced' } as const);
   if (recalled.kind === 'clarify') return recalled.outcome;
   const hits = recalled.kind === 'found' ? recalled.hits : [];
   const withHits = { ...base, memoryHits: hits };
@@ -103,12 +128,18 @@ export const researchLane: LaneHandler = async (input, deps) => {
       input.analysis.entities.length === 0 &&
       hits.length === 0
     ) {
+      if (asksAboutASet) {
+        return unknownShortlistOutcome(input, deps, base, {
+          noRecordDay: options.noRecordDay ?? null,
+          asked: [],
+        });
+      }
       emitContext(input, base);
       return clarifyOutcome(
         input,
         base,
         'missing_referent',
-        'I do not have a saved shortlist or decision to go on. Which companies do you mean?',
+        "I don't have a saved decision on record to go on, so I can't tell which companies you mean. Which companies should I look into? I'll check their current pricing and recent releases.",
         [],
       );
     }
@@ -134,7 +165,7 @@ export const researchLane: LaneHandler = async (input, deps) => {
         'missing_referent',
         [
           ...lead,
-          'I could not tell which company you mean from it. Which company or product should I look into?',
+          "I could not tell which company you mean from it, and I won't guess. Which company or product should I look into? I'll check its current pricing and recent releases.",
         ].join(' '),
         [],
       );
@@ -148,8 +179,6 @@ export const researchLane: LaneHandler = async (input, deps) => {
   }
 
   const ctx = { ...withHits, entities, decisions };
-  emitContext(input, ctx);
-  if (capped) emitEntityCap(input);
   const researchInput =
     unresolved.length > 0
       ? {
@@ -157,9 +186,22 @@ export const researchLane: LaneHandler = async (input, deps) => {
           analysis: { ...input.analysis, entities: [...input.analysis.entities, ...unresolved] },
         }
       : input;
+  const noRecord = (findings: boolean): string[] =>
+    options.noRecordDay === undefined
+      ? []
+      : [noRecordConsequence(input, options.noRecordDay, findings)];
+  // Only a category was given ("Postgres hosting"): nothing the planner can search for. Ask, saying why.
+  if (deps.planner.plan(ctx, researchInput.analysis, input.now).specs.length === 0) {
+    return nothingToSearchOutcome(input, ctx, [...noRecord(false), ...lead]);
+  }
+  emitContext(input, ctx);
+  if (capped) emitEntityCap(input);
   const outcome = await runResearch(researchInput, deps, ctx, 'research');
   if (outcome.kind !== 'synthesize') return outcome;
-  const unproven = changeNotEstablishedSentence(input, ctx, outcome.findings, hits);
-  const opening = unproven === null ? lead : [...lead, unproven];
+  const unproven =
+    options.noRecordDay === undefined
+      ? changeNotEstablishedSentence(input, ctx, outcome.findings, hits)
+      : null;
+  const opening = [...noRecord(true), ...lead, ...(unproven === null ? [] : [unproven])];
   return opening.length > 0 ? { ...outcome, lead: opening } : outcome;
-};
+}

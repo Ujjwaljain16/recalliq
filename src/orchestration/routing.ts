@@ -1,6 +1,7 @@
 import type { Lane, TurnAnalysis } from '../shared/understanding.js';
 
-export type RouteReason = 'hint' | 'recall_asks_still_correct' | 'research_without_subject';
+export type RouteReason =
+  'hint' | 'recall_asks_still_correct' | 'research_without_subject' | 'conversation_recall';
 
 export interface Route {
   lane: Lane;
@@ -14,6 +15,8 @@ export interface Route {
  *
  *  - recall + asksStillCorrect or a change_since mention -> audit (the user wants the earlier claim re-checked)
  *  - research with no entity and no query -> chat (nothing to search for, and nothing may be invented)
+ *  - a recall of this conversation (`recallScope`) hinted as chat or clarify -> recall: "what have we talked about
+ *    so far?" is answered from the stored messages, never with a question about the day
  *  - otherwise the hint
  */
 export function routeTurn(analysis: TurnAnalysis): Route {
@@ -25,6 +28,9 @@ export function routeTurn(analysis: TurnAnalysis): Route {
   }
   if (hint === 'research' && analysis.entities.length === 0 && analysis.queries.length === 0) {
     return { lane: 'chat', reason: 'research_without_subject' };
+  }
+  if (analysis.recallScope === 'conversation' && (hint === 'chat' || hint === 'clarify')) {
+    return { lane: 'recall', reason: 'conversation_recall' };
   }
   return { lane: hint, reason: 'hint' };
 }
