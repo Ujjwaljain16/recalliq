@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "class": "synthetic",
+  "label": "[SYNTHETIC] demo conversation for APP_COMPONENTS=replay: invented vendors on .example domains, not real prices",
+  "search": [
+    {
+      "query": "Acme CRM pricing",
+      "steps": [
+        {
+          "hits": [
+            {
+              "url": "https://acme.example/en-gb/pricing",
+              "title": "[SYNTHETIC] Acme CRM pricing",
+              "text": "[SYNTHETIC] Acme CRM\nPlans and pricing\nAcme CRM Starter US$20 per user per month, billed annually\nAcme CRM Pro US$90 per user per month, billed annually"
+            }
+          ]
+        },
+        {
+          "hits": [
+            {
+              "url": "https://acme.example/en-gb/pricing",
+              "title": "[SYNTHETIC] Acme CRM pricing",
+              "text": "[SYNTHETIC] Acme CRM\nPlans and pricing\nAcme CRM Starter US$20 per user per month, billed annually\nAcme CRM Pro US$100 per user per month, billed annually"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "query": "Beta Suite pricing",
+      "steps": [
+        {
+          "hits": [
+            {
+              "url": "https://beta.example/en-gb/pricing",
+              "title": "[SYNTHETIC] Beta Suite pricing",
+              "text": "[SYNTHETIC] Beta Suite\nPlans and pricing\nBeta Suite Starter US$20 per user per month, billed annually\nBeta Suite Pro US$80 per user per month, billed annually"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "llm": {
+    "analysis": [
+      {
+        "whenMessageContains": "What does Acme CRM cost?",
+        "reply": {
+          "laneHint": "research",
+          "intents": ["pricing"],
+          "temporal": [],
+          "entities": [
+            {
+              "text": "Acme CRM",
+              "normalized": "acme crm",
+              "officialDomainGuess": "acme.example"
+            }
+          ],
+          "references": [],
+          "topicTerms": [],
+          "asksStillCorrect": false,
+          "queries": [],
+          "alternateQueries": [],
+          "userFacts": []
+        }
+      },
+      {
+        "whenMessageContains": "What does Beta Suite cost?",
+        "reply": {
+          "laneHint": "research",
+          "intents": ["pricing"],
+          "temporal": [],
+          "entities": [
+            {
+              "text": "Beta Suite",
+              "normalized": "beta suite",
+              "officialDomainGuess": "beta.example"
+            }
+          ],
+          "references": [],
+          "topicTerms": [],
+          "asksStillCorrect": false,
+          "queries": [],
+          "alternateQueries": [],
+          "userFacts": []
+        }
+      },
+      {
+        "whenMessageContains": "Is the Acme CRM price you gave me still correct?",
+        "reply": {
+          "laneHint": "audit",
+          "intents": ["pricing"],
+          "temporal": [],
+          "entities": [
+            {
+              "text": "Acme CRM",
+              "normalized": "acme crm"
+            }
+          ],
+          "references": [],
+          "topicTerms": [],
+          "asksStillCorrect": true,
+          "queries": [],
+          "alternateQueries": [],
+          "userFacts": []
+        }
+      }
+    ],
+    "extraction": [
+      {
+        "entity": "Acme CRM",
+        "sourceContains": "Acme CRM Pro US$90 per user per month, billed annually",
+        "statement": {
+          "kind": "price",
+          "plan": "Pro",
+          "planNorm": "pro",
+          "value": {
+            "amount": 90,
+            "currency": "USD",
+            "currencySymbol": "US$",
+            "unit": "per_seat",
+            "usageUnit": null,
+            "billingPeriod": "monthly_billed_annually",
+            "valueKind": "exact"
+          },
+          "releaseTitle": null,
+          "releaseKind": null,
+          "conditions": null,
+          "quote": "Acme CRM Pro US$90 per user per month, billed annually",
+          "contextQuote": null,
+          "polarity": "affirmed",
+          "modality": "current",
+          "effectiveFromText": null,
+          "eventDateText": null,
+          "significance": null,
+          "significanceReason": null
+        }
+      },
+      {
+        "entity": "Acme CRM",
+        "sourceContains": "Acme CRM Pro US$100 per user per month, billed annually",
+        "statement": {
+          "kind": "price",
+          "plan": "Pro",
+          "planNorm": "pro",
+          "value": {
+            "amount": 100,
+            "currency": "USD",
+            "currencySymbol": "US$",
+            "unit": "per_seat",
+            "usageUnit": null,
+            "billingPeriod": "monthly_billed_annually",
+            "valueKind": "exact"
+          },
+          "releaseTitle": null,
+          "releaseKind": null,
+          "conditions": null,
+          "quote": "Acme CRM Pro US$100 per user per month, billed annually",
+          "contextQuote": null,
+          "polarity": "affirmed",
+          "modality": "current",
+          "effectiveFromText": null,
+          "eventDateText": null,
+          "significance": null,
+          "significanceReason": null
+        }
+      },
+      {
+        "entity": "Beta Suite",
+        "sourceContains": "Beta Suite Pro US$80 per user per month, billed annually",
+        "statement": {
+          "kind": "price",
+          "plan": "Pro",
+          "planNorm": "pro",
+          "value": {
+            "amount": 80,
+            "currency": "USD",
+            "currencySymbol": "US$",
+            "unit": "per_seat",
+            "usageUnit": null,
+            "billingPeriod": "monthly_billed_annually",
+            "valueKind": "exact"
+          },
+          "releaseTitle": null,
+          "releaseKind": null,
+          "conditions": null,
+          "quote": "Beta Suite Pro US$80 per user per month, billed annually",
+          "contextQuote": null,
+          "polarity": "affirmed",
+          "modality": "current",
+          "effectiveFromText": null,
+          "eventDateText": null,
+          "significance": null,
+          "significanceReason": null
+        }
+      }
+    ],
+    "synthesis": [
+      {
+        "whenMessageContains": "What does Acme CRM cost?",
+        "deltas": ["Acme CRM Pro is [[F1]]."]
+      },
+      {
+        "whenMessageContains": "What does Beta Suite cost?",
+        "deltas": ["Beta Suite Pro is [[F1]]."]
+      },
+      {
+        "whenMessageContains": "Is the Acme CRM price",
+        "deltas": ["I said [[F1:baseline]]. The page now shows [[F1]]. Acme CRM: [[F1:verdict]]."]
+      }
+    ],
+    "judge": []
+  }
+}

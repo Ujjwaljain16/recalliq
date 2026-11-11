@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Db } from '../../db/index.js';
 import { queryOne } from '../../db/sql.js';
 import { registrableDomain } from '../../evidence/authority.js';
-import { newId, parseId, type EntityId, type Origin, type UserId } from '../../shared/ids.js';
+import { newId, parseId, type Origin, type UserId } from '../../shared/ids.js';
 import type { Clock } from '../../shared/infrastructure.js';
 import type { ResolvedContext } from '../../shared/memory.js';
 import type { EntityMention } from '../../shared/understanding.js';
@@ -78,7 +78,7 @@ export class EntityDirectory {
   addDomain(entity: EntityRow, domain: string, basis: 'name_match' | 'analysis_confirmed'): void {
     this.db
       .prepare('INSERT OR IGNORE INTO entity_domains (entity_id, domain, basis) VALUES (?, ?, ?)')
-      .run(entity.id as EntityId, domain, basis);
+      .run(entity.id, domain, basis);
     if (!entity.officialDomains.includes(domain)) entity.officialDomains.push(domain);
   }
 }
