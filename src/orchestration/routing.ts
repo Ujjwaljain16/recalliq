@@ -12,13 +12,15 @@ export interface Route {
  * below override it, and nothing else does. Referents that cannot be resolved turn a lane into `clarify`
  * later, inside the lane handlers, because only they hold the stored data.
  *
- *  - recall + asksStillCorrect       -> audit (the user wants the earlier claim re-checked)
+ *  - recall + asksStillCorrect or a change_since mention -> audit (the user wants the earlier claim re-checked)
  *  - research with no entity and no query -> chat (nothing to search for, and nothing may be invented)
  *  - otherwise the hint
  */
 export function routeTurn(analysis: TurnAnalysis): Route {
   const hint = analysis.laneHint;
-  if (hint === 'recall' && analysis.asksStillCorrect) {
+  // A recall that also asks what changed since then wants the current state checked: the audit lane.
+  const asksWhatChanged = analysis.temporal.some((t) => t.role === 'change_since');
+  if (hint === 'recall' && (analysis.asksStillCorrect || asksWhatChanged)) {
     return { lane: 'audit', reason: 'recall_asks_still_correct' };
   }
   if (hint === 'research' && analysis.entities.length === 0 && analysis.queries.length === 0) {

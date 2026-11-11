@@ -18,7 +18,7 @@ import {
   resolveShortlist,
   resolveTemporal,
 } from './common.js';
-import { recallDay } from './recall-context.js';
+import { deriveFromRecall, listNames, recallDay, severalConversations } from './recall-context.js';
 import { runResearch } from './research-core.js';
 import type { LaneHandler, RecallTexts } from './types.js';
 
@@ -103,6 +103,28 @@ export const auditLane: LaneHandler = async (input, deps) => {
     }
   }
 
+  // Nobody named and no shortlist: the companies are those the recalled message names (same derivation as the
+  // research lane). Several candidate conversations are a question; nothing derivable leaves the fixed reply.
+  const took: string[] = [];
+  if (
+    recalledHits.length > 0 &&
+    entities.length === 0 &&
+    unresolved.length === 0 &&
+    input.analysis.entities.length === 0
+  ) {
+    const several = severalConversations(input, base, recalledHits);
+    if (several) return several;
+    const derived = deriveFromRecall(input, deps, recalledHits);
+    if (derived.entities.length > 0 || derived.unresolved.length > 0) {
+      entities = derived.entities;
+      unresolved = derived.unresolved;
+      capped = derived.capped;
+      took.push(
+        `I took the companies from that earlier message: ${listNames([...entities.map((e) => e.name), ...unresolved.map((m) => m.text)])}.`,
+      );
+    }
+  }
+
   const query = { userId: input.userId, currentTurnId: input.turnId, conversationIds };
   const wanted = new Set(entities.map((e) => e.id));
   const eligible: Baseline[] = deps.baselines
@@ -177,6 +199,6 @@ export const auditLane: LaneHandler = async (input, deps) => {
     eligible.length > 0
       ? []
       : [unverified.length > 0 ? NO_VERIFIED_EARLIER_ANSWER : NO_EARLIER_ANSWER_TO_COMPARE];
-  const lead = [...asked, ...noBaseline];
+  const lead = [...asked, ...took, ...noBaseline];
   return { ...outcome, recall, ...(lead.length > 0 ? { lead } : {}) };
 };

@@ -353,6 +353,10 @@ Helpers shared by the scenario files are in `tests/integration/orchestration/sce
 
 Mutation checks, each restored afterwards and each made at least one test fail: recall skipped in the research lane (73 failed); tags ignored (49); category filter removed (6); one of several conversations picked (1); lead sentence omitted (56); topic filter ignored so the whole day is returned (7); another user's messages included (9, three of them in the retriever's own tests); companies taken from all stored entities instead of the recalled message (4).
 
+### Lane hint variance (added 2026-11-12)
+
+`tests/integration/orchestration/scenario-lane-variance.test.ts` (18 tests): the same analysis for the first and third questions with hint research, audit and recall, and asksStillCorrect true and false, researches the same companies and opens with the same sentence about what was asked or written. Third question in the audit lane: Neon and Supabase from tags (opening, statement and findings in order, and recall before plan before research before answer), from stored entity rows (an unrelated stored entity is left out), with a competing Postgres question on the other candidate Tuesday, two matching conversations as a question with two options and no research or answer call, every finding `unable_to_verify` (lead still present), and the fixed reply when nothing is derivable. Mutation checks, restored afterwards: derivation switched off in the audit lane (8 failed); the recall-with-change_since routing rule removed (2 failed).
+
 ## Documentation checks (`tests/integration/docs.test.ts`)
 
 Added in the post-M2 documentation pass. They check the documents against each other and against the code; they do not test application behaviour.
