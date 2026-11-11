@@ -121,6 +121,13 @@ const UNSUPPORTED_KEYS = new Set([
   'unevaluatedProperties',
   'uniqueItems',
   'default',
+  // Documented as supported, but the real API rejected a schema containing them with HTTP 400
+  // INVALID_ARGUMENT (observed 2026-11-12 with gemini-3.5-flash-lite). They are dropped here and enforced locally
+  // by the zod schema every response is validated against.
+  'maxItems',
+  'minItems',
+  'minimum',
+  'maximum',
 ]);
 const SCHEMA_MAPS = new Set(['properties', '$defs', 'definitions']);
 const SUPPORTED_FORMATS = new Set(['date-time', 'date', 'time']);
