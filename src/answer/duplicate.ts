@@ -21,6 +21,38 @@ export const RUN_WORDS = 3;
 /** A run is distinctive when at least this many of its words are not stopwords. */
 export const MIN_CONTENT_WORDS = 2;
 
+/** What a sentence says, for spotting a repeat: its numbers and the product and plan names it uses. */
+export interface ClaimSignature {
+  numbers: Set<string>;
+  names: Set<string>;
+}
+
+export function claimSignature(text: string): ClaimSignature {
+  const plain = text.normalize('NFKC');
+  const numbers = new Set(plain.match(/\d[\d,.]*\d|\d/g)?.map((n) => n.replace(/,/g, '')) ?? []);
+  // The "According to <domain>" opening says where a statement comes from, not what it says.
+  const body = plain.replace(/according to \S+/gi, ' ');
+  const names = new Set((body.match(/\p{Lu}[\p{L}\p{N}-]*/gu) ?? []).map((n) => n.toLowerCase()));
+  return { numbers, names };
+}
+
+function isSubset(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  for (const x of a) if (!b.has(x)) return false;
+  return true;
+}
+
+/**
+ * True when a sentence repeats an earlier one: the same numbers (at least one, the citation number included) and
+ * product or plan names that one sentence contains in full in the other. The quick section and the verified
+ * section can both quote the same source; the second quote is dropped. Two different products at the same price
+ * from the same source are not a repeat, because neither's names contain the other's.
+ */
+export function repeatsClaim(a: ClaimSignature, b: ClaimSignature): boolean {
+  if (a.numbers.size === 0 || a.numbers.size !== b.numbers.size) return false;
+  if (!isSubset(a.numbers, b.numbers)) return false;
+  return isSubset(a.names, b.names) || isSubset(b.names, a.names);
+}
+
 /** Lower case, letters and digits only, split into words. */
 export function words(text: string): string[] {
   return text

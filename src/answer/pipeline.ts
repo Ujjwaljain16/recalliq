@@ -1,3 +1,4 @@
+import { claimSignature, repeatsClaim, type ClaimSignature } from './duplicate.js';
 import type {
   AnswerPipeline,
   AnswerResult,
@@ -208,8 +209,16 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       });
     };
 
+    // Sourced sentences already said (by the quick section, or earlier in this answer) are not said again.
+    const said: ClaimSignature[] = (input.earlier ?? []).map(claimSignature);
     const release = async (c: Candidate): Promise<void> => {
       if (c.issues.length > 0) return withhold(c.issues);
+      if (c.kind === 'sourced') {
+        const sig = claimSignature(c.text);
+        // A repeat is dropped without a warning: nothing the user needs is missing.
+        if (said.some((s) => repeatsClaim(sig, s))) return;
+        said.push(sig);
+      }
       // The quick section holds sourced sentences only: no citation, no release.
       if (quick && c.kind !== 'sourced') return withhold(['ungrounded_source']);
       if (c.judgeFacts) {
