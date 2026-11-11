@@ -27,3 +27,8 @@ export function sentenceBasis(
   kind?: string,
   previous?: string,
 ): 'verified' | 'sourced' | 'unconfirmed' | null;
+export function sourceLabel(source: {
+  title?: string | null;
+  url?: string;
+  domain?: string;
+}): string;

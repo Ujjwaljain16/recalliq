@@ -2,7 +2,7 @@
 // the citations. Pure: no DOM, dates through time.js with an explicit zone.
 
 import { shortDate } from './time.js';
-import { safeHref } from './format.js';
+import { safeHref, sourceLabel } from './format.js';
 
 const PERIOD = {
   monthly: 'per month',
@@ -145,7 +145,7 @@ function citations(ids, sources) {
     const s = sources.find((x) => x.sourceId === id);
     const href = s ? safeHref(s.url) : null;
     if (s && href && !out.some((c) => c.n === s.n)) {
-      out.push({ n: s.n, href, label: s.domain, title: s.title ?? s.domain });
+      out.push({ n: s.n, href, label: s.domain, title: sourceLabel(s) });
     }
   }
   return out;

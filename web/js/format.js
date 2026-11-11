@@ -34,7 +34,7 @@ export function splitCitations(text, sources) {
       text: match[0],
       n,
       href,
-      title: source.title ?? source.domain ?? href,
+      title: sourceLabel({ ...source, domain: source.domain ?? href }),
     });
     last = match.index + match[0].length;
   }
@@ -233,4 +233,31 @@ export function storedParagraphTexts(content, texts) {
 export function sentenceBasis(status, kind, previous) {
   const basis = kind ?? previous ?? (status === 'verified' ? 'verified' : null);
   return basis === 'verified' || basis === 'sourced' || basis === 'unconfirmed' ? basis : null;
+}
+
+/**
+ * The visible label of a source: its title, else the last path segment of its URL made readable, else the
+ * domain. Never empty, and never the same text twice.
+ *
+ * @param {{ title?: string | null, url?: string, domain?: string }} source
+ * @returns {string}
+ */
+export function sourceLabel(source) {
+  const title = (source.title ?? '').trim();
+  if (title !== '') return title;
+  try {
+    const segments = new URL(source.url ?? '').pathname.split('/').filter((s) => s !== '');
+    const last = segments[segments.length - 1];
+    if (last !== undefined) {
+      const words = decodeURIComponent(last)
+        .replace(/\.[a-z0-9]{1,5}$/i, '')
+        .replace(/[-_+]+/g, ' ')
+        .trim();
+      if (words !== '' && !/^\d+$/.test(words))
+        return words.charAt(0).toUpperCase() + words.slice(1);
+    }
+  } catch {
+    // an unparsable URL has no path to read
+  }
+  return (source.domain ?? '').trim() || 'Source';
 }

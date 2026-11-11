@@ -9,6 +9,7 @@ import {
   outcomeNote,
   paragraphStarts,
   sentenceBasis,
+  sourceLabel,
   sentenceGap,
   safeHref,
   sentenceMarker,
@@ -236,10 +237,11 @@ function addSource(msg, source) {
   const li = el('li');
   li.value = source.n;
   const href = safeHref(source.url);
-  const label = source.title ?? source.domain;
+  const label = sourceLabel(source);
   if (href) li.append(link(href, label));
   else li.append(document.createTextNode(label));
-  li.append(el('span', 'source-domain', source.domain));
+  // the domain is shown beside the label unless the label already is the domain
+  if (label !== source.domain) li.append(el('span', 'source-domain', source.domain));
   msg.sourceList.append(li);
 }
 

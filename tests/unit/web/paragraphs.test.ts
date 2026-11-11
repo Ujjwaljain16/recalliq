@@ -5,6 +5,7 @@ import {
   paragraphTexts,
   sentenceBasis,
   sentenceGap,
+  sourceLabel,
   storedParagraphTexts,
 } from '../../../web/js/format.js';
 
@@ -71,5 +72,34 @@ describe('the check mark is shown only for a verified finding', () => {
     // sentences stored before kinds existed fall back to their status
     expect(sentenceBasis('verified', undefined, undefined)).toBe('verified');
     expect(sentenceBasis('no_claims', undefined, undefined)).toBeNull();
+  });
+});
+
+describe('source labels', () => {
+  it('uses the title, else the humanised last path segment, else the domain once', () => {
+    expect(sourceLabel({ title: 'Pricing', url: 'https://a.example/x', domain: 'a.example' })).toBe(
+      'Pricing',
+    );
+    expect(
+      sourceLabel({
+        title: '  ',
+        url: 'https://g2.com/products/zoho-crm/pricing',
+        domain: 'g2.com',
+      }),
+    ).toBe('Pricing');
+    expect(
+      sourceLabel({
+        title: null,
+        url: 'https://a.example/blog/crm-price_guide.html',
+        domain: 'a.example',
+      }),
+    ).toBe('Crm price guide');
+    expect(sourceLabel({ title: '', url: 'https://a.example/', domain: 'a.example' })).toBe(
+      'a.example',
+    );
+    expect(sourceLabel({ title: null, url: 'https://a.example/12345', domain: 'a.example' })).toBe(
+      'a.example',
+    );
+    expect(sourceLabel({ title: null, url: 'not a url', domain: 'a.example' })).toBe('a.example');
   });
 });
