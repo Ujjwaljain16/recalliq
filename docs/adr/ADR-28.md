@@ -26,7 +26,7 @@ Seeded or recorded data must never mix with real user history. Separating files 
 ## Evidence and implementation references
 
 - [src/db/migrations/002_demo_isolation.sql](../../src/db/migrations/002_demo_isolation.sql); T-DB-07 and T-DB-10 in [tests/integration/db/invariants.test.ts](../../tests/integration/db/invariants.test.ts) and [tests/integration/db/migrations.test.ts](../../tests/integration/db/migrations.test.ts).
-- Rationale and the gaps that were demonstrated: [docs/proposals/q-002-demo-isolation.md](../proposals/q-002-demo-isolation.md).
+- Rationale and the gaps that were demonstrated: [docs/proposals/demo-isolation.md](../proposals/demo-isolation.md).
 
 ## Revisit when
 

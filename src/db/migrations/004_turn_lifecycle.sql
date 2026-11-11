@@ -1,5 +1,5 @@
--- 004_turn_lifecycle: database-level enforcement of the turn state machine (docs/stage-3-architecture.md §4).
--- Triggers only. Resolves Q-006 at the database level: the contract's partial unique index
+-- 004_turn_lifecycle: database-level enforcement of the turn state machine (docs/architecture.md §4).
+-- Triggers only. Enforces "one running turn per conversation" at the database level: the contract's partial unique index
 -- `turns_one_running` (001) already allows at most one running turn per conversation, and the repository
 -- begins turns in an IMMEDIATE transaction; this migration adds the lifecycle rules around it.
 --

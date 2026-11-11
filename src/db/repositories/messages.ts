@@ -111,7 +111,7 @@ function toMessage(row: z.output<typeof messageRow>): StoredMessage {
  * no update, delete or replace method: deleting and re-inserting a row under the same id would
  * sidestep the immutability triggers (contracts §1, T-DB-04). Whole conversations are removed only
  * through the privacy-deletion procedure. Acknowledgement fields are written by the turn
- * repository in the conversation-lifecycle milestone.
+ * repository.
  */
 export class MessageRepository {
   constructor(

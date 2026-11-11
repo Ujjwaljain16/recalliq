@@ -28,7 +28,7 @@ Test files are under `tests/integration/db/`. The test case is the test's full n
 | **T-DB-08** | Evidence an assertion in another conversation still cites survives conversation deletion | `privacy-deletion.test.ts` | passed | Belief rebuilding |
 | **T-DB-09** | After deletion, beliefs and belief history equal a fresh rebuild | `invariants.test.ts` | **todo: not implemented, not tested** | Everything. Blocked on the belief resolver (Milestone 4). Deletion and rebuilding are **not** fully tested |
 | **T-DB-10** | The application refuses to open a database created in a different `APP_MODE` | `migrations.test.ts` | passed | The same guard for the seed script (not written yet) |
-| **T-MEM-08** | A deleted conversation cannot be recalled | `m3-integration.test.ts` | passed (milestone 3) | Recalled by date, topic and tag on the real write path |
+| **T-MEM-08** | A deleted conversation cannot be recalled | `memory-recall.test.ts` | passed (milestone 3) | Recalled by date, topic and tag on the real write path |
 
 Other M1 tests: privacy deletion mechanics (with a recording fake rebuilder, so rebuild *correctness* is untested), repositories, config,
 contract parity of migration 001, and the migration runner. `migrations.test.ts` now also checks that migrations 001 to 007 load
@@ -109,7 +109,7 @@ orchestrator re-ran only the full suite after merging.
 | Baseline loader (ADR-38) | `tests/integration/db/baseline-loader.test.ts` | 20 | One test per eligibility rule, recall of unverified claims, same-turn exclusion, cross-user isolation |
 | Migration 006 | `tests/integration/db/decision-ownership.test.ts` | 24 | Cross-user rejection per trigger, identity immutability, upgrade of a version-5 database |
 | Recall lane | `tests/integration/db/recall.test.ts` | 12 | Answer, clarify (two days, several conversations, unresolved date) or none, over the real resolver and retriever |
-| M3 on the real write path | `tests/integration/db/m3-integration.test.ts` | 4 | Recall by body, tag and date after `complete()` with enrichment; T-MEM-08 |
+| M3 on the real write path | `tests/integration/db/memory-recall.test.ts` | 4 | Recall by body, tag and date after `complete()` with enrichment; T-MEM-08 |
 
 Mutation spot checks reported by the workers, each restored afterwards: resolver 11 breaks (10 caught; one was an equivalent change); retriever 8 breaks (7 caught; unquoting FTS tokens
 survives because `sanitizeTerms` already strips everything but letters and digits); baseline loader and enrichment 6 breaks plus the 8 migration-006 triggers dropped one at a time and the

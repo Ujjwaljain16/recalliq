@@ -1,6 +1,6 @@
 # Stage 3 Contracts: Schema, TypeScript Interfaces, SSE
 
-Reconciled in Stage 3.1 (2026-11-11). This document is **normative**: if [stage-3-architecture.md](stage-3-architecture.md) disagrees with it, that disagreement is a bug.
+Reconciled in Stage 3.1 (2026-11-11). This document is **normative**: if [architecture.md](architecture.md) disagrees with it, that disagreement is a bug.
 
 Conventions:
 

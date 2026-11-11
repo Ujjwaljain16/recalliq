@@ -2,9 +2,9 @@
 
 **Status:** approved direction, reconciled in Stage 3.1 on 2026-11-11.
 **Companion documents:**
-- [stage-3-contracts.md](stage-3-contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
+- [contracts.md](contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
 - [design-doc-blueprint.md](design-doc-blueprint.md): plan for DESIGN.md.
-- [stage-3.1-review.md](stage-3.1-review.md): what changed in 3.1 and why.
+- [design-review.md](design-review.md): what changed in 3.1 and why.
 
 The Stage 2 decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, Exa as provisional search provider, and Haiku + Sonnet as provisional models.
 
@@ -771,7 +771,7 @@ The DDL is in contracts §1. Changes in 3.1:
 **Ownership and isolation**
 - Idempotency is unique per user.
 - Owner triggers check that `messages.user_id` and `turns.user_id` match the conversation's owner. *(Extended in implementation to evidence, findings and assertions by migration 003; `decisions` and `decision_entities` by migration 006, `search_requests` and `search_results` by migration 007; snapshots by turn (they have none), `beliefs` and `belief_history` are not yet covered, [ADR-27](adr/ADR-27.md), Q-007.)*
-- Origin triggers block fixture or non-live rows in a database whose `db_mode = 'real'`. *(Narrowed in implementation: migration 002 covers messages, entities and decisions on insert plus relabelling and `db_mode`; it does not cover every table, so isolation is partial. See [contracts §1.2](stage-3-contracts.md#12-migrations-applied-on-top-of-the-schema), [ADR-28](adr/ADR-28.md).)*
+- Origin triggers block fixture or non-live rows in a database whose `db_mode = 'real'`. *(Narrowed in implementation: migration 002 covers messages, entities and decisions on insert plus relabelling and `db_mode`; it does not cover every table, so isolation is partial. See [contracts §1.2](contracts.md#12-migrations-applied-on-top-of-the-schema), [ADR-28](adr/ADR-28.md).)*
 
 **Immutability**
 - Append-only triggers on snapshots, evidence, assertion events and belief history (UPDATE is blocked; DELETE is allowed for privacy).
@@ -908,7 +908,7 @@ The architecture is unchanged: replay through the orchestrator with a FixedClock
 
 ### 18. TypeScript contracts
 
-See [stage-3-contracts.md](stage-3-contracts.md) §2.
+See [contracts.md](contracts.md) §2.
 
 ### 19. Repository structure
 

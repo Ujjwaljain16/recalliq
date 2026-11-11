@@ -17,7 +17,7 @@ import {
 } from '../../helpers/db.js';
 
 /**
- * Q-007 for search_requests and search_results (migration 007). Opened at version 7 so the error comes from
+ * Ownership consistency for search_requests and search_results (migration 007). Opened at version 7 so the error comes from
  * that migration; the pre-007 test shows the rule is not enforced without it.
  */
 

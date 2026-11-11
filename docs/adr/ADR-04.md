@@ -31,7 +31,7 @@ SQLite through better-sqlite3, pinned to exactly 13.0.3 (the Stage 2 review foun
 
 ## Evidence and implementation references
 
-- [stage-2-research.md](../stage-2-research.md) §6: a review of official documentation and package pages. It is a documentation review, not a benchmark.
+- [research-notes.md](../research-notes.md) §6: a review of official documentation and package pages. It is a documentation review, not a benchmark.
 - Pin in [package.json](../../package.json); connection setup in [src/db/connection.ts](../../src/db/connection.ts); migration runner [src/db/migrate.ts](../../src/db/migrate.ts).
 - Installed and run on one machine only (Windows 11, Node 22.19). Behaviour on other platforms is **not verified**. FTS5 behaviour is tested in [tests/integration/db/invariants.test.ts](../../tests/integration/db/invariants.test.ts).
 

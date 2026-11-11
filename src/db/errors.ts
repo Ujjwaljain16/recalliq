@@ -20,7 +20,7 @@ export class DbModeMismatchError extends Error {
   }
 }
 
-/** Another turn is already running in this conversation (Q-006). The API maps this to 409. */
+/** Another turn is already running in this conversation. The API maps this to 409. */
 export class TurnInProgressError extends Error {
   constructor(public readonly existingTurnId: string) {
     super(`A turn is already running in this conversation (${existingTurnId})`);
@@ -69,7 +69,7 @@ export class InvalidAckError extends Error {
   }
 }
 
-/** A TurnCompletion that is inconsistent, or asks for something a later milestone provides. */
+/** A TurnCompletion that is inconsistent, or asks for something that is not supported yet. */
 export class InvalidCompletionError extends Error {
   constructor(message: string) {
     super(message);

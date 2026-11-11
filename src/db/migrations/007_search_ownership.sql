@@ -1,5 +1,5 @@
--- 007_search_ownership: resolves Q-007 for `search_requests`, `search_results` and the snapshot links
--- (docs/questions.md, plan of 2026-11-12), in the same change as the first code that writes them (milestone 4).
+-- 007_search_ownership: ownership consistency for `search_requests`, `search_results` and the snapshot links
+-- (docs/questions.md, "user_id consistency"), in the same change as the first code that writes them (the search executor).
 -- Triggers only; 001 to 006 are untouched.
 --
 -- source_snapshots has no turn, so it cannot be checked against one. Its ownership is enforced at its links:

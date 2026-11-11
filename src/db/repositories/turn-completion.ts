@@ -23,8 +23,8 @@ const lane = z.enum(['chat', 'recall', 'research', 'audit', 'clarify']);
  * Checks a TurnCompletion for internal consistency, before any write. Pure.
  *
  * Throws ZodError for a malformed shape and InvalidCompletionError for a well-formed but inconsistent one,
- * including a request that a later milestone fulfils (belief recomputation arrives with the belief resolver in
- * milestone 4): that is rejected loudly, never ignored. Enrichment is checked structurally here and against the
+ * including a request that is not supported yet (belief recomputation needs the belief resolver): that is
+ * rejected loudly, never ignored. Enrichment is checked structurally here and against the
  * user message (decision quotes) inside the completion transaction.
  */
 export function validateCompletion(turnId: TurnId, completion: TurnCompletion): void {
@@ -33,7 +33,7 @@ export function validateCompletion(turnId: TurnId, completion: TurnCompletion): 
 
   if (c.touchedBeliefKeys.length > 0) {
     throw new InvalidCompletionError(
-      'touchedBeliefKeys is not supported yet: belief recomputation needs the belief resolver (milestone 4)',
+      'touchedBeliefKeys is not supported yet: belief recomputation needs the belief resolver',
     );
   }
 
@@ -114,7 +114,7 @@ export function validateCompletion(turnId: TurnId, completion: TurnCompletion): 
  * links, the `not_presented` events for sentences that were never streamed, the verdict events on baseline
  * assertions, the write-time enrichment (search rows, tags, decisions), and the final turn row. Either all of it is written or none is.
  *
- * Delivery rules applied here (architecture R4):
+ * Delivery rules applied here (architecture, answer delivery):
  *   - assertions are stored unpresented; only a browser acknowledgement (TurnRepository.ack) presents them;
  *   - an assertion in a sentence beyond `streamedThrough` is born with a `not_presented` event;
  *   - a streamed sentence gets no event yet: streamed-but-unacknowledged is a derived state, not a claim told;

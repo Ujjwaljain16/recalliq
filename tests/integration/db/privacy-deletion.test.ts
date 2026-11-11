@@ -308,5 +308,5 @@ describe('deleteConversation', () => {
     expect(rebuilder.calls).toEqual([]);
   });
 
-  // T-MEM-08 (recall after deletion) runs on the real recall path in m3-integration.test.ts.
+  // T-MEM-08 (recall after deletion) runs on the real recall path in memory-recall.test.ts.
 });

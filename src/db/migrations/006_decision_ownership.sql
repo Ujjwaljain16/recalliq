@@ -1,4 +1,4 @@
--- 006_decision_ownership: resolves Q-007 for `decisions` and `decision_entities` (docs/questions.md), in the same
+-- 006_decision_ownership: ownership consistency for `decisions` and `decision_entities` (docs/questions.md, "user_id consistency"), in the same
 -- change as the first code that writes them (write-time enrichment). Triggers only; 001 to 005 are untouched.
 --
 -- A decision belongs to one user, one conversation and one message of that conversation; a decision it

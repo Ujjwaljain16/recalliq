@@ -13,7 +13,7 @@ export interface AppConfig {
   /** Free-tier Gemini model id for the Gemini adapter (GEMINI_MODEL). No default: the owner picks an eligible model. */
   gemini: { model: string | undefined };
   /**
-   * Secrets are optional at this layer: the milestone-1 database tooling needs none of them.
+   * Secrets are optional at this layer: the database tooling needs none of them.
    * The composition root of the research pipeline asserts the ones it uses are present.
    */
   secrets: {

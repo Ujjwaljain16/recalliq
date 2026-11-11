@@ -8,9 +8,8 @@ import type { EventSink } from './sse.js';
 import type { TurnAnalysis } from './understanding.js';
 
 /**
- * Seams between the research pipeline (milestone 4), the orchestrator and the LLM layer (milestone 5).
- * Owned by the orchestrator: workers implement or consume these types and propose changes instead of
- * editing them. See docs/parallel-execution-plan.md.
+ * Seams between the research pipeline, the turn orchestrator and the LLM layer. Each module implements or
+ * consumes these types and does not change them on its own: a change affects every module on both sides.
  */
 
 /** What a research or audit turn needs. Baselines for an audit arrive inside `ctx`. */

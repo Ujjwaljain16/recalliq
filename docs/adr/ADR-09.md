@@ -26,7 +26,7 @@ Fixed templates, a per-turn search budget, per-entity limits, one fallback round
 
 ## Evidence and implementation references
 
-- Design in [stage-3-architecture.md](../stage-3-architecture.md) §9. The numeric limits (concurrency 5, 16 searches, 4 per entity) are **unmeasured defaults**. Nothing is implemented.
+- Design in [architecture.md](../architecture.md) §9. The numeric limits (concurrency 5, 16 searches, 4 per entity) are **unmeasured defaults**. Nothing is implemented.
 
 ## Revisit when
 

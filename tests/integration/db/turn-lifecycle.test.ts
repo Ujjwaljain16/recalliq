@@ -465,7 +465,7 @@ describe('T-TRN-04: TurnRepository.begin', () => {
     expect(a.turnId).not.toBe(b.turnId);
   });
 
-  it('refuses a second turn while one is running (Q-006), and allows one once it has finished', () => {
+  it('refuses a second turn while one is running, and allows one once it has finished', () => {
     const t = openTestDb();
     const user = t.users.create();
     const conversation = t.conversations.create({ userId: user });

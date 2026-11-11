@@ -19,8 +19,8 @@ const MAX_URL_LENGTH = 2048;
 /**
  * Tracking-only query parameters. Deliberately narrow: anything not listed is kept, because parameters such as
  * `plan`, `currency`, `country`, `region`, `lang`, `billing`, `id` or a bare `ref` can change what a page shows
- * (Q-001 decision D2: remove ONLY tracking parameters). The architecture sketch also names bare `ref`; it is kept
- * here because it can be meaningful (a git ref, a plan reference). Reported to the orchestrator.
+ * (only tracking parameters are removed: two URLs that differ in a meaningful parameter are different sources). The
+ * architecture sketch also names bare `ref`; it is kept here because it can be meaningful (a git ref, a plan reference).
  */
 const TRACKING_EXACT = new Set([
   'gclid',

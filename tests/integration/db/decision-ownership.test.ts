@@ -16,7 +16,7 @@ import { FixedClock } from '../../../src/temporal/clock.js';
 import { insertEntity, openTestDb, seedConversation, T0, type TestDb } from '../../helpers/db.js';
 
 /**
- * Q-007 for `decisions` and `decision_entities`, resolved by migration 006. The database is opened at version 6
+ * Ownership consistency for `decisions` and `decision_entities`, resolved by migration 006. The database is opened at version 6
  * (the migration under test is the newest), and the upgrade test starts from version 5.
  */
 
@@ -57,7 +57,7 @@ function world(t: TestDb = openTestDb('real', 6)) {
 }
 type World = ReturnType<typeof world>;
 
-describe('Q-007: decision ownership (migration 006)', () => {
+describe('ownership: decisions (migration 006)', () => {
   it('accepts a decision whose conversation and message belong to its user', () => {
     const { t, alice } = world();
     expect(() => insertDecision(t.db, alice)).not.toThrow();
@@ -177,7 +177,7 @@ describe('Q-007: decision ownership (migration 006)', () => {
   });
 });
 
-describe('Q-007: decision_entities ownership (migration 006)', () => {
+describe('ownership: decision_entities (migration 006)', () => {
   it('accepts a link between a decision and an entity of the same user', () => {
     const { t, alice } = world();
     expect(() => link(t.db, insertDecision(t.db, alice), alice.entityId)).not.toThrow();

@@ -1,7 +1,7 @@
 # Architecture decision records
 
 One page per decision, recorded 2026-11-11 after milestones 1 and 2. ADR-01 to ADR-24 are the original register from
-[stage-3-architecture.md](../stage-3-architecture.md), restated against what is actually implemented. ADR-25 to ADR-39 record decisions made
+[architecture.md](../architecture.md), restated against what is actually implemented. ADR-25 to ADR-39 record decisions made
 during implementation, and open decisions raised since; they were never in the original register.
 
 **Provenance.** ADR-01 to ADR-24 were reconstructed on 2026-11-11 from the architecture §20 register (one summary row each) and the Stage 3 / 3.1 design documents. They are **not** recovered original ADR text; no earlier pages existed, and each page says so. Where a page cites a rationale, it comes from those documents. **Status** records whether the decision was made; **Implementation** records, separately, what the code and tests do today. ADR-25 to ADR-39 record decisions made
@@ -79,5 +79,5 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 - The database schema is drawn in [docs/diagrams/er.mmd](../diagrams/er.mmd).
 - DESIGN.md section 15 ("Decisions and trade-offs") should be written from this index: each narrative takes its problem, alternatives, choice, trade-off and
   revisit condition from the ADR, and repeats its status and implementation honestly.
-- The normative contracts ([stage-3-contracts.md](../stage-3-contracts.md)) were not modified. Where an ADR says the contract text should change, the edit is
+- The normative contracts ([contracts.md](../contracts.md)) were not modified. Where an ADR says the contract text should change, the edit is
   proposed in [docs/questions.md](../questions.md) and is not made.

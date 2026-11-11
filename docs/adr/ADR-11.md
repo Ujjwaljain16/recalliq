@@ -27,7 +27,7 @@ The tiers. A page title, URL or domain never establishes which entity a price be
 
 ## Evidence and implementation references
 
-- [stage-3-architecture.md](../stage-3-architecture.md) R2 and [docs/stage-3.1-review.md](../stage-3.1-review.md). Nothing is implemented; the weak-rate on real pages is unknown (open item U15).
+- [architecture.md](../architecture.md) R2 and [docs/design-review.md](../design-review.md). Nothing is implemented; the weak-rate on real pages is unknown (open item U15).
 
 ## Revisit when
 

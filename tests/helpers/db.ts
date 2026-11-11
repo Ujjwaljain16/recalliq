@@ -41,7 +41,7 @@ export interface TestDb {
   assertions: AssertionRepository;
 }
 
-/** Stands in for the belief resolver, which does not exist until milestone 4. */
+/** Stands in for the belief resolver, which does not exist yet. */
 export const noopRebuilder: BeliefRebuilder = {
   rebuild() {
     /* nothing to rebuild: no beliefs are written yet */
@@ -85,7 +85,7 @@ export function openTestDbAt(file: string, mode: AppMode = 'real'): TestDb {
 }
 
 /**
- * Raw fixture inserts for tables whose repositories arrive in later milestones. They go straight
+ * Raw fixture inserts for tables that have no repository yet. They go straight
  * to SQL on purpose: the tests that use them verify database constraints, which a repository would
  * only get in the way of.
  */

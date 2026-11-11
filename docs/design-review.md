@@ -3,8 +3,8 @@
 Date: 2026-11-11.
 
 Documents in scope:
-- [stage-3-architecture.md](stage-3-architecture.md) (abbreviated **ARCH** below)
-- [stage-3-contracts.md](stage-3-contracts.md) (**CON**)
+- [architecture.md](architecture.md) (abbreviated **ARCH** below)
+- [contracts.md](contracts.md) (**CON**)
 - [design-doc-blueprint.md](design-doc-blueprint.md) (**BP**)
 
 The approved architecture is unchanged: architecture C, five lanes, a modular monolith. The changes in this pass are the smallest ones that remove ambiguity or contradiction. Each new rule names who owns it and which test covers it.

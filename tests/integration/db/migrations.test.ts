@@ -148,8 +148,8 @@ describe('migrations: guards', () => {
     db.close();
   });
 
-  // Q-003 (approved): connection-level PRAGMAs live in openDatabase(), outside migration transactions.
-  it('Q-003: openDatabase configures the connection before any migration runs', () => {
+  // Connection-level PRAGMAs live in openDatabase(), outside migration transactions.
+  it('pragmas: openDatabase configures the connection before any migration runs', () => {
     const memory = openDatabase(IN_MEMORY);
     expect(memory.pragma('foreign_keys', { simple: true })).toBe(1);
     expect(memory.pragma('busy_timeout', { simple: true })).toBe(5000);
@@ -162,7 +162,7 @@ describe('migrations: guards', () => {
     file.close();
   });
 
-  it('Q-003: no shipped migration contains a PRAGMA statement', () => {
+  it('pragmas: no shipped migration contains a PRAGMA statement', () => {
     for (const migration of loadMigrations()) {
       expect(migration.sql, `migration ${migration.version}_${migration.name}`).not.toMatch(
         /^\s*PRAGMA\b/im,
@@ -170,7 +170,7 @@ describe('migrations: guards', () => {
     }
   });
 
-  it('Q-003: each migration runs in its own transaction, together with its version stamp', () => {
+  it('pragmas: each migration runs in its own transaction, together with its version stamp', () => {
     const v1 = loadMigrations()[0] as Migration;
     const probe: Migration = {
       version: 2,

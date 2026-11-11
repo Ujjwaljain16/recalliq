@@ -1,4 +1,4 @@
--- 002_demo_isolation: resolves Q-002 (docs/questions.md, docs/proposals/q-002-demo-isolation.md).
+-- 002_demo_isolation: implements the demo-isolation proposal (docs/proposals/demo-isolation.md; docs/questions.md, "Demo isolation covers only some tables").
 -- Triggers only; no table or column changes. 001 is untouched.
 --
 -- Requested scope: messages, entities and decisions are no longer accepted with a non-live origin in a

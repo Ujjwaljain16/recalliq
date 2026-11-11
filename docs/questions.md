@@ -7,7 +7,7 @@ the code does meanwhile.
 Status values: **open** (needs a decision), **decided** (owner decision recorded, implementation pending),
 **applied** (implemented as described).
 
-The normative contracts (`stage-3-contracts.md`) were **not** modified in Milestones 1 and 2. The final documentation pass (2026-11-12) added a correction note and §1.2 to contracts §1 and corrected architecture §8; contracts §2 (including the locale change) is still unedited.
+The normative contracts (`contracts.md`) were **not** modified in Milestones 1 and 2. The final documentation pass (2026-11-12) added a correction note and §1.2 to contracts §1 and corrected architecture §8; contracts §2 (including the locale change) is still unedited.
 Proposed contract edits are written here for review instead. Decisions are recorded in [adr/README.md](adr/README.md); this file keeps the
 questions, including resolved ones and their history.
 
@@ -167,7 +167,7 @@ and any change to or deletion of `meta.db_mode`. The tests are the `T-DB-07` gro
 the characterisation tests that documented the gap were removed because the gap no longer exists.
 
 The migration goes slightly beyond the three tables Q-002 named (relabelling and `db_mode` immutability): those
-were the extra findings in [proposals/q-002-demo-isolation.md](proposals/q-002-demo-isolation.md), and without them the three
+were the extra findings in [proposals/demo-isolation.md](proposals/demo-isolation.md), and without them the three
 tables could still be bypassed.
 
 **Still not claimed:** complete isolation. The proposal's residual list stands: `belief_history`, `search_cache`
