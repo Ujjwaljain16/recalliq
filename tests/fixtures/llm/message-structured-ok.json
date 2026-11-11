@@ -1,1 +1,15 @@
-{"id":"msg_s","type":"message","role":"assistant","model":"model-fast-test","content":[{"type":"text","text":"{\"label\":\"alpha\",\"count\":3}"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":100,"output_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":40}}
+{
+  "id": "msg_s",
+  "type": "message",
+  "role": "assistant",
+  "model": "model-fast-test",
+  "content": [{ "type": "text", "text": "{\"label\":\"alpha\",\"count\":3}" }],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 100,
+    "output_tokens": 10,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 40
+  }
+}

@@ -1,1 +1,17 @@
-{"candidates":[{"content":{"role":"model","parts":[{"text":"{\"label\":\"alpha\",\"count\":3}"}]},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":100,"cachedContentTokenCount":40,"candidatesTokenCount":10,"thoughtsTokenCount":5,"totalTokenCount":115},"modelVersion":"model-test"}
+{
+  "candidates": [
+    {
+      "content": { "role": "model", "parts": [{ "text": "{\"label\":\"alpha\",\"count\":3}" }] },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 100,
+    "cachedContentTokenCount": 40,
+    "candidatesTokenCount": 10,
+    "thoughtsTokenCount": 5,
+    "totalTokenCount": 115
+  },
+  "modelVersion": "model-test"
+}
