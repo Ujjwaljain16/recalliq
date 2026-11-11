@@ -69,6 +69,7 @@ const sentenceIssue = exhaustive<SentenceIssue>()([
   'free_date',
   'unsupported_verdict_word',
   'unsupported_global_negative',
+  'duplicate_text',
   'judge_unsupported',
   'judge_partial',
   'judge_unavailable',

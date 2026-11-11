@@ -1,5 +1,5 @@
 /** Bump when the wording or the output contract changes, so recorded fixtures and benchmarks can be matched. */
-export const ANALYSIS_PROMPT_VERSION = 'analysis.v1';
+export const ANALYSIS_PROMPT_VERSION = 'analysis.v2';
 export const ANALYSIS_SCHEMA_NAME = 'TurnAnalysis';
 
 export const ANALYSIS_SYSTEM = `You analyse one user message in a conversation with a research assistant that tracks prices and product releases. You do not answer the user. You return a JSON object describing the message.
@@ -10,7 +10,7 @@ Rules:
 - Time roles: reference_conversation (the user points at an earlier conversation or answer), change_since (the user asks what changed since then), event_time (the time of an event itself).
 - laneHint is advisory: chat, recall, research, audit or clarify.
 - intents: pricing, releases or general.
-- entities: products, vendors or services named or clearly meant, at most 8. "normalized" is lower case without punctuation. Give "officialDomainGuess" only when you are confident.
+- entities: ONLY named organisations, vendors or products that the user is asking about, at most 8 (for example "Neon", "Slack"). A generic technology or product category is NOT an entity: Postgres, PostgreSQL, MySQL, CRM, database, hosting, serverless, API, LLM, SaaS, Kubernetes and the like go in "topicTerms". Example: for "What does Neon charge per month for its Postgres plans?" the entity is Neon and "postgres" is a topic term (and the query may be "Neon Postgres pricing"). "normalized" is lower case without punctuation. Give "officialDomainGuess" only when you are confident.
 - references: phrases pointing at earlier material (previous_answer, decision, conversation, entity_set).
 - topicTerms: at most 8 short search terms for finding the earlier conversation. queries: at most 3 web search queries for a research turn, otherwise empty. alternateQueries: reworded versions of the queries.
 - asksStillCorrect: true when the user asks whether something said earlier is still true.
