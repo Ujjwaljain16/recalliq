@@ -100,6 +100,35 @@ export class LlmTurnAnalyzer implements TurnAnalyzer {
 
   /** A user fact must quote the user's own message: that is what the persistence layer checks. */
   private finish(a: TurnAnalysis, userMessage: string): TurnAnalysis {
-    return { ...a, userFacts: a.userFacts.filter((f) => userMessage.includes(f.quote)) };
+    return {
+      ...a,
+      queries: stripUnwrittenYears(a.queries, userMessage),
+      alternateQueries: stripUnwrittenYears(a.alternateQueries, userMessage),
+      userFacts: a.userFacts.filter((f) => userMessage.includes(f.quote)),
+    };
   }
+}
+
+const YEAR = /\b(?:19|20)\d{2}\b/g;
+const DANGLING = /\s+(?:in|for|of|during|from|since|by|until|as of)\s*$/i;
+
+/**
+ * The model's own idea of the current year (stale training knowledge) must not steer a search. A four-digit year
+ * (19xx or 20xx) in a generated query stays only when the user's message contains that same year. What is left
+ * is tidied (spacing, a trailing "in"), queries that become empty are dropped and duplicates collapse.
+ */
+export function stripUnwrittenYears(queries: string[], userMessage: string): string[] {
+  const written = new Set(userMessage.match(YEAR) ?? []);
+  const out = queries
+    .map((q) =>
+      q
+        .replace(YEAR, (y) => (written.has(y) ? y : ' '))
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+        .replace(DANGLING, '')
+        .replace(/[,;:(]+\s*$/, '')
+        .trim(),
+    )
+    .filter((q) => q.length > 0);
+  return [...new Set(out)];
 }
