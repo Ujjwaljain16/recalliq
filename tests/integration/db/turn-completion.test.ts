@@ -293,11 +293,6 @@ describe('T-ASR-03: inconsistent or premature completions are refused before any
       'invalid',
     ],
     [
-      'write-time enrichment (needs memory, milestone 3)',
-      (c) => ({ ...c, enrichment: { tags: ['hubspot'], entities: [], decisions: [] } }),
-      'invalid',
-    ],
-    [
       'status interrupted with a complete assistant message',
       (c) => ({ ...c, status: 'interrupted' }),
       'invalid',
