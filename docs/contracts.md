@@ -16,7 +16,7 @@ Conventions:
 > **Correction (final documentation pass, 2026-11-12).** Two statements in this section are narrower in the implementation, and the schema below is no longer the whole database:
 >
 > - **The two `PRAGMA` lines are connection settings, not migration statements.** `foreign_keys` is per connection and `journal_mode = WAL` cannot be changed inside a transaction on a file database (verified, [ADR-25](adr/ADR-25.md)), so `openDatabase()` sets them on every connection and `001_init.sql` omits them. A test compares the rest of the SQL block below with `001_init.sql` ([tests/integration/db/contract-parity.test.ts](../tests/integration/db/contract-parity.test.ts)).
-> - **Migrations 002–008 add triggers that this block does not show.** They are listed in [§1.2](#12-migrations-applied-on-top-of-the-schema) and in [turn-lifecycle.md](turn-lifecycle.md). Where this document or the architecture says a trigger "blocks" something, §1.2 says whether it does so today.
+> - **Migrations 002–009 add triggers and one column that this block does not show** (009 adds `source_snapshots.crawl_basis`). They are listed in [§1.2](#12-migrations-applied-on-top-of-the-schema) and in [turn-lifecycle.md](turn-lifecycle.md). Where this document or the architecture says a trigger "blocks" something, §1.2 says whether it does so today.
 
 ```sql
 PRAGMA journal_mode = WAL;
@@ -376,6 +376,7 @@ Added after this document was reconciled (002 to 005 in milestone 2, 006 in mile
 | 006 | `006_decision_ownership.sql` | `decisions` and `decision_entities`: owner equals the conversation's and the message's, the message belongs to the conversation, `supersedes_id` is the same user's, identity columns are immutable, links are append-only | Added in milestone 3 |
 | 007 | `007_search_ownership.sql` | `search_requests` (owner equals the turn's; entity, if set, is the same user's; identity columns immutable) and `search_results` (request and snapshot belong to the same user; append-only). `source_snapshots` has no turn, so its ownership is enforced at its links | Added in milestone 4 |
 | 008 | `008_belief_ownership.sql` | `beliefs` (user exists; entity belongs to the same user; every winning evidence id belongs to the same user, checked with `json_each`; identity columns immutable) and `belief_history` (user exists; a non-null turn and every evidence id belong to the same user; append-only was already enforced) | Added with the belief resolver |
+| 009 | `009_snapshot_crawl_basis.sql` | `source_snapshots.crawl_basis TEXT NOT NULL DEFAULT 'unknown'`, checked to be one of `confirmed_live`, `requested_live`, `cached`, `unknown`; a trigger rejects a new row whose `fresh_fetch` and `crawl_basis` contradict each other (`confirmed_live` needs `fresh_fetch = 1`; `fresh_fetch = 1` cannot be `requested_live` or `cached`). Snapshots stay immutable. Existing rows keep the default and are read back with the rule "`fresh_fetch = 1` means `confirmed_live`" | Added for the freshness observation states. Existing rows with `fresh_fetch = 0` read as `unknown`: the migration cannot say more, and snapshots cannot be updated |
 
 The origin triggers mentioned in architecture §12 therefore block **some** fixture rows, not all, and ownership is enforced for some tables, not all.
 
@@ -437,11 +438,14 @@ export interface SearchRequest {
   contentMode: 'text' | 'highlights';                 // pricing → text (keeps headings/tables)
   contentChars: number;                               // ≤ 6000
 }
+/** What a result's freshness rests on. Only `confirmed_live` (a per-result provider marker) is a confirmation; a successful response or a `maxAgeHours: 0` request never is. See ADR-36. */
+export type CrawlBasis = 'confirmed_live' | 'requested_live' | 'cached' | 'unknown';
 export interface SearchHit {
   url: string; title: string | null; text: string;
   publishedAt: Ms | null; lastUpdatedAt: Ms | null;   // provider metadata → snapshot.provider_*
   providerScore: number | null;
-  freshFetch: boolean;                                // live requested AND crawl ok
+  freshFetch: boolean;                                // live requested AND crawl ok; equals crawlBasis === 'confirmed_live'
+  crawlBasis?: CrawlBasis;                            // absent on older recordings; the store derives it from freshFetch
   crawlStatus: 'ok' | 'failed' | 'unknown';
 }
 export interface SearchResponse { provider: string; hits: SearchHit[]; droppedMalformed: number; latencyMs: number; costUsd: number | null; observedAt: Ms; }
@@ -510,7 +514,7 @@ export interface SourceSnapshot {
   id: SnapshotId; url: string; urlNorm: string; domain: string; title: string | null;
   text: string; contentMode: 'text' | 'highlights'; sha256: string; provider: string;
   providerPublishedAt: Ms | null; providerLastUpdatedAt: Ms | null;
-  observedAt: Ms; freshFetch: boolean; crawlStatus: 'ok' | 'failed' | 'unknown'; origin: Origin;
+  observedAt: Ms; freshFetch: boolean; crawlBasis?: CrawlBasis; crawlStatus: 'ok' | 'failed' | 'unknown'; origin: Origin;
 }
 export interface ResearchPlanner { plan(ctx: ResolvedContext, a: TurnAnalysis, now: Ms): ResearchPlan; }
 export interface ResearchExecutor { execute(plan: ResearchPlan, round: 1 | 2, budget: TurnBudget, emit: EventSink): Promise<SearchOutcome[]>; }

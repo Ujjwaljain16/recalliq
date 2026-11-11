@@ -31,7 +31,7 @@ Test files are under `tests/integration/db/`. The test case is the test's full n
 | **T-MEM-08** | A deleted conversation cannot be recalled | `memory-recall.test.ts` | passed (milestone 3) | Recalled by date, topic and tag on the real write path |
 
 Other M1 tests: privacy deletion mechanics (with a recording fake rebuilder, so rebuild *correctness* is untested), repositories, config,
-contract parity of migration 001, and the migration runner. `migrations.test.ts` now also checks that migrations 001 to 007 load
+contract parity of migration 001, and the migration runner. `migrations.test.ts` now also checks that migrations 001 to 009 load
 contiguously, that the installed triggers equal exactly those the migrations declare, that a version-1 database upgrades to the latest
 schema without losing data, and the Q-003 rules (connection PRAGMAs, no PRAGMA in a migration, each migration transactional).
 
@@ -124,6 +124,7 @@ All fixtures are hand-authored and labelled `[SYNTHETIC]`: no live provider call
 | URL and structure | `tests/unit/sources/url.test.ts`, `structure.test.ts` | 25 | Tracking vs meaningful query parameters, credentials, ports, IDN, IPv6, unsafe schemes, very long URLs; headings, tables, fences, CRLF, linear time |
 | Search adapter and replay | `tests/unit/search/*.test.ts` | 44 | Normalisation, the `freshFetch` rules, malformed items, every HTTP status mapping, Retry-After, timeout vs cancel, key never in errors, replay hit and miss |
 | Executor and store | `tests/integration/search/executor.test.ts`, `tests/integration/sources/snapshot-store.test.ts` | 36 | Persistence, rounds, concurrency bound, typed failures, retry gated by the budget, deadline, cancellation, database errors propagate, atomic rollback |
+| Crawl basis (migration 009) | `tests/unit/search/crawl-basis.test.ts`, `tests/integration/sources/crawl-basis-store.test.ts`, `tests/unit/belief/crawl-basis-neutral.test.ts` | 42 | The content-sufficiency rule and its boundaries (the probed 87, 131 and 186 characters fail); the four states mapped from Exa-shaped fixtures; store round trip, user scoping, the consistency trigger, immutability; a populated version-8 database upgraded to 9; a stale-dated page keeps `observedAt` as retrieval time; belief status, time fields and verdicts identical for `requested_live`, `cached` and `unknown`; the basis reaches the finding without changing it |
 | Migration 007 | `tests/integration/search/ownership-007.test.ts` | 12 | Cross-user rejection per trigger, identity immutability, and a test showing the pre-007 gap |
 | Bake-off harness | `tests/unit/search/bakeoff.test.ts` | 6 | Scoring and summary arithmetic on fake data. This is **not** a benchmark result: the bake-off has not been run |
 

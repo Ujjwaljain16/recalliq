@@ -31,6 +31,21 @@ An **observation** is an immutable, timestamped source snapshot that (1) was suc
 
 If neither proof can be established, the verdict is `differs_timing_unknown`. The 48 hour window is removed.
 
+## Crawl basis: four recorded states (2026-11-12)
+
+Each search result and each snapshot records a `crawl_basis` with exactly four distinct states:
+
+| State | Meaning | Set from |
+|---|---|---|
+| `confirmed_live` | The provider reported, for this result, that a live crawl succeeded | A per-result provider marker only. A successful HTTP response or a `maxAgeHours: 0` request never sets it. Exa search returns no such marker, so the Exa adapter never produces it for real responses |
+| `requested_live` | A live crawl was requested (`maxAgeHours: 0`) and the content is sufficient | The request plus the sufficiency rule below |
+| `cached` | The request allowed cached content, or the provider marked the result cached | The request (no `maxAgeHours: 0`) or a per-result cached marker |
+| `unknown` | Anything else, including a live request whose content is too short or too thin, and a failed crawl | Default |
+
+`fresh_fetch` keeps its exact meaning and equals `crawl_basis = 'confirmed_live'`. **`requested_live` is recorded and reported, but it is not confirmation**: it changes no belief status, no `displayedAt` and no detector verdict, and it cannot independently establish confirmed current pricing, `changed` or `unchanged_confirmed`. The proof semantics above, the content as-of rule and the effective-date requirement are unchanged. The state is shown in a finding's `current.crawlBasis` so the wording can say a result rests on a requested but unconfirmed live crawl.
+
+**Content sufficiency rule.** A text-mode result of a live request is sufficient when its trimmed length is at least 400 characters and at least `min(ceil(0.5 × requested budget), 1,500)` characters, and it is either structured (at least one heading or table found by `parseSourceStructure`) or at least 1,200 characters long. Highlights-mode results are never sufficient, because their length says nothing about whether a crawl finished. The rule exists because a live crawl that does not finish is not reported: the provider answers HTTP 200 with no error and no marker, and the text is silently short (observed: 87, 131 and 186 characters for a 1,500-character budget, all of which fail the rule). It can only make a result `unknown`; it never upgrades one. It lives in [src/search/crawl-basis.ts](../../src/search/crawl-basis.ts).
+
 ## Consequences and trade-offs
 
 - The baseline's own observation precedes its presentation, so the first audit that sees a different price will usually be `differs_timing_unknown` unless an explicit effective date is stated. `changed` by bracketing needs a re-observation of the old value after the answer, so the demo recordings must include one.
