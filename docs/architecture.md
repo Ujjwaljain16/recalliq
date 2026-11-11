@@ -300,6 +300,16 @@ resolve(key, S_all, prev, now, policy):
 
 What the model sees: per source of the turn, its id, domain, title, provider publication date and a bounded excerpt (at most 6 sources, 1,200 characters each, 8,000 in all; sources matching the query terms first), with links, email addresses and markdown removed and the text defused (NFKC, invisible and bidi characters removed, `[[` broken, fence tags of any spacing or case neutralised) inside `<data kind="sources">`. Conversation history is defused and fenced in `<data kind="history">` too, never passed as conversation turns. The excerpt the model saw is exactly the text a sourced sentence is checked against.
 
+**Note (2026-11-12): answer quality after a live sweep.** Seven defects seen with the real model and search provider, each fixed at its root and reproduced offline in `tests/integration/answer/live-sweep.test.ts` and the tests named in `docs/testing.md`:
+
+- A sourced sentence may quote a release verb of its page under the ADR-40 amendment (no temporal-relation or change word; a date the page gives when the turn has a "since" anchor). Verified sentences are unchanged.
+- "What is new in X" or "the latest version of X" with no "since" and no baseline is planned as general search (the analysis queries plus "X release notes"); the research service then makes no release finding. Behind it, the change detector returns `unable_to_verify` with reason `no_time_window` for a release interval with no start, rendered "I can only report releases for a period you name", so "no releases found among N sources" is never said about no period.
+- A verified or sourced sentence with fewer than three words once citations and attribution are removed is withheld (`empty_sentence`).
+- A finding with no verified value renders "I could not confirm a price through my checks". The synthesis prompt (`synthesis.v6`) marks such a finding "no verified value" and lets the model quote a source instead of the placeholder, never both; a finding that failed (search, extraction, time) must still be mentioned.
+- The release gate lays the answer out one paragraph per entity when the findings name two or more entities, and normalises the model's separators (no space before a line break, at most one blank line).
+- The sentence segmenter waits for the character after a full stop: a capital, digit, quote, bracket or placeholder starts a new sentence, a lower-case word continues it, and a dotted initialism (U.S., e.g., a.m.), a single capital initial or a common abbreviation (Inc., Ltd., vs., Mr., Dr., St., No., approx., etc.) never ends one.
+- The attribution keeps the domain exactly as stored (lower case), also when the model wrote it capitalised, and results on the search provider's own domain are dropped by the search executor.
+
 General research path: when the turn names no entity, the planner searches the analysis queries (at most 3, 5 results each, cached highlights) with no entity and the `general` intent, and the research service runs no extraction for general specs: search, snapshots and `source` events only, then synthesis. Pricing and release turns extract and verify as before, and the sources of the turn that no finding cites (at most 6) are offered for quoting after the finding sources.
 
 ### R5. Evaluation data classes
