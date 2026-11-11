@@ -54,7 +54,7 @@ describe('DeadlineTurnBudget: one absolute deadline', () => {
   it('uses the constants of architecture section 4', () => {
     expect(DEFAULT_TURN_BUDGET_CONFIG).toEqual({
       deadlineMs: 60_000,
-      capMs: { analysis: 8_000, search: 6_000, extraction: 25_000, judge: 4_000 },
+      capMs: { analysis: 8_000, search: 9_000, extraction: 25_000, judge: 4_000 },
       reserveMs: { analysis: 0, search: 13_000, extraction: 10_000, judge: 500, synthesis: 0 },
       minDurationMs: {
         search_retry: 2_000,
@@ -123,7 +123,7 @@ describe('DeadlineTurnBudget.timeoutFor: min(cap, remaining - reserve)', () => {
   const cases: Array<[BudgetStage, number, number]> = [
     // stage, cap, expected at 60 000 ms remaining
     ['analysis', 8_000, 8_000],
-    ['search', 6_000, 6_000],
+    ['search', 9_000, 9_000],
     ['extraction', 25_000, 25_000],
     ['judge', 4_000, 4_000],
     ['synthesis', 60_000, 60_000],

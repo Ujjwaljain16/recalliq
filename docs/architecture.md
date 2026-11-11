@@ -312,11 +312,13 @@ There is one absolute deadline per turn: `deadline = startedAt + TURN_DEADLINE_M
 
    | Call | Cap |
    |---|---|
-   | Search | 6 s (live crawl ≤ 5 s inside it) |
+   | Search | 9 s in total for one search, retries and waits included (live crawl ≤ 5 s on the provider's side). *Raised from 6 s on 2026-11-12 after a single observation batch: see [provider-evaluation.md](provider-evaluation.md)* |
    | Analysis | 8 s |
    | Extraction | 25 s |
    | Judge | 4 s |
    | Synthesis | Until the deadline |
+
+   **How the search cap behaves.** One search has one time budget of 9 s for all its attempts together: a retry gets what is left, never a fresh 9 s, and it starts only if at least 2 s of that budget and the stage's admission rule allow it. Every attempt is also bounded by the turn deadline minus the stage reserve, and parallel searches all draw on that one deadline. A search that runs out of time is a typed `timeout` (or `deadline`) failure that becomes a coverage failure, never a success. With these caps the longest sequence (analysis 8 s, one search round 9 s, extraction 25 s, judge 4 s) is 46 s of a 60 s deadline, leaving about 14 s for synthesis and persistence.
 
 3. **Reserves.** Time is set aside for the stages still to come:
 
@@ -470,7 +472,7 @@ sequenceDiagram
   O->>TA: analyze
   O->>M: resolve dates → intervals → decisions/messages → baselines
   O-->>B: context, plan
-  par concurrency 5, each call ≤ min(6 s, remaining − reserve)
+  par concurrency 5, each search ≤ min(9 s in total, remaining − reserve)
     O->>R: round 1
     R->>S: searches
   end

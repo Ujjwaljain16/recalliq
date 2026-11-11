@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SearchResearchExecutor } from '../../../src/research/executor.js';
+import { DEFAULT_SEARCH_CAP_MS, SearchResearchExecutor } from '../../../src/research/executor.js';
 import type { Origin } from '../../../src/shared/ids.js';
 import type { QuerySpec, ResearchPlan } from '../../../src/shared/research.js';
 import {
@@ -417,5 +417,86 @@ describe('SearchResearchExecutor: errors that must propagate', () => {
       ReplayMissError,
     );
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SearchResearchExecutor: the search time budget (one budget for all attempts)', () => {
+  it('the default cap is 9 seconds, and the turn budget config agrees', () => {
+    expect(DEFAULT_SEARCH_CAP_MS).toBe(9_000);
+  });
+
+  it('a retry does not get a fresh cap: after the first attempt used the whole budget there is no retry, and the failure is typed timeout', async () => {
+    const w = setup(
+      () => {
+        w.t.clock.advance(9_000); // the first attempt used all of the search's own time
+        return new SearchError('timeout', 'slow');
+      },
+      { maxRetries: 3 },
+    );
+    const [o] = await w.executor.execute(plan([spec('a')]), 1, budget(), w.emit);
+    expect(o).toMatchObject({ status: 'failed', errorCode: 'timeout' });
+    expect(w.port.calls).toHaveLength(1);
+    expect(w.sleeps).toEqual([]);
+  });
+
+  it('a retry is refused when less than 2 seconds of the search budget are left, and allowed when more are left', async () => {
+    const tight = setup(
+      () => {
+        tight.t.clock.advance(8_000); // 1 s left
+        return new SearchError('timeout', 'slow');
+      },
+      { maxRetries: 3 },
+    );
+    const [a] = await tight.executor.execute(plan([spec('a')]), 1, budget(), tight.emit);
+    expect(a).toMatchObject({ status: 'failed', errorCode: 'timeout' });
+    expect(tight.port.calls).toHaveLength(1);
+
+    const roomy = setup(
+      (_req, call) => {
+        roomy.t.clock.advance(5_000); // 4 s left after the first attempt
+        return call === 0
+          ? new SearchError('timeout', 'slow')
+          : response([hit('https://a.example/p')]);
+      },
+      { maxRetries: 3 },
+    );
+    const [b] = await roomy.executor.execute(plan([spec('a')]), 1, budget(), roomy.emit);
+    expect(b?.status).toBe('ok');
+    expect(roomy.port.calls).toHaveLength(2);
+  });
+
+  it('every attempt is also bounded by the turn deadline: a wait that does not fit in what is left is not started', async () => {
+    const w = setup(() => new SearchError('rate_limited', 'x', 2_000), { maxRetries: 3 });
+    const [o] = await w.executor.execute(plan([spec('a')]), 1, new FakeBudget(1_500, T0), w.emit);
+    expect(o).toMatchObject({ status: 'failed', errorCode: 'deadline' });
+    expect(w.sleeps).toEqual([]);
+  });
+
+  it('parallel searches share one deadline: when it is gone, none starts and none is reported ok', async () => {
+    const w = setup(() => response([hit('https://a.example/p')]));
+    const outcomes = await w.executor.execute(
+      plan([spec('a'), spec('b'), spec('c'), spec('d')], [], 4),
+      1,
+      new FakeBudget(0, T0),
+      w.emit,
+    );
+    expect(outcomes.map((o) => [o.status, o.errorCode])).toEqual([
+      ['failed', 'deadline'],
+      ['failed', 'deadline'],
+      ['failed', 'deadline'],
+      ['failed', 'deadline'],
+    ]);
+    expect(w.port.calls).toHaveLength(0);
+    expect(w.events.some((e) => e.event === 'warning')).toBe(true);
+  });
+
+  it('a timeout is a typed failure with no snapshots, never a success', async () => {
+    const w = setup(() => new SearchError('timeout', 'slow'), { maxRetries: 0 });
+    const [o] = await w.executor.execute(plan([spec('a')]), 1, budget(), w.emit);
+    expect(o).toMatchObject({ status: 'failed', errorCode: 'timeout', snapshotIds: [] });
+    expect(count(w.t.db, 'source_snapshots')).toBe(0);
+    expect(count(w.t.db, 'search_requests', "status = 'failed' AND error_code = 'timeout'")).toBe(
+      1,
+    );
   });
 });

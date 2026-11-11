@@ -20,7 +20,7 @@ export interface TurnBudgetConfig {
 
 export const DEFAULT_TURN_BUDGET_CONFIG: TurnBudgetConfig = {
   deadlineMs: 60_000,
-  capMs: { analysis: 8_000, search: 6_000, extraction: 25_000, judge: 4_000 },
+  capMs: { analysis: 8_000, search: 9_000, extraction: 25_000, judge: 4_000 },
   // search: 12 s synthesis + 1 s persistence; judge must end by deadline - 500 ms.
   reserveMs: { analysis: 0, search: 13_000, extraction: 10_000, judge: 500, synthesis: 0 },
   minDurationMs: {

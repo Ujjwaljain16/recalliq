@@ -29,7 +29,10 @@ export interface SearchExecutorOptions {
   origin: Origin;
   /** Retries after the first attempt. Default 1. */
   maxRetries?: number;
-  /** Per-call cap passed to `budget.signalFor('search', cap)`. Default 6000 (architecture H). */
+  /**
+   * Total time one search may take, all attempts and waits together, and the cap passed to
+   * `budget.signalFor('search', cap)`. Default 9000 ms. It is also bounded by the turn deadline through the budget.
+   */
   searchCapMs?: Ms;
   /** Upper bound on one backoff wait. Default 2000. */
   maxBackoffMs?: Ms;
@@ -63,6 +66,16 @@ function asSearchError(e: unknown): SearchError | null {
   return null;
 }
 
+/**
+ * One search may take at most this long in total, retries and waits included. Chosen from a single observation
+ * batch of 20 live-crawl requests (median 4.6 s, slowest 7.0 s, 5 of 20 over 6 s); see docs/provider-evaluation.md.
+ * The Exa-side crawl timeout stays 5 s (set by the planner) and the turn deadline stays 60 s.
+ */
+export const DEFAULT_SEARCH_CAP_MS = 9_000;
+
+/** A retry starts only if at least this much of the search's own time is left. */
+const MIN_RETRY_MS = 2_000;
+
 type Attempt =
   | { ok: true; response: SearchResponse; latencyMs: Ms }
   | { ok: false; code: SearchErrorCode | 'deadline' };
@@ -90,7 +103,7 @@ export class SearchResearchExecutor implements ResearchExecutor {
     this.snapshots = new SnapshotStore(o.db);
     this.log = new SearchLog(o.db);
     this.maxRetries = o.maxRetries ?? 1;
-    this.cap = o.searchCapMs ?? 6000;
+    this.cap = o.searchCapMs ?? DEFAULT_SEARCH_CAP_MS;
     this.maxBackoff = o.maxBackoffMs ?? 2000;
     this.sleep = o.sleep ?? realSleep;
   }
@@ -204,18 +217,26 @@ export class SearchResearchExecutor implements ResearchExecutor {
   }
 
   private async attempt(spec: QuerySpec, budget: TurnBudget): Promise<Attempt> {
+    // The search's own time is one budget for every attempt: a retry gets what is left, never a fresh cap.
+    const specStart = this.o.clock.now();
+    const specLeft = (): Ms => this.cap - (this.o.clock.now() - specStart);
     for (let n = 0; ; n += 1) {
       if (budget.signal.aborted || budget.timeoutFor('search', this.cap) <= 0) {
         return { ok: false, code: 'deadline' };
       }
-      if (n > 0 && !budget.admit('search_retry')) return { ok: false, code: 'deadline' };
+      if (specLeft() <= 0) return { ok: false, code: 'timeout' };
+      if (n > 0 && (specLeft() < MIN_RETRY_MS || !budget.admit('search_retry'))) {
+        return { ok: false, code: specLeft() < MIN_RETRY_MS ? 'timeout' : 'deadline' };
+      }
 
       const t0 = this.o.clock.now();
       try {
-        const response = await this.o.port.search(
-          spec.request,
+        // Both limits apply: the turn deadline (shared by every parallel search) and this search's remaining time.
+        const signal = AbortSignal.any([
           budget.signalFor('search', this.cap),
-        );
+          AbortSignal.timeout(Math.max(1, specLeft())),
+        ]);
+        const response = await this.o.port.search(spec.request, signal);
         return { ok: true, response, latencyMs: response.latencyMs || this.o.clock.now() - t0 };
       } catch (e) {
         if (e instanceof ReplayMissError) throw e;
@@ -226,6 +247,7 @@ export class SearchResearchExecutor implements ResearchExecutor {
 
         const wait = Math.min(err.retryAfterMs ?? 250 * 2 ** n, this.maxBackoff);
         if (wait >= budget.remaining()) return { ok: false, code: 'deadline' };
+        if (wait >= specLeft()) return { ok: false, code: 'timeout' };
         try {
           await this.sleep(wait, budget.signal);
         } catch {

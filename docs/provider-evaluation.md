@@ -36,6 +36,29 @@ Candidates to compare behind the same port: Exa (adapter built), Tavily, Perplex
 2. `npx tsx scripts/bakeoff.ts --mode=live --confirm-spend` (refuses without the flag and a key). Record exchanges with `ExaSearchAdapter`'s `record` option, including the provider's raw body.
 3. Results go under `eval/results/live/<date>/` and are never imported. Replay runs (`--mode=replay --recording=<file>`) use recordings only and cannot reach the network.
 
+## Latency observation batch (2026-11-12): a single batch, not a benchmark
+
+One batch of real requests, run once on one day, used only to set a timeout. It is not a measure of the provider's performance and must not be quoted as one.
+
+| | Live crawl | Cached |
+|---|---|---|
+| Configuration | `type: auto`, 5 results, text mode with `maxCharacters: 6000`, `maxAgeHours: 0`, `livecrawlTimeout: 5000` | the same without `maxAgeHours` |
+| Queries | 20 different vendor pricing queries (CRM tools and Postgres hosts), run one after another | the first 10 of the same queries |
+| Requests | 20 | 10 |
+| Not HTTP 200 | 0 | 0 |
+| Median | 4.6 s | 0.25 s |
+| 90th percentile | 6.8 s | 0.30 s |
+| Fastest / slowest | 1.8 s / 7.0 s | 0.24 s / 0.30 s |
+| Over 6 s / over 8 s | 5 of 20 / 0 | 0 / 0 |
+| Results under 600 characters | 0 of 100 | 0 of 50 |
+| Cost reported by the provider | USD 0.140 (USD 0.007 per request) | USD 0.070 (USD 0.007 per request) |
+
+Total cost of the batch: USD 0.21. Requests were sequential, so the numbers say nothing about behaviour under concurrent load, rate limits or other times of day. The earlier real application run had 2 of 6 searches cut off at a 6 s client cap, which is consistent with 5 of 20 here being slower than 6 s.
+
+**Decision taken from it.** The client-side cap for one search is raised from 6 s to 9 s (about 30% above the slowest request seen). The provider-side crawl timeout stays at 5 s and the turn deadline at 60 s. One search has one time budget for all of its attempts: a retry gets what is left and is refused with less than 2 s left, every attempt is also bounded by the turn deadline minus the stage reserve, and parallel searches share that one deadline. A search that runs out of time is a typed `timeout` or `deadline` failure, which becomes a coverage failure and never a success. See [architecture.md](architecture.md), section 4.
+
+**Limitations.** Twenty sequential requests cannot show a tail: a few requests slower than 9 s would be cut off and reported as a timeout coverage failure. The cap has not been checked at the concurrency the application uses (up to 5 searches at once). A live crawl that does not finish is silent (see the probe below), so the cap bounds time but not content completeness; that is the job of the content sufficiency rule.
+
 ## Observed against the real API (2026-11-12, one request pair, not a benchmark)
 
 Two real searches ("Neon Postgres pricing per month", 3 results, text mode, 2,500 characters), one direct and one through the adapter, with the owner's key:
