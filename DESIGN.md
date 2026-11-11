@@ -53,9 +53,10 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 
 ## What has been measured (single runs, `gemini-3.5-flash-lite` free tier + Exa)
 
-- **Latency, 13 live questions:** chat and memory 1.4–3.3 s to first text; general research 5–10 s; price
-  comparisons 18–26 s (full-page reads and checks). Model calls share a rolling 15/minute budget; a fallback model
-  is asked once when the main one is rate limited or overloaded.
+- **Latency, live runs (single samples):** chat and memory 1.4–3.3 s to first text; general research 5–10 s. Price
+  questions stream a cited answer from the sources at 8–12 s (22 s total for one vendor, 43 s for five) while the
+  checks run; before this they showed nothing for 20–36 s. Each model has its own rolling per-minute budget, and a
+  call goes to a fallback model instead of waiting when the main model's budget is used up.
 - **Temporal rules:** 55 holdout cases written from the specification and committed before the first run
   (`docs/holdout-evaluation.md`); all pass. About 2,470 automated tests, with mutation checks on every protection
   added recently.
@@ -78,11 +79,9 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 
 ## With another week
 
-1. Stream the sourced answer first and the verified section when checks finish (price questions under 5 s to
-   first text).
-2. Run the benchmark test sets once and publish the numbers with their intervals.
-3. Gap-directed second search round (search for _why_ a claim failed: plan, billing period, owner page).
-4. A small, reviewed official-domain registry flow so change verdicts work out of the box.
-5. Evaluate stronger models per role (analysis, extraction, synthesis) on the dev sets.
+1. Run the benchmark test sets once and publish the numbers with their intervals.
+2. Gap-directed second search round (search for _why_ a claim failed: plan, billing period, owner page).
+3. A small, reviewed official-domain registry flow so change verdicts work out of the box.
+4. Evaluate stronger models per role (analysis, extraction, synthesis) on the dev sets.
 
 Details: `docs/architecture.md`, `docs/adr/`, `docs/running.md`, `docs/testing.md`.
