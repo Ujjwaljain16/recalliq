@@ -85,3 +85,72 @@ describe('T-E2E audit: the verdict is only as strong as the proof', () => {
     expect(f3.changeWindow?.notAfter).toBe(TUE + 16 * DAY + HOUR);
   });
 });
+
+/** The same fixture with every provider marker removed: freshness is then unknown for every result. */
+function withoutMarkers(f: ReturnType<typeof auditFixture>) {
+  return {
+    ...f,
+    search: (f.search ?? []).map((entry) => ({
+      ...entry,
+      steps: entry.steps.map((step) =>
+        'hits' in step
+          ? {
+              ...step,
+              hits: step.hits.map((h) => ({ ...h, marker: undefined })),
+            }
+          : step,
+      ),
+    })),
+  };
+}
+
+describe('T-E2E audit: freshness without provider provenance never becomes confirmation', () => {
+  it('with no marker the same old-value / new-value history is never changed or unchanged_confirmed', async () => {
+    t = await startE2e({
+      fixture: withoutMarkers(auditFixture([90, 90, 100], [90, 100])),
+      clock: new FixedClock(TUE),
+    });
+    const user = t.client();
+    const conv = await user.newConversation();
+    const first = await ask(user, conv, FIRST);
+    await acknowledge(user, first);
+
+    t.clock.advance(8 * DAY);
+    const second = await ask(user, conv, AGAIN);
+    const v2 = (second.read.events.find((e) => e.event === 'finding')?.data as { verdict: string })
+      .verdict;
+    expect(v2).not.toBe('unchanged_confirmed');
+
+    t.clock.advance(8 * DAY + HOUR);
+    const third = await ask(user, conv, AGAIN);
+    const f3 = third.read.events.find((e) => e.event === 'finding')?.data as { verdict: string };
+    expect(f3.verdict).not.toBe('changed');
+    // Without a confirmed observation the first answer was about a stale finding, which is not an eligible
+    // baseline (ADR-38 rule 6), so there is usually no verdict at all; a weaker verdict would also be acceptable.
+    expect([null, 'differs_timing_unknown', 'no_evidence_of_change']).toContain(f3.verdict ?? null);
+    // and nothing was stored as a confirmed live crawl
+    expect(
+      scalar(t.app, "SELECT count(*) FROM source_snapshots WHERE crawl_basis = 'confirmed_live'"),
+    ).toBe(0);
+    expect(scalar(t.app, 'SELECT count(*) FROM source_snapshots WHERE fresh_fetch = 1')).toBe(0);
+  });
+
+  it('with the marker the same history is changed, so the test above fails for the right reason', async () => {
+    t = await startE2e({
+      fixture: auditFixture([90, 90, 100], [90, 100]),
+      clock: new FixedClock(TUE),
+    });
+    const user = t.client();
+    const conv = await user.newConversation();
+    await acknowledge(user, await ask(user, conv, FIRST));
+    t.clock.advance(8 * DAY);
+    await ask(user, conv, AGAIN);
+    t.clock.advance(8 * DAY + HOUR);
+    const third = await ask(user, conv, AGAIN);
+    const f3 = third.read.events.find((e) => e.event === 'finding')?.data as { verdict: string };
+    expect(f3.verdict).toBe('changed');
+    expect(
+      scalar(t.app, "SELECT count(*) FROM source_snapshots WHERE crawl_basis = 'confirmed_live'"),
+    ).toBeGreaterThan(0);
+  });
+});

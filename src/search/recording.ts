@@ -25,7 +25,7 @@ const hitSchema = z.object({
   crawlStatus: z.enum(['ok', 'failed', 'unknown']),
 });
 
-export const recordedExchangeSchema = z.object({
+const recordedExchangeBase = z.object({
   key: z.string().regex(/^[0-9a-f]{64}$/),
   request: z.looseObject({}),
   response: z.object({
@@ -38,6 +38,19 @@ export const recordedExchangeSchema = z.object({
   }),
   providerRaw: z.unknown().optional(),
 });
+
+/**
+ * A recorded hit may claim a confirmed live crawl (freshFetch true) only if the exchange keeps the provider's own
+ * body, which is where the per-result marker is. A claim with nothing to trace it to is refused, so a recording
+ * can never turn an unknown freshness into a confirmed one.
+ */
+export const recordedExchangeSchema = recordedExchangeBase.refine(
+  (x) => x.providerRaw !== undefined || x.response.hits.every((h) => !h.freshFetch),
+  {
+    message:
+      'a hit with freshFetch true needs the provider body (providerRaw) that carries its marker',
+  },
+);
 
 /** A recording file. `class` says whether it is real provider output or hand-authored. */
 export const recordingFileSchema = z.object({
