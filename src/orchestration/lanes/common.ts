@@ -1,4 +1,5 @@
 import type { IanaTz, Ms } from '../../shared/ids.js';
+import type { FindingSet } from '../../shared/findings.js';
 import type { DecisionRecord, MemoryCandidate, ResolvedContext } from '../../shared/memory.js';
 import type { DayInterval, ResolvedTemporal } from '../../shared/temporal.js';
 import type { EntityMention, Lane } from '../../shared/understanding.js';
@@ -276,4 +277,66 @@ export function resolveShortlist(
     unresolved: kept.filter((k) => k.e === undefined).map((k) => k.m),
     capped: ordered.length > TURN_LIMITS.maxEntities,
   };
+}
+
+const CHANGE_PROVEN = new Set(['changed', 'unchanged_confirmed']);
+
+/** The local date the "since" question starts from: the day of the recalled message, else the since anchor. */
+function sinceDate(
+  input: LaneInput,
+  temporal: ResolvedTemporal[],
+  hits: MemoryCandidate[],
+): string | null {
+  const recalled = [...hits].sort((a, b) => a.createdAt - b.createdAt)[0];
+  if (recalled !== undefined) return recalled.localTime.split(' ')[0] ?? null;
+  const since = temporal.find((t) => t.mention.role === 'change_since');
+  const past = (since?.candidates ?? []).filter((c) => c.startMs <= input.now);
+  const latest = past.sort((a, b) => b.startMs - a.startMs)[0];
+  return latest?.localDate ?? null;
+}
+
+/**
+ * Written in code, never by a model. When the user asks what changed since a day, a price seen now says nothing
+ * about a change unless the system has an earlier price of its own to compare with. For the companies with
+ * neither a baseline nor a change verdict (changed or unchanged_confirmed) this says so, with the date, before
+ * the findings. Companies that have a verdict are not named. Null when the user asked no such question, nothing
+ * about prices was researched, or every company has a verdict.
+ */
+export function changeNotEstablishedSentence(
+  input: LaneInput,
+  ctx: ResolvedContext,
+  findings: FindingSet | null,
+  hits: MemoryCandidate[],
+): string | null {
+  if (!input.analysis.temporal.some((t) => t.role === 'change_since')) return null;
+  const all = findings?.findings ?? [];
+  const asksPrices =
+    input.analysis.intents.includes('pricing') || all.some((f) => f.intent === 'pricing');
+  if (!asksPrices) return null;
+
+  const universe = new Map<string, string>();
+  for (const f of all) universe.set(String(f.entityId), f.entityName);
+  if (universe.size === 0) for (const e of ctx.entities) universe.set(String(e.id), e.name);
+  if (universe.size === 0) return null;
+
+  const covered = new Set<string>(ctx.baselines.map((b) => String(b.entityId)));
+  for (const f of all) {
+    if ((f.verdict !== null && CHANGE_PROVEN.has(f.verdict)) || f.baseline !== undefined) {
+      covered.add(String(f.entityId));
+    }
+  }
+  const uncovered = [...universe].filter(([id]) => !covered.has(id)).map(([, name]) => name);
+  if (uncovered.length === 0) return null;
+
+  const date = sinceDate(input, ctx.temporal, hits);
+  const from = date === null ? 'that day' : date;
+  const names =
+    uncovered.length === universe.size
+      ? ''
+      : ` for ${
+          uncovered.length === 1
+            ? (uncovered[0] ?? '')
+            : `${uncovered.slice(0, -1).join(', ')} and ${uncovered[uncovered.length - 1] ?? ''}`
+        }`;
+  return `I have no earlier prices of my own on record from before ${from}${names}, so I cannot establish whether anything changed since then; what follows is what I could find now.`;
 }
