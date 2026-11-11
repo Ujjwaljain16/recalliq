@@ -21,7 +21,7 @@ during implementation, and open decisions raised since; they were never in the o
 | partly implemented | Some of it exists; the page says exactly what |
 | not implemented | A design or a decision only |
 
-Counts: 42 ADRs. Accepted 37, Proposed 4, Superseded 1.
+Counts: 43 ADRs. Accepted 37, Proposed 5, Superseded 1.
 Implemented 14, partly 14, not implemented 12.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
@@ -74,6 +74,7 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-40](ADR-40.md) | Factual sentences are released only after validation | Accepted | not implemented | Received, validated and presented are separate states: only validated sentences are sent, one at a time; a sentence that fails a check is withheld, never shown and later downgraded. | [ADR-16](ADR-16.md), [ADR-23](ADR-23.md), [ADR-38](ADR-38.md) |
 | [ADR-41](ADR-41.md) | Registered domain ownership as subject-binding evidence | Accepted | implemented | A domain the owner's registry explicitly maps to an entity binds the subject of a plan-tied price on a page that presents pricing, unless a comparison, integration, partner, testimonial, embedded or other-entity blocker fires; the result says the basis was ownership. | [ADR-11](ADR-11.md), [ADR-21](ADR-21.md) |
 | [ADR-42](ADR-42.md) | Verified and sourced statements | Proposed | implemented | Besides verified findings, an answer may hold sourced sentences: cited to a source shown in this turn, released only when one cited excerpt contains every number and name they state, never an assertion, belief, baseline or change claim. General questions are searched without an entity and never extracted. | [ADR-38](ADR-38.md), [ADR-40](ADR-40.md) |
+| [ADR-43](ADR-43.md) | Quick sourced answer first | Proposed | implemented | For a turn that extracts, a short sourced answer streams as soon as the search results are in, while extraction and verification run; the verified section follows and continues the numbering. Quick sentences are sourced only, never assertions. |
 
 ## How these relate to other documents
 

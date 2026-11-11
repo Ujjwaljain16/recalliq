@@ -407,6 +407,17 @@ Existing tests changed because they encoded the old behaviour: a sourced sentenc
 
 Mutation checks, each applied alone and restored, each made at least one test fail: release verb allowed in a sourced sentence that contains "since" (temporal and change check removed, 9 failed); release verb allowed in a verified sentence without a verdict (the sourced-only condition removed, 12 or more failed); `empty_sentence` check removed (1); "no releases found" possible with no interval start (detector guard removed, 4); provider-domain filter removed (2); abbreviation rules removed from the segmenter (12 or more); stored domain spelling not kept (1); paragraph layout replaced by the model's separators (1); the "no verified value" mark removed from the prompt (1); "what is new" no longer planned as general search (2).
 
+### Quick sourced answer first (added 2026-11-12, [ADR-43](adr/ADR-43.md))
+
+| Test | What it proves |
+|---|---|
+| `tests/integration/e2e/quick-answer.test.ts` | End to end with a scripted quick call and a slow extraction: the events arrive as sources, then the preface and a quick sentence, then the findings, then the verified sentence, with one continuous numbering and one persisted message whose text is the sentences in order; a quick sentence with a number its source lacks is withheld with no index gap; a sentence with no citation is withheld and no preface is shown when nothing was released; a quick sentence never makes an assertion and the verified one does (sentence index after the quick part); findings ready before the quick section released anything run only the normal synthesis (prompt without the continuation); findings arriving mid-stream keep what was released and continue the numbering; the verified prompt holds the quick sentences in a fenced block and the confirm, add or correct instruction; a failed quick call changes nothing and emits no error; an acknowledgement after the quick part only presents no assertion and a later audit finds no baseline, while a full acknowledgement does; a chat turn makes no quick call |
+| `tests/unit/answer/quick.test.ts` | `quick` releases the preface and a grounded sentence marked sourced, numbered from 0; with little time left it calls no model and emits nothing; it is off by option or when cut first; a model failure emits no error; the earlier sentences are defused and fenced in the verified prompt, and absent when there are none |
+
+Mutation checks, each applied alone and restored, each made at least one test fail: a sourced sentence allowed to become an assertion (4 failed); the grounding check skipped for the quick section (1); the verified synthesis not given the quick sentences (2); the numbering restarting after the quick section (5).
+
+Existing tests changed: the budget configuration literals gained the `quick` stage (`tests/unit/orchestration/turn-budget.test.ts`, `tests/integration/orchestration/coordinator-sqlite.test.ts`); the end-to-end harness gained a `quick` option (off by default, so every other end-to-end test runs as before).
+
 ## Documentation checks (`tests/integration/docs.test.ts`)
 
 Added in the post-M2 documentation pass. They check the documents against each other and against the code; they do not test application behaviour.
