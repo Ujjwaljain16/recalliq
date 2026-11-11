@@ -61,6 +61,8 @@ export interface ResolvedContext {
     aliases: string[];
     plans: string[];
     officialDomains: string[];
+    /** Explicit owner-registry domains only; see EntityContext.ownedDomains. */
+    ownedDomains?: string[];
   }>;
   baselines: Baseline[];
   reuseFindingSetFromTurn?: TurnId;

@@ -98,9 +98,10 @@ export class OfficialDomains {
       return set;
     });
     entities.forEach((e, i) => {
-      e.officialDomains = [...(merged[i] ?? [])].filter(
-        (d) => (claims.get(d) ?? 0) === 1 && !this.conflicting.has(d),
-      );
+      const unique = (d: string) => (claims.get(d) ?? 0) === 1 && !this.conflicting.has(d);
+      e.officialDomains = [...(merged[i] ?? [])].filter(unique);
+      // Only what the registry itself maps to this entity: explicit ownership, kept apart from the rest.
+      e.ownedDomains = this.domainsFor(e).filter(unique);
     });
   }
 }
