@@ -57,14 +57,18 @@ const tidy = (text: string): string =>
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-function occurrences(text: string, terms: readonly string[]): number {
+/** Where the terms occur in the text (case-insensitive). */
+function hitsOf(text: string, terms: readonly string[]): number[] {
   const hay = text.toLowerCase();
-  let n = 0;
+  const out: number[] = [];
   for (const t of terms) {
-    for (let i = hay.indexOf(t); i !== -1; i = hay.indexOf(t, i + t.length)) n++;
+    for (let i = hay.indexOf(t); i !== -1; i = hay.indexOf(t, i + t.length)) out.push(i);
   }
-  return n;
+  return out;
 }
+
+/** A hit counts for a window only with this much room after it, so the line it is on is not cut off. */
+const HIT_ROOM = 80;
 
 /**
  * The part of `text` (at most `limit` characters) that holds the most occurrences of the terms, starting at a
@@ -77,10 +81,12 @@ export function bestWindow(text: string, terms: readonly string[], limit: number
   const chars = Math.max(1, limit - 2);
   const starts = [0];
   for (const m of t.matchAll(/\n|[.!?] /g)) starts.push(m.index + m[0].length);
+  const hits = hitsOf(t, terms);
+  const room = Math.min(HIT_ROOM, Math.floor(chars / 2));
   let best = 0;
   let bestScore = -1;
   for (const s of starts) {
-    const score = occurrences(t.slice(s, s + chars), terms);
+    const score = hits.filter((h) => h >= s && h + room <= s + chars).length;
     if (score > bestScore) {
       best = s;
       bestScore = score;
