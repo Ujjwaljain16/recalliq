@@ -46,7 +46,7 @@ describe('defuse: untrusted text cannot open or close a block or forge a placeho
 
 describe('synthesis prompt data', () => {
   it('the prompt is version 5 and describes verified and sourced statements', () => {
-    expect(SYNTHESIS_PROMPT_VERSION).toBe('synthesis.v5');
+    expect(SYNTHESIS_PROMPT_VERSION).toBe('synthesis.v6');
     expect(SYNTHESIS_SYSTEM).toContain('answers any question and remembers earlier conversations');
     expect(SYNTHESIS_SYSTEM).toContain('SOURCED statements');
     expect(SYNTHESIS_SYSTEM).not.toContain('tracks prices and product releases');

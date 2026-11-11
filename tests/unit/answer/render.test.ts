@@ -76,7 +76,7 @@ describe('rendering of findings by code', () => {
 
   it('a finding with no value says so instead of inventing one', () => {
     const f = finding(1, { currentStatus: 'unknown', current: undefined });
-    expect(render(f, 'F1')).toBe('no verified price was found');
+    expect(render(f, 'F1')).toBe('I could not confirm a price through my checks');
   });
 
   it('baseline: value as of the local date of presentedAt', () => {
@@ -250,7 +250,7 @@ describe('a finding that could not be checked says so, with the reason', () => {
 
   it('a finding that was checked and has no value is still not described as a failed check', () => {
     const f = finding(1, { currentStatus: 'unknown', current: undefined });
-    expect(render(f, 'F1')).toBe('no verified price was found');
+    expect(render(f, 'F1')).toBe('I could not confirm a price through my checks');
   });
 });
 

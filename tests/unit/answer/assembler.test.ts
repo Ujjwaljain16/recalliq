@@ -48,6 +48,64 @@ describe('sentence boundaries', () => {
   });
 });
 
+describe('sentence boundaries: abbreviations, initials, decimals and versions', () => {
+  it.each([
+    'Tickets for the U.S. Grand Prix are on sale.',
+    'It ships in the U.K. Market first.',
+    'Use a tool, e.g. Vite, for it.',
+    'Use a tool, i.e. Vite, for it.',
+    'Apples, pears, etc. Are on sale.',
+    'Made by Acme Inc. In Ohio.',
+    'Made by Acme Ltd. In Leeds.',
+    'Vite vs. Webpack is the question.',
+    'Ask Mr. Smith about it.',
+    'Ask Dr. Jones about it.',
+    'It is on St. James Street.',
+    'It is item No. 5 on the list.',
+    'It takes approx. Two days.',
+    'Doors open at 9 a.m. Daily.',
+    'Doors close at 5 p.m. Sharp.',
+    'Written by J. Smith in the docs.',
+    'Version 1.5 is out and v2.3.1 is next.',
+  ])('one sentence: %j', (text) => {
+    const { candidates } = assemble([text]);
+    expect(candidates.map((c) => c.text)).toEqual([text]);
+  });
+
+  it('a lower-case word after a full stop continues the sentence; a capital, digit, quote or placeholder starts one', () => {
+    const { candidates } = assemble([
+      'Prices start at 5. and rise. Then fall. 2 more. "Quoted." [[F1]] closes.',
+    ]);
+    expect(candidates.map((c) => c.template)).toEqual([
+      'Prices start at 5. and rise.',
+      'Then fall.',
+      '2 more.',
+      '"Quoted."',
+      '[[F1]] closes.',
+    ]);
+  });
+
+  it('the decision waits across stream chunks, and the end of the stream ends the sentence', () => {
+    const { candidates } = assemble([
+      'Tickets for the U.S.',
+      ' ',
+      'Grand Prix. It',
+      ' is sold out. ',
+    ]);
+    expect(candidates.map((c) => c.text)).toEqual([
+      'Tickets for the U.S. Grand Prix.',
+      'It is sold out.',
+    ]);
+  });
+
+  it('a cut stream still closes a sentence that had already ended, and drops the open one', () => {
+    const { candidates } = assemble(['Done here. ', 'Half a sen'], { discard: true });
+    expect(candidates.map((c) => c.text)).toEqual(['Done here.']);
+    const ended = assemble(['Done here. '], { discard: true });
+    expect(ended.candidates.map((c) => c.text)).toEqual(['Done here.']);
+  });
+});
+
 describe('candidates carry their verdict, and the open sentence is never handed over early', () => {
   it('a sentence is handed over only when it ends, not while it is still arriving', () => {
     const records = recordsFor([finding(1)]);

@@ -157,6 +157,7 @@ describe('T-E2E a general question is search and synthesis only, and its sourced
         'The loader is 30% faster {{S:exampleruntime.example}}. ',
         'A community review says the loader is 30% faster {{S:community.example}}. ',
         'ExampleRuntime 24.1.0 was released on 3 November 2026 {{S:exampleruntime.example}}. ',
+        'ExampleRuntime 24.1.0 was just released {{S:exampleruntime.example}}. ',
         'Version 25 is planned. ',
         'I can look into any part of it in more depth.',
       ]),
@@ -177,6 +178,8 @@ describe('T-E2E a general question is search and synthesis only, and its sourced
     expect(turn.sentences).toEqual([
       'ExampleRuntime 24.1.0 ships a built-in test runner [1].',
       ' A community review says the loader is 30% faster [2].',
+      // a release verb quoting its page, attributed and dated, is a sourced statement (ADR-40 amendment)
+      ' ExampleRuntime 24.1.0 was released on 3 November 2026 [1].',
       ' I can look into any part of it in more depth.',
     ]);
     const reasons = (eventsOf(turn, 'warning') as Array<{ code: string; text: string }>)
@@ -184,18 +187,18 @@ describe('T-E2E a general question is search and synthesis only, and its sourced
       .map((w) => w.text)
       .join(' ');
     expect(reasons).toContain('ungrounded_number'); // 24.2.0, and 30% from the source that does not say it
-    expect(reasons).toContain('unsupported_verdict_word'); // "released", even though the page says so
+    expect(reasons).toContain('unsupported_verdict_word'); // "just released": a temporal claim, not a quotation
     expect(reasons).toContain('free_number'); // a number with no citation
 
     const kinds = (eventsOf(turn, 'answer.sentence_end') as Array<{ kind?: string }>).map(
       (e) => e.kind ?? null,
     );
-    expect(kinds).toEqual(['sourced', 'sourced', null]);
+    expect(kinds).toEqual(['sourced', 'sourced', 'sourced', null]);
     expect(
       (turn.completed?.sentences as Array<{ kind?: string }> | undefined)?.map(
         (s) => s.kind ?? null,
       ),
-    ).toEqual(['sourced', 'sourced', null]);
+    ).toEqual(['sourced', 'sourced', 'sourced', null]);
     // nothing sourced becomes an assertion, and nothing was extracted or stored as evidence
     expect(scalar(t.app, 'SELECT count(*) FROM assertions')).toBe(0);
     expect(scalar(t.app, 'SELECT count(*) FROM evidence_statements')).toBe(0);

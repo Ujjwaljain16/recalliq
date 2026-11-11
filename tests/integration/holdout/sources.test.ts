@@ -199,7 +199,7 @@ describe('HOLDOUT 8: a third-party product appears on an official vendor page', 
     };
     const r = await start({ steps: [[partnerOnly]] });
     const turn = await r.research();
-    expect(turn.sentences.join(' ')).toContain('no verified price was found');
+    expect(turn.sentences.join(' ')).toContain('I could not confirm a price through my checks');
     noPartnerLeak(r, turn.sentences.join(' '));
     expect(r.scalar('SELECT count(*) FROM beliefs')).toBe(0);
   });
@@ -226,7 +226,7 @@ describe('HOLDOUT 8: a third-party product appears on an official vendor page', 
     };
     const r = await start({ steps: [[own]], registry: 'none' });
     const turn = await r.research();
-    expect(turn.sentences.join(' ')).toContain('no verified price was found');
+    expect(turn.sentences.join(' ')).toContain('I could not confirm a price through my checks');
     expect(
       r.scalar("SELECT count(*) FROM evidence_statements WHERE verification_status = 'pass'"),
     ).toBe(0);

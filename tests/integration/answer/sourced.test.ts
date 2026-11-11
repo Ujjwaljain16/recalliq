@@ -118,8 +118,10 @@ describe('sourced sentences: released only when grounded in the cited excerpt', 
     expect(reasons).toContain('unknown_ref');
   });
 
-  it('withholds a change word in a sourced sentence, even when the page uses it', async () => {
-    const { r, events } = await run([`ExampleRuntime 24.1.0 was released [[S:${A}]].`]);
+  it('withholds a release verb tied to a time ("recently"), even when the page uses the verb', async () => {
+    // Before the ADR-40 amendment any release verb was withheld here; a plain quotation is now released (see
+    // "release verbs in sourced sentences" below), a temporal one is not.
+    const { r, events } = await run([`ExampleRuntime 24.1.0 was recently released [[S:${A}]].`]);
     expect(r.sentences).toEqual([]);
     expect(withheld(events).join(' ')).toContain('unsupported_verdict_word');
   });

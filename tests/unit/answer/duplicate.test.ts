@@ -123,10 +123,13 @@ describe('duplicate text through the release gate (ADR-40 semantics)', () => {
     );
 
   it('the observed output: the doubled sentence is withheld, the clean one is released, no index gap', async () => {
-    const { r, events } = await run(['No verified price was found for Neon [[F1]]. Neon: [[F1]].']);
+    // The rendering of a finding with no verified value now reads "I could not confirm a price through my checks".
+    const { r, events } = await run([
+      'I could not confirm a price through my checks for Neon [[F1]]. Neon: [[F1]].',
+    ]);
     expect(r.sentences.map((x) => x.index)).toEqual([0]);
-    expect(r.sentences[0]?.text).toBe('Neon: no verified price was found.');
-    expect(r.rendered).not.toMatch(/Neon no verified/i);
+    expect(r.sentences[0]?.text).toBe('Neon: I could not confirm a price through my checks.');
+    expect(r.rendered).not.toMatch(/Neon I could not/i);
     const w = warn(events);
     expect(w).toHaveLength(1);
     expect(w[0]).toContain('duplicate_text');

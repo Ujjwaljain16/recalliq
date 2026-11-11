@@ -106,6 +106,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       localDates: input.ctx.temporal.flatMap((t) => t.candidates.map((c) => c.localDate)),
       findings,
       nameNumerals: nameNumerals(input.ctx.entities),
+      changeSince: input.ctx.temporal.some((t) => t.mention.role === 'change_since'),
     };
     // The excerpts the model is shown are also the only text a sourced sentence may rest on.
     const excerpts = selectExcerpts(
@@ -130,6 +131,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
     let judgeSkippedWarned = false;
     const judgeOn = opts.judge ?? true;
     let gate: Promise<void> = Promise.resolve();
+    const layout = new ParagraphLayout(findings);
 
     const withhold = (issues: readonly SentenceIssue[]): void => {
       safeEmit({
@@ -163,7 +165,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         if (verdict === 'unavailable') return withhold(['judge_unavailable']);
       }
       const index = released.length;
-      const sep = index === 0 ? '' : c.sep;
+      const sep = layout.separator(c, index);
       const status = c.placeholders.length > 0 ? 'verified' : 'no_claims';
       released.push({
         index,
@@ -307,6 +309,58 @@ export class LlmAnswerPipeline implements AnswerPipeline {
   }
 }
 
+/**
+ * The whitespace before each released sentence. The model's own separator is normalised (spaces never sit before
+ * a line break; one line break stays one, two or more become one blank line). When the turn has findings for two
+ * or more entities, sentences are grouped one paragraph per entity: a sentence about the same entity as the
+ * previous released one continues its paragraph, a sentence about another entity opens a new paragraph. A
+ * sentence is about an entity when it renders only that entity's findings, or, with no finding, when its text
+ * names exactly one of the finding entities. Withheld sentences never reach this, so they leave no stray lines.
+ */
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export class ParagraphLayout {
+  private readonly names: Array<{ name: string; re: RegExp }>;
+  private readonly byFinding: Map<string, string>;
+  private previous: string | null = null;
+
+  constructor(findings: readonly Finding[]) {
+    this.byFinding = new Map(findings.map((f) => [f.id, f.entityName]));
+    const distinct = [...new Set(findings.map((f) => f.entityName))];
+    this.names =
+      distinct.length >= 2
+        ? distinct.map((name) => ({
+            name,
+            re: new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(name)}(?![\\p{L}\\p{N}])`, 'iu'),
+          }))
+        : [];
+  }
+
+  separator(c: Pick<Candidate, 'sep' | 'text' | 'placeholders'>, index: number): string {
+    const entity = this.entityOf(c);
+    const prev = this.previous;
+    this.previous = entity;
+    if (index === 0) return '';
+    if (entity !== null && prev !== null) return entity === prev ? ' ' : '\n\n';
+    const breaks = (c.sep.match(/\n/g) ?? []).length;
+    if (breaks === 0) return ' ';
+    if (this.names.length > 0 || breaks >= 2) return '\n\n';
+    return '\n';
+  }
+
+  private entityOf(c: Pick<Candidate, 'text' | 'placeholders'>): string | null {
+    if (this.names.length === 0) return null;
+    const own = new Set(
+      c.placeholders.flatMap((p) =>
+        p.findingId === undefined ? [] : [this.byFinding.get(p.findingId) ?? ''],
+      ),
+    );
+    if (own.size > 0) return own.size === 1 ? ([...own][0] ?? null) : null;
+    const named = this.names.filter((n) => n.re.test(c.text));
+    return named.length === 1 ? (named[0]?.name ?? null) : null;
+  }
+}
+
 function join(
   seps: readonly string[],
   sentences: readonly PersistedSentence[],
@@ -357,6 +411,11 @@ function promptData(
     hasBaseline: f.baseline !== undefined,
     derivedCount: f.derived?.length ?? 0,
     releaseKinds: [...new Set((f.releases ?? []).map((r) => r.kind))],
+    noVerifiedValue:
+      f.intent === 'pricing' &&
+      f.currentStatus !== 'unable_to_verify' &&
+      f.current?.value == null &&
+      !(f.current?.contested && f.current.contested.length >= 2),
     previews: {
       current: preview(f, 'current') ?? '',
       baseline: preview(f, 'baseline'),

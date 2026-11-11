@@ -16,6 +16,12 @@ export interface T3aContext {
   findings: readonly Finding[];
   /** Numerals that belong to entity or plan names (e.g. the 365 of "Office 365"). */
   nameNumerals?: ReadonlySet<string>;
+  /**
+   * True when the user tied the turn to a point in time ("since Monday", a `change_since` mention). A sourced
+   * sentence may then quote a release verb only when it names a date (which the grounding check must find in the
+   * cited excerpt), so a page's undated "launched X" is never read as "launched X since Monday".
+   */
+  changeSince?: boolean;
 }
 
 export interface T3aSentence {
@@ -23,7 +29,9 @@ export interface T3aSentence {
   /**
    * A sourced sentence (it cites a source of the turn and renders no finding). Its numbers, amounts, percentages
    * and dates are not refused here: the grounding check (grounding.ts) requires each of them in the text of the
-   * sources it cites. Its change and comparison words are checked here exactly like any other sentence's.
+   * sources it cites. Its change and comparison words are checked here like any other sentence's, with one
+   * exception: a release verb or a positive use of the noun "release" that quotes what the page says (see
+   * `releaseQuoteAllowed`).
    */
   sourced?: boolean;
   /** The valid placeholders of this sentence, with their findings where they have one. */
@@ -341,6 +349,7 @@ function languageRefused(
   refs: T3aSentence['refs'],
   rules: WordRule[],
   skip: ReadonlySet<ChangeKind>,
+  releaseQuote: boolean,
 ): boolean {
   const bounds = [...variant.matchAll(CLAUSE_BOUNDARY)].map((m) => m.index);
   const clauseOf = (pos: number): number => bounds.filter((b) => b < pos).length;
@@ -366,6 +375,17 @@ function languageRefused(
     for (const m of found) masked = mask(masked, m.index, m[0].length);
     if (skip.has(kind)) continue;
     for (const m of found) {
+      // A sourced sentence quoting what its page says was released (see `releaseQuoteAllowed`): the release verb
+      // and a positive or heading use of the noun are the page's words, not a claim of change by the assistant.
+      // A negative release claim ("nothing was released", "no releases") is never a quotation and stays refused.
+      if (releaseQuote) {
+        if (kind === 'launch') continue;
+        if (
+          kind === 'releaseNoun' &&
+          classifyNoun(variant, m.index, m[0].length, bounds) !== 'releaseNone'
+        )
+          continue;
+      }
       const here = markers.filter((k) => clauseOf(k.pos) === clauseOf(m.index));
       const comparing = kind === 'more' || kind === 'less';
       const hereOrds = new Set(here.map((k) => k.ord));
@@ -517,6 +537,52 @@ function dateAllowed(
   }
 }
 
+/**
+ * Words that tie a sentence to the user's time window or say that something changed: a timing word, a "now" or
+ * "just", a "no longer", or any change or price-change verb of the lexicon. A sourced sentence that contains one
+ * of them may not quote a release verb, because it would then claim a change in time rather than report a page.
+ */
+const TEMPORAL_RELATION =
+  /\b(?:since|recently|lately|just|now|nowadays|today|yesterday|tonight|overnight|no longer|any ?more|this (?:week|month|year|morning|quarter)|last (?:week|month|year|night)|earlier this|new since|so far)\b/;
+const CHANGE_KINDS: ReadonlySet<ChangeKind> = new Set<ChangeKind>([
+  'up',
+  'down',
+  'change',
+  'gone',
+  'timing',
+  'removal',
+  'unchanged',
+  'differs',
+  'wrong',
+]);
+const CHANGE_RULES: WordRule[] = [...CORE_WORDS, ...EXTRA_WORDS].filter((r) =>
+  CHANGE_KINDS.has(r.kind),
+);
+
+/**
+ * ADR-40 amendment: a SOURCED sentence (it cites a source and renders no finding; its numbers and names are
+ * grounded in one cited excerpt by grounding.ts) may quote a release verb ("introduces", "was released") or a
+ * positive use of the noun "release", because it states what the page says, attributed to the page. It may do so
+ * only when (i) it is sourced, (ii) it contains no temporal-relation or change word (`TEMPORAL_RELATION`,
+ * `CHANGE_RULES`), and (iii) the turn has no "since" anchor, or the sentence names a date (which grounding then
+ * requires in the cited excerpt). Verified sentences never take this path: their release words still need a
+ * releases_found verdict.
+ */
+function releaseQuoteAllowed(sentence: T3aSentence, ctx: T3aContext): boolean {
+  if (sentence.sourced !== true) return false;
+  if (sentence.refs.some((r) => r.finding !== null)) return false;
+  const free = sentence.template.replace(/\[\[[^\]]*\]\]/g, ' ');
+  for (const v of textVariants(free)) {
+    if (TEMPORAL_RELATION.test(v)) return false;
+    if (CHANGE_RULES.some((r) => new RegExp(r.re.source, 'i').test(v))) return false;
+  }
+  if (ctx.changeSince === true) {
+    const dated = DATE_PATTERNS.some(({ re }) => new RegExp(re.source, 'i').test(free));
+    if (!dated) return false;
+  }
+  return true;
+}
+
 /** Returns the issues of one sentence's free text, in a stable order. Empty means the text is clean. */
 export function checkFreeText(sentence: T3aSentence, ctx: T3aContext): SentenceIssue[] {
   const issues = new Set<SentenceIssue>();
@@ -600,11 +666,20 @@ export function checkFreeText(sentence: T3aSentence, ctx: T3aContext): SentenceI
   // same clause. Matching runs on normalised text and on a hyphen-free variant, so case, spacing, look-alike
   // characters and hyphenation do not hide a word.
   const aboutFindings = sentence.refs.some((r) => r.finding !== null) || ctx.findings.length > 0;
-  const rules = aboutFindings ? [...CORE_WORDS, ...EXTRA_WORDS] : CORE_WORDS;
+  // A sourced sentence is held to every release verb of the lexicon ("introduces", "ships", "announced"), even in
+  // a turn without findings: such a verb passes only as a quotation (`releaseQuoteAllowed`).
+  const rules = aboutFindings
+    ? [...CORE_WORDS, ...EXTRA_WORDS]
+    : sentence.sourced === true
+      ? [...CORE_WORDS, ...EXTRA_WORDS.filter((r) => r.kind === 'launch')]
+      : CORE_WORDS;
   const skip: ReadonlySet<ChangeKind> = globalSupported
     ? new Set<ChangeKind>(['unchanged', 'nosign'])
     : new Set<ChangeKind>();
-  if (textVariants(text).some((v) => languageRefused(v, sentence.refs, rules, skip))) {
+  const releaseQuote = releaseQuoteAllowed(sentence, ctx);
+  if (
+    textVariants(text).some((v) => languageRefused(v, sentence.refs, rules, skip, releaseQuote))
+  ) {
     issues.add('unsupported_verdict_word');
   }
 
