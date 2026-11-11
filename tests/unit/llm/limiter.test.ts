@@ -3,7 +3,7 @@ import { ClientLimiter } from '../../../src/llm/limiter.js';
 import { abortToError, type Sleep } from '../../../src/llm/abort.js';
 import { ManualClock } from './fetch-helpers.js';
 
-function make(opts: { maxConcurrent: number; minSpacingMs: number }) {
+function make(opts: { maxConcurrent: number; minSpacingMs: number; maxPerMinute?: number }) {
   const clock = new ManualClock(0);
   const sleeps: number[] = [];
   const sleep: Sleep = (ms, signal) => {
@@ -75,5 +75,41 @@ describe('ClientLimiter', () => {
     const c = new AbortController();
     c.abort(new Error('x'));
     await expect(limiter.acquire(c.signal)).rejects.toMatchObject({ code: 'cancelled' });
+  });
+});
+
+describe('ClientLimiter rolling minute', () => {
+  it('starts calls at once until the minute budget is used, then waits for the oldest to leave the window', async () => {
+    const { limiter, sleeps, clock } = make({
+      maxConcurrent: 10,
+      minSpacingMs: 0,
+      maxPerMinute: 3,
+    });
+    for (let i = 0; i < 3; i++) (await limiter.acquire(live))();
+    expect(sleeps).toEqual([]);
+    clock.advance(10_000);
+    (await limiter.acquire(live))();
+    // The first start was at 0, so the fourth may start at 60 s: 50 s after "now".
+    expect(sleeps).toEqual([50_000]);
+  });
+
+  it('never allows more than the budget in any rolling minute', async () => {
+    const { limiter, clock } = make({ maxConcurrent: 10, minSpacingMs: 0, maxPerMinute: 4 });
+    const starts: number[] = [];
+    for (let i = 0; i < 13; i++) {
+      (await limiter.acquire(live))();
+      starts.push(clock.now());
+      clock.advance(1_000);
+    }
+    for (const t of starts) {
+      expect(starts.filter((s) => s >= t && s < t + 60_000).length).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('the default lets one turn start several calls without a fixed gap', async () => {
+    const { DEFAULT_LIMITER } = await import('../../../src/llm/limiter.js');
+    const { limiter, sleeps } = make(DEFAULT_LIMITER);
+    for (let i = 0; i < 6; i++) (await limiter.acquire(live))();
+    expect(sleeps).toEqual([]);
   });
 });

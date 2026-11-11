@@ -89,7 +89,7 @@ describe('Gemini pacing', () => {
     expect(loadAppEnv({}).geminiLimiter).toEqual(DEFAULT_LIMITER);
     expect(
       loadAppEnv({ GEMINI_MAX_CONCURRENT: '4', GEMINI_MIN_SPACING_MS: '0' }).geminiLimiter,
-    ).toEqual({ maxConcurrent: 4, minSpacingMs: 0 });
+    ).toEqual({ maxConcurrent: 4, minSpacingMs: 0, maxPerMinute: 15 });
     expect(() => loadAppEnv({ GEMINI_MAX_CONCURRENT: '0' })).toThrow(/GEMINI_MAX_CONCURRENT/);
     expect(() => loadAppEnv({ GEMINI_MIN_SPACING_MS: '-1' })).toThrow(/GEMINI_MIN_SPACING_MS/);
   });

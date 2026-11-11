@@ -6,23 +6,38 @@ export interface LimiterOptions {
   maxConcurrent: number;
   /** Minimum time between the starts of two requests. */
   minSpacingMs: number;
+  /**
+   * At most this many starts in any rolling 60 s window (absent: no window). This is how per-minute quotas are
+   * stated, and unlike a fixed spacing it lets one turn's few calls start at once.
+   */
+  maxPerMinute?: number;
 }
 
-/**
- * Conservative defaults for a free tier whose per-minute limits are low: strictly one request at a time and
- * four seconds between starts (at most 15 a minute). They are defaults, not facts about any quota: tune them
- * from the real limits of the model in use.
- */
-export const DEFAULT_LIMITER: LimiterOptions = { maxConcurrent: 1, minSpacingMs: 4000 };
+const WINDOW_MS = 60_000;
 
 /**
- * Client-side limiter: at most `maxConcurrent` requests in flight and `minSpacingMs` between starts, FIFO.
+ * Defaults sized for a free tier with about 15 requests a minute: up to 3 requests in flight and at most 15
+ * starts in any minute, with no fixed gap, so a single turn rarely waits. (The earlier default, one request
+ * every 4 s, added roughly 4 s to every model call of a turn.) They are defaults, not facts about any quota:
+ * tune them from the real limits of the model in use.
+ */
+export const DEFAULT_LIMITER: LimiterOptions = {
+  maxConcurrent: 3,
+  minSpacingMs: 0,
+  maxPerMinute: 15,
+};
+
+/**
+ * Client-side limiter: at most `maxConcurrent` requests in flight, `minSpacingMs` between starts and at most
+ * `maxPerMinute` starts in any rolling minute, FIFO.
  * Waiting is abortable and a request that was never started never consumes a slot. Time and sleeping are
  * injected, so tests are deterministic.
  */
 export class ClientLimiter {
   private active = 0;
   private nextStart = Number.NEGATIVE_INFINITY;
+  /** Start times inside the current rolling window, oldest first (reserved, so they may lie in the future). */
+  private readonly starts: number[] = [];
   private readonly waiters: Array<() => void> = [];
 
   constructor(
@@ -36,7 +51,17 @@ export class ClientLimiter {
   async acquire(signal: AbortSignal): Promise<() => void> {
     await this.takeSlot(signal);
     try {
-      const startAt = Math.max(this.deps.clock.now(), this.nextStart);
+      const now = this.deps.clock.now();
+      let startAt = Math.max(now, this.nextStart);
+      const max = this.opts.maxPerMinute;
+      if (max !== undefined) {
+        while (this.starts.length > 0 && (this.starts[0] ?? 0) <= now - WINDOW_MS)
+          this.starts.shift();
+        if (this.starts.length >= max) {
+          startAt = Math.max(startAt, (this.starts[this.starts.length - max] ?? now) + WINDOW_MS);
+        }
+        this.starts.push(startAt);
+      }
       this.nextStart = startAt + this.opts.minSpacingMs;
       const wait = startAt - this.deps.clock.now();
       if (wait > 0) await this.deps.sleep(wait, signal);

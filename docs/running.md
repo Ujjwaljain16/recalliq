@@ -56,8 +56,9 @@ APP_COMPONENTS=live APP_MODE=real GEMINI_API_KEY=... EXA_API_KEY=... npm start
 
 Needs both keys (GEMINI_MODEL is optional and defaults to gemini-3.5-flash). A missing key stops the process before the database is opened, with a message naming
 it. No other provider is used. The model calls go through a client-side limiter
-(one request at a time, four seconds apart) that is a conservative guess for a free tier; a turn with analysis,
-extraction and synthesis takes a while.
+(up to 3 requests in flight, at most 15 starts in any rolling minute: GEMINI_MAX_CONCURRENT,
+GEMINI_MAX_PER_MINUTE) sized for a free tier, so one turn's calls start without waiting. If the main model is rate
+limited or overloaded, the turn asks GEMINI_FALLBACK_MODEL once (logged as "model fallback").
 
 ## Official domains
 

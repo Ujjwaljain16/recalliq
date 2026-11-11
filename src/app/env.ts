@@ -18,7 +18,7 @@ export interface AppEnv {
   /** Pause between scripted deltas so a person can watch the stream. */
   scriptedPaceMs: number;
   /** The client-side Gemini limiter (GEMINI_MAX_CONCURRENT, GEMINI_MIN_SPACING_MS); free-tier-safe defaults. */
-  geminiLimiter: { maxConcurrent: number; minSpacingMs: number };
+  geminiLimiter: { maxConcurrent: number; minSpacingMs: number; maxPerMinute: number };
   /** The client-side Exa limiter (EXA_MAX_CONCURRENT); no spacing between starts. */
   exaLimiter: { maxConcurrent: number; minSpacingMs: number };
   /** Request quotas and node:http limits of the server. */
@@ -147,6 +147,14 @@ export function loadAppEnv(
       0,
       60_000,
       DEFAULT_LIMITER.minSpacingMs,
+      problems,
+    ),
+    maxPerMinute: intInRange(
+      env['GEMINI_MAX_PER_MINUTE'],
+      'GEMINI_MAX_PER_MINUTE',
+      1,
+      100_000,
+      DEFAULT_LIMITER.maxPerMinute ?? 15,
       problems,
     ),
   };
