@@ -130,7 +130,7 @@ export function ambiguousEntityOutcome(
     input,
     ctx,
     'ambiguous_entity',
-    `More than one of your saved companies matches "${mention.text}". Which one do you mean?`,
+    `More than one of your saved companies matches "${mention.text}", so I don't want to guess. Which one do you mean? I'll check the one you pick.`,
     options.map((e) => ({ label: e.name, ref: `entity:${e.id}` })),
   );
 }
@@ -224,7 +224,7 @@ export function resolveShortlist(
         input,
         { ...base, decisions },
         'ambiguous_shortlist',
-        `I found more than one saved shortlist on ${dates}. Which one do you mean?`,
+        `I found more than one saved shortlist on ${dates}, so I can't tell which one you mean. Which one is it? I'll check the companies on it.`,
         decisions.map((d) => ({
           label: d.payload.label ?? (d.payload.entities ?? []).join(', '),
           ref: `decision:${d.id}`,
@@ -339,4 +339,195 @@ export function changeNotEstablishedSentence(
             : `${uncovered.slice(0, -1).join(', ')} and ${uncovered[uncovered.length - 1] ?? ''}`
         }`;
   return `I have no earlier prices of my own on record from before ${from}${names}, so I cannot establish whether anything changed since then; what follows is what I could find now.`;
+}
+
+/**
+ * "Monday 9 November" for a "YYYY-MM-DD" local date, with the year when it is not the user's current year. Pure
+ * calendar arithmetic on the date itself, so a daylight-saving change cannot move it to another day.
+ */
+export function peopleDate(localDate: string, now: Ms, tz: IanaTz): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate);
+  if (!m) return localDate;
+  const [, y = '', mo, d] = m;
+  const date = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).formatToParts(date);
+  const part = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
+  const text = `${part('weekday')} ${part('day')} ${part('month')}`;
+  return localTimeOf(now, tz).startsWith(`${y}-`) ? text : `${text} ${y}`;
+}
+
+/** The most recent candidate day that has started by `now`; the earliest candidate when none has. */
+export function mostRecentPastDay(candidates: DayInterval[], now: Ms): DayInterval | undefined {
+  const past = candidates.filter((c) => c.startMs <= now);
+  if (past.length === 0) return [...candidates].sort((a, b) => a.startMs - b.startMs)[0];
+  return past.reduce((latest, c) => (c.startMs > latest.startMs ? c : latest));
+}
+
+/**
+ * The one day a sentence names for a time reference, in the people format: the most recent past candidate
+ * ("Monday" said on a Thursday is the Monday of this week). `reference_conversation` looks only at a day the user
+ * says they talked; `any` takes the first resolved reference of any role. Null when there is none.
+ */
+export function dayOf(
+  input: LaneInput,
+  temporal: ResolvedTemporal[],
+  role: 'reference_conversation' | 'any',
+): string | null {
+  const mention = temporal.find(
+    (t) =>
+      (role === 'any' || t.mention.role === role) &&
+      t.status !== 'unresolved' &&
+      t.candidates.length > 0,
+  );
+  const day = mention === undefined ? undefined : mostRecentPastDay(mention.candidates, input.now);
+  return day === undefined ? null : peopleDate(day.localDate, input.now, input.tz);
+}
+
+/** Written in code: nothing is stored for the day the user pointed at. One date, never a list. */
+export function noRecordSentence(day: string, about = ''): string {
+  return `I have no record of a conversation${about} on ${day}.`;
+}
+
+/**
+ * Written in code when nothing is stored for the day the user pointed at and the turn goes on to look the subject
+ * up: says once that no change since then (or no earlier answer) can be established. Before findings it adds that
+ * what follows is current (`findings`); before a question it ends there.
+ */
+export function noRecordConsequence(input: LaneInput, day: string, findings: boolean): string {
+  const since = input.analysis.temporal.some((t) => t.role === 'change_since');
+  const consequence = since
+    ? "so I can't say what changed since then"
+    : 'so I have nothing earlier to compare with';
+  const tail = findings ? '; here is what I found now.' : '.';
+  return `I have no record of a conversation on ${day}, ${consequence}${tail}`;
+}
+
+export const TELL_ME_WHAT_YOU_ASKED =
+  "Tell me what the question was and I'll check it against current sources.";
+export const FIRST_CONVERSATION = 'This looks like our first conversation.';
+
+/** True when the user has no stored message at all before this turn, in this or any other conversation. */
+export function isFirstConversation(input: LaneInput, deps: LaneDeps): boolean {
+  const overview = deps.memory.conversationOverview(
+    input.userId,
+    input.conversationId,
+    input.turnId,
+    input.now,
+    0,
+    input.tz,
+  );
+  return overview.total === 0 && overview.otherConversations === 0;
+}
+
+const NUMBER_WORDS = [
+  '',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+];
+const NOT_A_NOUN = /\b(?:we|i|you|they|them|ones|those|these|it|that|which|me|us|your|my|our)\b/i;
+
+/** A short noun phrase the user wrote ("CRM tools", "Postgres hosting"), or null when it is not one. */
+function nounPhrase(text: string): string | null {
+  const t = text.trim();
+  if (!/^[\p{L}\p{N} .&+-]{2,48}$/u.test(t) || NOT_A_NOUN.test(t)) return null;
+  return t.split(/\s+/).length <= 4 ? t : null;
+}
+
+/** "5 CRM tools" -> "five CRM tools"; "the CRM tools" -> "CRM tools"; anything else -> "companies". */
+function setLabel(input: LaneInput): string {
+  const ref = input.analysis.references.find((r) => r.kind === 'entity_set');
+  const text = (ref?.text ?? '').trim().replace(/^(?:the|those|these|our|my)\s+/i, '');
+  const m = /^(\d{1,2})\s+(.+)$/.exec(text);
+  const count = m === null ? null : Number(m[1]);
+  const noun = nounPhrase(m === null ? text : (m[2] ?? '')) ?? 'companies';
+  if (count === null || count < 1) return noun;
+  return `${NUMBER_WORDS[count] ?? String(count)} ${noun}`;
+}
+
+/** What the turn will check, from its intents: "their current pricing and recent releases". */
+export function whatIWillCheck(input: LaneInput): string {
+  const pricing = input.analysis.intents.includes('pricing');
+  const releases = input.analysis.intents.includes('releases');
+  if (pricing && !releases) return 'their current pricing';
+  if (releases && !pricing) return 'their recent releases';
+  return 'their current pricing and recent releases';
+}
+
+/**
+ * The user points at a set of companies ("the 5 CRM tools") that nothing stored names: a question written in code,
+ * never a search for a guessed set. It says why it asks (no such shortlist on record, with the day when there is
+ * one) and what the answer will be used for, and offers up to three other stored shortlists when there are any.
+ */
+export function unknownShortlistOutcome(
+  input: LaneInput,
+  deps: LaneDeps,
+  ctx: ResolvedContext,
+  opening: { noRecordDay: string | null; asked: string[] },
+): LaneOutcome {
+  const day = dayOf(input, ctx.temporal, 'any');
+  const why =
+    opening.noRecordDay !== null
+      ? `I have no record of a conversation on ${opening.noRecordDay}, so I don't have that shortlist on record.`
+      : day !== null
+        ? `I don't have a shortlist from ${day} on record.`
+        : "I don't have that shortlist on record.";
+  const shortlisted =
+    input.analysis.userFacts.some((f) => f.kind === 'shortlist') ||
+    input.analysis.references.some((r) => /shortlist/i.test(r.text));
+  const label = setLabel(input);
+  const ask = shortlisted ? `Which ${label} did you shortlist?` : `Which ${label} do you mean?`;
+  const others = deps.memory.decisions(input.userId, 'shortlist', null).slice(0, 3);
+  const question = [...opening.asked, why, ask, `I'll check ${whatIWillCheck(input)}.`].join(' ');
+  emitContext(input, ctx);
+  return clarifyOutcome(
+    input,
+    ctx,
+    'missing_referent',
+    question,
+    others.map((d) => ({
+      label: d.payload.label ?? (d.payload.entities ?? []).join(', '),
+      ref: `decision:${d.id}`,
+    })),
+  );
+}
+
+/**
+ * Nothing names a company or product the planner can search for (the user gave only a category, such as
+ * "Postgres hosting"): a question written in code that says why it asks and what it will do with the answer.
+ */
+export function nothingToSearchOutcome(
+  input: LaneInput,
+  ctx: ResolvedContext,
+  opening: string[],
+): LaneOutcome {
+  const fromReference = input.analysis.references
+    .filter((r) => r.kind === 'conversation')
+    .map((r) => nounPhrase(r.text))
+    .find((t) => t !== null);
+  const topic = fromReference ?? nounPhrase(input.analysis.topicTerms.slice(0, 2).join(' '));
+  const ask =
+    topic === null || topic === undefined
+      ? 'Which companies or products should I check?'
+      : `Which ${topic} providers should I check?`;
+  const question = [
+    ...opening,
+    'I look things up per company or product, so I need at least one name.',
+    ask,
+    `I'll check ${whatIWillCheck(input)}.`,
+  ].join(' ');
+  emitContext(input, ctx);
+  return clarifyOutcome(input, ctx, 'nothing_to_research', question, []);
 }

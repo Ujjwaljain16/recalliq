@@ -51,4 +51,9 @@ export interface TurnAnalysis {
   alternateQueries: string[];
   userFacts: UserFact[];
   degraded: boolean;
+  /**
+   * Set when the user asks what was said in this conversation without naming a day ("what have we talked about
+   * so far?"). Absent on every other turn, and on analyses written before it existed.
+   */
+  recallScope?: 'conversation';
 }

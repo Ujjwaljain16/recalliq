@@ -12,8 +12,8 @@ export const clarifyLane: LaneHandler = (input, deps) => {
   const ref = input.analysis.references[0];
   const question =
     ref === undefined
-      ? 'Could you say which conversation, date or company you mean?'
-      : `I'm not sure what you mean by "${ref.text}". Could you say which ${labelOf(ref.kind)} you mean?`;
+      ? "I couldn't tell what this refers to, and I won't guess. Could you say which conversation, date or company you mean? I'll pick up from there."
+      : `I'm not sure what you mean by "${ref.text}", and I won't guess. Could you say which ${labelOf(ref.kind)} you mean? I'll pick up from there.`;
   return clarifyOutcome(input, ctx, 'analysis_requested', question, []);
 };
 

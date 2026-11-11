@@ -1,3 +1,4 @@
+import { DEFAULT_LIMITER } from '../llm/limiter.js';
 import { randomBytes } from 'node:crypto';
 import { ConfigError, loadConfig, type AppConfig } from '../config/env.js';
 import type { ComponentKind } from './components.js';
@@ -15,6 +16,8 @@ export interface AppEnv {
   shutdownGraceMs: number;
   /** Pause between scripted deltas so a person can watch the stream. */
   scriptedPaceMs: number;
+  /** The client-side Gemini limiter (GEMINI_MAX_CONCURRENT, GEMINI_MIN_SPACING_MS); free-tier-safe defaults. */
+  geminiLimiter: { maxConcurrent: number; minSpacingMs: number };
   /** REPLAY_FIXTURE: path of the replay fixture file (replay set only). */
   replayFixture: string | undefined;
   /** OFFICIAL_DOMAINS_FILE: the owner's registry of official domains. Optional; none ships and none is assumed. */
@@ -99,6 +102,25 @@ export function loadAppEnv(
     problems,
   );
 
+  const geminiLimiter = {
+    maxConcurrent: intInRange(
+      env['GEMINI_MAX_CONCURRENT'],
+      'GEMINI_MAX_CONCURRENT',
+      1,
+      16,
+      DEFAULT_LIMITER.maxConcurrent,
+      problems,
+    ),
+    minSpacingMs: intInRange(
+      env['GEMINI_MIN_SPACING_MS'],
+      'GEMINI_MIN_SPACING_MS',
+      0,
+      60_000,
+      DEFAULT_LIMITER.minSpacingMs,
+      problems,
+    ),
+  };
+
   if (problems.length > 0 || config === undefined) throw new ConfigError(problems);
   sessionSecret ??= generateSecret();
   return {
@@ -110,6 +132,7 @@ export function loadAppEnv(
     sessionSecretEphemeral: ephemeral,
     shutdownGraceMs,
     scriptedPaceMs,
+    geminiLimiter,
     replayFixture: blank(env['REPLAY_FIXTURE']),
     officialDomainsFile: blank(env['OFFICIAL_DOMAINS_FILE']),
   };

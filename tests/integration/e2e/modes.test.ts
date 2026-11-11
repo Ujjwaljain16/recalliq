@@ -10,6 +10,7 @@ import {
   type ComponentFactory,
 } from '../../../src/app/components.js';
 import { loadAppEnv, type AppEnv } from '../../../src/app/env.js';
+import { DEFAULT_GEMINI_MODEL } from '../../../src/config/env.js';
 import {
   assertReplayRunnable,
   liveFactory,
@@ -147,9 +148,13 @@ describe('T-E2E the component sets are explicit, isolated and never substituted'
       expect(error).toBeInstanceOf(LiveConfigurationError);
       message = (error as Error).message;
     }
-    for (const name of ['GEMINI_API_KEY', 'GEMINI_MODEL', 'EXA_API_KEY']) {
+    for (const name of ['GEMINI_API_KEY', 'EXA_API_KEY']) {
       expect(message).toContain(name);
     }
+    // The model has a default, so only the keys are required.
+    expect(message).not.toContain('GEMINI_MODEL');
+    expect(e.config.gemini.model).toBe(DEFAULT_GEMINI_MODEL);
+    expect(env({ GEMINI_MODEL: 'other-model' }, tempDb()).config.gemini.model).toBe('other-model');
     expect(message).toContain('Not falling back');
     expect(fs.existsSync(dbPath)).toBe(false);
   });

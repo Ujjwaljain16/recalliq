@@ -8,7 +8,7 @@ export interface GeminiAppSettings {
 
 /**
  * Builds adapter configuration from application settings. Throws (naming the variable, never a value) when
- * the key or the model is missing: provider choice is explicit and there is no default model.
+ * the key or the model is missing: provider choice is explicit. The application config supplies a default model.
  * Defaults are conservative and unmeasured: 20 s per attempt, two retries.
  */
 export function geminiConfigFromApp(

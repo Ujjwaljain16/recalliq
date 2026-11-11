@@ -1,6 +1,12 @@
 import path from 'node:path';
 import { z } from 'zod';
 
+/**
+ * The model used when GEMINI_MODEL is unset, so a reviewer only has to supply keys. It is a choice, not a
+ * measurement: compare models with the benchmark harness before changing it.
+ */
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+
 export type AppMode = 'real' | 'demo';
 
 export interface AppConfig {
@@ -10,7 +16,7 @@ export interface AppConfig {
   port: number;
   allowedOrigin: string;
   models: { fast: string; main: string };
-  /** Free-tier Gemini model id for the Gemini adapter (GEMINI_MODEL). No default: the owner picks an eligible model. */
+  /** Gemini model id for the Gemini adapter (GEMINI_MODEL); DEFAULT_GEMINI_MODEL when unset. */
   gemini: { model: string | undefined };
   /**
    * Secrets are optional at this layer: the database tooling needs none of them.
@@ -76,7 +82,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
     port: e.PORT,
     allowedOrigin: e.ALLOWED_ORIGIN,
     models: { fast: e.MODEL_FAST, main: e.MODEL_MAIN },
-    gemini: { model: e.GEMINI_MODEL },
+    gemini: { model: e.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL },
     secrets: {
       anthropicApiKey: e.ANTHROPIC_API_KEY,
       geminiApiKey: e.GEMINI_API_KEY,

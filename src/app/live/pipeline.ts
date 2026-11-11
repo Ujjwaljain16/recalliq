@@ -33,6 +33,10 @@ class RegistryMemory implements MemoryRetriever {
     return this.inner.searchAll(...a);
   }
 
+  conversationOverview(...a: Parameters<MemoryRetriever['conversationOverview']>) {
+    return this.inner.conversationOverview(...a);
+  }
+
   decisions(...a: Parameters<MemoryRetriever['decisions']>) {
     return this.inner.decisions(...a);
   }

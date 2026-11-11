@@ -1,12 +1,25 @@
 import { z } from 'zod';
-import { parseId, type Ms, type UserId } from '../../shared/ids.js';
-import type { MemoryCandidate, MemoryRetriever } from '../../shared/memory.js';
+import {
+  parseId,
+  type ConversationId,
+  type Ms,
+  type TurnId,
+  type UserId,
+} from '../../shared/ids.js';
+import type {
+  ConversationOverview,
+  MemoryCandidate,
+  MemoryRetriever,
+} from '../../shared/memory.js';
 import type { DayInterval } from '../../shared/temporal.js';
 import type { Db } from '../connection.js';
 import { queryAll } from '../sql.js';
 
 /** The message-memory half of MemoryRetriever; decisions and entities are a separate concern. */
-export type MessageMemory = Pick<MemoryRetriever, 'messagesInIntervals' | 'searchAll'>;
+export type MessageMemory = Pick<
+  MemoryRetriever,
+  'messagesInIntervals' | 'searchAll' | 'conversationOverview'
+>;
 
 export const MAX_CANDIDATES = 8;
 export const MAX_EXCERPT_CHARS = 300;
@@ -37,6 +50,17 @@ const candidateRow = z.object({
   tags: z.string().nullable(),
   rank: z.number().nullable(),
 });
+
+const countRow = z.object({ n: z.number().int() });
+
+function validZone(tz: string): string | null {
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+    return tz;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Turns untrusted topic terms into safe FTS5 tokens. Only letters and digits survive (the same
@@ -177,6 +201,59 @@ export class SqliteMessageMemory implements MessageMemory {
       [toMatchExpression(tokens), u, u],
     );
     return rows.map((row) => this.toCandidate(row, tokens, row.tz, -1));
+  }
+
+  /**
+   * The conversation's user messages created at or before `before`, except the one of turn `excludeTurn`: the
+   * most recent `limit` of them, returned oldest first (by sequence number), plus their total and the number of
+   * the user's other conversations that hold a user message by then. Both reads are filtered by user_id.
+   */
+  conversationOverview(
+    u: UserId,
+    conversationId: ConversationId,
+    excludeTurn: TurnId,
+    before: Ms,
+    limit: number,
+    tz: string,
+  ): ConversationOverview {
+    const n = Math.min(z.number().int().min(0).parse(limit), MAX_CANDIDATES);
+    const where = `m.user_id = ? AND m.conversation_id = ? AND m.role = 'user' AND m.created_at <= ?
+                   AND (m.turn_id IS NULL OR m.turn_id <> ?)`;
+    const params = [u, conversationId, before, excludeTurn];
+    const rows =
+      n === 0
+        ? []
+        : queryAll(
+            this.db,
+            `SELECT m.id AS message_id, m.conversation_id, m.turn_id, m.created_at, m.tz, m.content,
+                    NULL AS body,
+                    (SELECT ms2.tags FROM message_search ms2
+                      WHERE ms2.message_id = m.id AND ms2.user_id = m.user_id) AS tags,
+                    NULL AS rank
+               FROM messages m
+              WHERE ${where}
+              ORDER BY m.seq DESC
+              LIMIT ${n}`,
+            candidateRow,
+            params,
+          ).reverse();
+    const total =
+      queryAll(this.db, `SELECT COUNT(*) AS n FROM messages m WHERE ${where}`, countRow, params)[0]
+        ?.n ?? 0;
+    const otherConversations =
+      queryAll(
+        this.db,
+        `SELECT COUNT(DISTINCT m.conversation_id) AS n FROM messages m
+          WHERE m.user_id = ? AND m.conversation_id <> ? AND m.role = 'user' AND m.created_at <= ?`,
+        countRow,
+        [u, conversationId, before],
+      )[0]?.n ?? 0;
+    const zone = validZone(tz);
+    return {
+      hits: rows.map((row) => this.toCandidate(row, [], zone ?? row.tz, -1)),
+      total,
+      otherConversations,
+    };
   }
 
   private toCandidate(
