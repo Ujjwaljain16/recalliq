@@ -15,7 +15,7 @@ import {
   type SearchResponse,
 } from '../../shared/search.js';
 import type { ReplaySearchAdapter } from '../../search/replay.js';
-import type { ReplayFixture } from './fixture.js';
+import { toSearchHit, type ReplayFixture } from './fixture.js';
 
 /**
  * Replay providers. They are the only components of the replay set that differ from the live set. They hold no
@@ -187,7 +187,7 @@ export class FixtureSearchPort implements SearchPort {
     if ('error' in step) throw new SearchError(step.error, 'recorded provider failure');
     return {
       provider: 'replay',
-      hits: step.hits,
+      hits: step.hits.map(toSearchHit),
       droppedMalformed: 0,
       latencyMs: 1,
       costUsd: null,

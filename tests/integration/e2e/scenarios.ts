@@ -137,6 +137,8 @@ export function priceSearchAt(
                 url,
                 title: `[SYNTHETIC] ${v} pricing`,
                 text: pricingPage(v, a),
+                // The synthetic stand-in for a provider's per-result live-crawl marker (real Exa search returns none).
+                marker: { source: 'live' as const, status: 'ok' as const },
               },
             ],
           },

@@ -116,7 +116,7 @@ export class ScriptedResearch implements ResearchService {
           domain: SCRIPTED_DOMAIN,
           title: sources[snapshotId]?.title ?? null,
           tier: 'A1',
-          freshFetch: true,
+          freshFetch: false, // canned demo data: nothing was fetched
           observedAt: now,
           providerPublishedAt: null,
         },

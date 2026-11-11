@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { extractedStatementSchema } from '../../evidence/prompts/extraction.js';
 import { analysisModelSchema } from '../../llm/analysis/schema.js';
 import { recordingFileSchema } from '../../search/recording.js';
+import type { SearchHit } from '../../shared/search.js';
 
 /**
  * The input of the replay component set: what the search provider and the model would have said. Hand
@@ -11,16 +12,44 @@ import { recordingFileSchema } from '../../search/recording.js';
  * Only the two provider adapters read it: every other component of the application is the real one.
  */
 
-const searchHit = z.object({
+/**
+ * The stand-in for a provider's per-result crawl marker. A recorded or authored result is only a live (fresh)
+ * fetch if it carries this marker saying so; without it the result's freshness is unknown. There is deliberately no
+ * `freshFetch` flag and no default: a hit that claims freshness must say where the claim comes from, and a
+ * fixture that omits the marker never becomes a confirmed live crawl.
+ */
+const providerMarker = z.strictObject({
+  source: z.enum(['live', 'cached']),
+  status: z.enum(['ok', 'failed']),
+});
+
+const searchHit = z.strictObject({
   url: z.string(),
   title: z.string().nullable().default(null),
   text: z.string(),
   publishedAt: z.number().nullable().default(null),
   lastUpdatedAt: z.number().nullable().default(null),
   providerScore: z.number().nullable().default(null),
-  freshFetch: z.boolean().default(true),
-  crawlStatus: z.enum(['ok', 'failed', 'unknown']).default('ok'),
+  marker: providerMarker.optional(),
 });
+
+export type FixtureSearchHit = z.infer<typeof searchHit>;
+
+/** The shared hit a fixture result stands for: confirmed only through the marker, unknown otherwise. */
+export function toSearchHit(h: FixtureSearchHit): SearchHit {
+  const confirmed = h.marker?.source === 'live' && h.marker.status === 'ok';
+  return {
+    url: h.url,
+    title: h.title,
+    text: h.text,
+    publishedAt: h.publishedAt,
+    lastUpdatedAt: h.lastUpdatedAt,
+    providerScore: h.providerScore,
+    freshFetch: confirmed,
+    crawlStatus: h.marker?.status ?? 'unknown',
+    crawlBasis: confirmed ? 'confirmed_live' : h.marker?.source === 'cached' ? 'cached' : 'unknown',
+  };
+}
 
 const searchStep = z.union([
   z.object({

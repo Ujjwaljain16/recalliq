@@ -11,7 +11,11 @@
             {
               "url": "https://acme.example/en-gb/pricing",
               "title": "[SYNTHETIC] Acme CRM pricing",
-              "text": "[SYNTHETIC] Acme CRM\nPlans and pricing\nAcme CRM Starter US$20 per user per month, billed annually\nAcme CRM Pro US$90 per user per month, billed annually"
+              "text": "[SYNTHETIC] Acme CRM\nPlans and pricing\nAcme CRM Starter US$20 per user per month, billed annually\nAcme CRM Pro US$90 per user per month, billed annually",
+              "marker": {
+                "source": "live",
+                "status": "ok"
+              }
             }
           ]
         },
@@ -20,7 +24,11 @@
             {
               "url": "https://acme.example/en-gb/pricing",
               "title": "[SYNTHETIC] Acme CRM pricing",
-              "text": "[SYNTHETIC] Acme CRM\nPlans and pricing\nAcme CRM Starter US$20 per user per month, billed annually\nAcme CRM Pro US$100 per user per month, billed annually"
+              "text": "[SYNTHETIC] Acme CRM\nPlans and pricing\nAcme CRM Starter US$20 per user per month, billed annually\nAcme CRM Pro US$100 per user per month, billed annually",
+              "marker": {
+                "source": "live",
+                "status": "ok"
+              }
             }
           ]
         }
@@ -34,7 +42,11 @@
             {
               "url": "https://beta.example/en-gb/pricing",
               "title": "[SYNTHETIC] Beta Suite pricing",
-              "text": "[SYNTHETIC] Beta Suite\nPlans and pricing\nBeta Suite Starter US$20 per user per month, billed annually\nBeta Suite Pro US$80 per user per month, billed annually"
+              "text": "[SYNTHETIC] Beta Suite\nPlans and pricing\nBeta Suite Starter US$20 per user per month, billed annually\nBeta Suite Pro US$80 per user per month, billed annually",
+              "marker": {
+                "source": "live",
+                "status": "ok"
+              }
             }
           ]
         }
