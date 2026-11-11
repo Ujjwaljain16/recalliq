@@ -3,6 +3,7 @@ import {
   leadingBreak,
   paragraphStarts,
   paragraphTexts,
+  sentenceBasis,
   sentenceGap,
   storedParagraphTexts,
 } from '../../../web/js/format.js';
@@ -57,5 +58,18 @@ describe('one space between the sentences of a paragraph', () => {
       `${zoho} ${g2}`,
       'Salesforce: nothing.',
     ]);
+  });
+});
+
+describe('the check mark is shown only for a verified finding', () => {
+  it('maps a sentence kind to what it rests on', () => {
+    expect(sentenceBasis('verified', 'verified', undefined)).toBe('verified');
+    expect(sentenceBasis('verified', 'unconfirmed', undefined)).toBe('unconfirmed');
+    expect(sentenceBasis('verified', 'sourced', undefined)).toBe('sourced');
+    // a late status event carries no kind: the earlier basis stays
+    expect(sentenceBasis('verified', undefined, 'unconfirmed')).toBe('unconfirmed');
+    // sentences stored before kinds existed fall back to their status
+    expect(sentenceBasis('verified', undefined, undefined)).toBe('verified');
+    expect(sentenceBasis('no_claims', undefined, undefined)).toBeNull();
   });
 });

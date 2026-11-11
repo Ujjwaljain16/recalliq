@@ -264,7 +264,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       const only = c.placeholders.length === 1 ? c.placeholders[0] : undefined;
       const qualifier = only ? negativeQualifier(only.rendered) : null;
       const entity = only?.findingId ? nameOf.get(only.findingId) : undefined;
-      if (!quick && excerpts.length > 0 && c.kind === 'verified' && qualifier && entity) {
+      if (!quick && excerpts.length > 0 && c.kind === 'unconfirmed' && qualifier && entity) {
         held = { c, entity, qualifier };
         return;
       }

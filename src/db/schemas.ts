@@ -92,7 +92,7 @@ export const persistedSentenceSchema = z.object({
   template: z.string(),
   status: sentenceStatus,
   issues: z.array(sentenceIssue),
-  kind: exhaustive<SentenceKind>()(['verified', 'sourced']).optional(),
+  kind: exhaustive<SentenceKind>()(['verified', 'sourced', 'unconfirmed']).optional(),
   placeholders: z.array(
     z.object({
       token: z.string(),

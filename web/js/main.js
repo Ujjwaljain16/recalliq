@@ -8,6 +8,7 @@ import {
   leadingBreak,
   outcomeNote,
   paragraphStarts,
+  sentenceBasis,
   sentenceGap,
   safeHref,
   sentenceMarker,
@@ -143,6 +144,7 @@ function fillSentence(span, text, sources) {
 const KIND_TITLE = {
   verified: 'Checked against a verified finding',
   sourced: 'According to the cited source; not independently verified',
+  unconfirmed: 'No verified value for this; my own checks did not confirm it',
 };
 
 /** Sets the visible status of a sentence: classes, a worded marker, and what it rests on. */
@@ -161,8 +163,8 @@ function applyStatus(span, status, issues, kind) {
     return;
   }
   // A sourced sentence reports what a cited page says; a verified one renders a checked finding.
-  const basis = kind ?? span.dataset.kind ?? (status === 'verified' ? 'verified' : null);
-  if (basis === 'sourced' || basis === 'verified') {
+  const basis = sentenceBasis(status, kind, span.dataset.kind);
+  if (basis !== null) {
     span.dataset.kind = basis;
     span.classList.add(`sentence--${basis}`);
     if (!span.classList.contains('sentence--unseen')) span.title = KIND_TITLE[basis];

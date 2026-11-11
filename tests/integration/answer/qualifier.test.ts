@@ -132,3 +132,15 @@ describe('a negative finding line and a sourced sentence about the same entity',
     expect(r.sentences[0]?.text).toBe('Zoho CRM: I could not confirm a price through my checks.');
   });
 });
+
+describe('the kind of a sentence that only says there is no verified value', () => {
+  it('is unconfirmed for a no-price line and for a failed check, verified for a confirmed value', async () => {
+    const ok = finding(4, { entityName: 'Acme' });
+    const a = await run(['Zoho CRM: [[F1]]. '], [zoho]);
+    expect(a.r.sentences[0]?.kind).toBe('unconfirmed');
+    const b = await run(['Freshsales: [[F2]].'], [sales]);
+    expect(b.r.sentences[0]?.kind).toBe('unconfirmed');
+    const c = await run(['Acme: [[F4]].'], [ok]);
+    expect(c.r.sentences[0]?.kind).toBe('verified');
+  });
+});

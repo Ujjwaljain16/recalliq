@@ -125,6 +125,15 @@ const REASON_TEXT: Record<string, string> = {
 
 /** A finding whose check ran but produced no verified value: said as what it is, not as "no price exists". */
 export const NO_VERIFIED_PRICE_TEXT = 'I could not confirm a price through my checks';
+/** True when a finding rendering says there is no verified value, or that the check could not run. */
+export function isNegativeRendering(rendered: string): boolean {
+  return (
+    rendered === NO_VERIFIED_PRICE_TEXT ||
+    rendered === NO_TIME_WINDOW_TEXT ||
+    rendered.startsWith("couldn't be checked this time")
+  );
+}
+
 /**
  * The short qualifier that follows a sourced sentence about the same entity when a finding line renders one of
  * the negative statements above, or null when the rendering is not one of them.

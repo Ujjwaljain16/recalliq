@@ -22,3 +22,8 @@ export function paragraphStarts(content: string, texts: string[]): boolean[];
 export function sentenceGap(newParagraph: boolean, paragraphHasText: boolean): string;
 export function paragraphTexts(chunks: string[]): string[];
 export function storedParagraphTexts(content: string, texts: string[]): string[];
+export function sentenceBasis(
+  status: string,
+  kind?: string,
+  previous?: string,
+): 'verified' | 'sourced' | 'unconfirmed' | null;

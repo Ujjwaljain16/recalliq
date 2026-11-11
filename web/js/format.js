@@ -218,3 +218,19 @@ export function storedParagraphTexts(content, texts) {
   });
   return out;
 }
+
+/**
+ * What a settled sentence rests on, which decides its mark: `verified` (a checked finding: the check mark),
+ * `sourced` (a cited page: dotted underline), `unconfirmed` (a finding that says there is no verified value or
+ * that the check failed: no mark, because nothing was verified) or null. Sentences stored before kinds existed
+ * have none and fall back to their status.
+ *
+ * @param {string} status
+ * @param {string | undefined} kind
+ * @param {string | undefined} previous  the basis the sentence already had
+ * @returns {'verified' | 'sourced' | 'unconfirmed' | null}
+ */
+export function sentenceBasis(status, kind, previous) {
+  const basis = kind ?? previous ?? (status === 'verified' ? 'verified' : null);
+  return basis === 'verified' || basis === 'sourced' || basis === 'unconfirmed' ? basis : null;
+}

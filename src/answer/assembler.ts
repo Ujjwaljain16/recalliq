@@ -10,7 +10,7 @@ import { repeatsRenderedText } from './duplicate.js';
 import { attribute, checkSourced, type SourcedContext } from './sourced.js';
 import { parsePlaceholderBody, type StreamItem } from './placeholders.js';
 import { resolveRef, type AnswerRecords } from './records.js';
-import type { Renderer } from './render.js';
+import { isNegativeRendering, type Renderer } from './render.js';
 import { checkFreeText, type T3aContext } from './t3a.js';
 
 const TERMINATORS = new Set(['.', '!', '?']);
@@ -311,7 +311,13 @@ export class SentenceAssembler {
       issues: [...issues],
       judgeFacts,
       ...(rendersFinding
-        ? { kind: 'verified' as const }
+        ? {
+            kind: open.placeholders.every(
+              (p) => p.findingId === undefined || isNegativeRendering(p.rendered),
+            )
+              ? ('unconfirmed' as const)
+              : ('verified' as const),
+          }
         : sourced
           ? { kind: 'sourced' as const }
           : {}),

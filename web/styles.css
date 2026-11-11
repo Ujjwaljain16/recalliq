@@ -318,12 +318,6 @@ body {
 .sentence {
   display: inline;
 }
-.sentence + .sentence::before {
-  content: ' ';
-  /* an atomic inline keeps the underline of a sourced sentence off the gap before it */
-  display: inline-block;
-  white-space: pre;
-}
 .sentence--verified::after {
   content: '✓';
   display: inline-block;
