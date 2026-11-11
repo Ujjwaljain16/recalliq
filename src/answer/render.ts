@@ -116,7 +116,17 @@ const REASON_TEXT: Record<string, string> = {
   deadline: 'time ran out',
 };
 
+/**
+ * A finding whose check failed says so, with the reason of the failure (the verdict reason, else the coverage
+ * failure). A first-time research question has no verdict, so this is the only way the reader learns that the
+ * search or extraction failed rather than found nothing.
+ */
+function unableText(f: Finding): string {
+  return `couldn't be checked this time (${reasonText(f.verdictReason ?? f.coverage.failure)})`;
+}
+
 function currentText(f: Finding, records: AnswerRecords): string {
+  if (f.currentStatus === 'unable_to_verify') return unableText(f);
   if (f.intent === 'releases') return releasesText(f, records);
   const cur = f.current;
   const c = cites(cur?.citations ?? [], records);
@@ -168,7 +178,7 @@ function verdictText(f: Finding, records: AnswerRecords): string {
   const checked = f.current?.verifiedAt ?? f.current?.displayedAt ?? null;
   switch (f.verdict) {
     case 'unable_to_verify':
-      return `couldn't be checked this time (${reasonText(f.verdictReason)})`;
+      return unableText(f);
     case 'contested':
       return f.verdictReason === 'timing_conflict'
         ? 'sources disagree about when this changed'

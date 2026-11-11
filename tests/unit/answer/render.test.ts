@@ -75,7 +75,7 @@ describe('rendering of findings by code', () => {
   });
 
   it('a finding with no value says so instead of inventing one', () => {
-    const f = finding(1, { currentStatus: 'unable_to_verify', current: undefined });
+    const f = finding(1, { currentStatus: 'unknown', current: undefined });
     expect(render(f, 'F1')).toBe('no verified price was found');
   });
 
@@ -156,6 +156,56 @@ describe('rendering of findings by code', () => {
     expect(render(f, 'F1:verdict')).toBe(
       'no releases found among 3 sources checked (newest dated source: 3 Nov 2026)',
     );
+  });
+});
+
+describe('a finding that could not be checked says so, with the reason', () => {
+  const reasons = [
+    ['search_timeout', 'the search timed out'],
+    ['search_unavailable', 'the search service was unavailable'],
+    ['quota_exhausted', 'the search quota was used up'],
+    ['extraction_failed', 'the pages could not be read'],
+    ['deadline', 'time ran out'],
+  ] as const;
+
+  it.each(reasons)('current value, no verdict, coverage failure %s', (failure, text) => {
+    const f = finding(1, {
+      currentStatus: 'unable_to_verify',
+      current: undefined,
+      verdict: null,
+      coverage: { ...finding(1).coverage, failure },
+    });
+    expect(render(f, 'F1')).toBe(`couldn't be checked this time (${text})`);
+  });
+
+  it.each(reasons)('verdict and current value use the same wording for %s', (failure, text) => {
+    const f = finding(1, {
+      currentStatus: 'unable_to_verify',
+      current: undefined,
+      verdict: 'unable_to_verify',
+      verdictReason: failure,
+      coverage: { ...finding(1).coverage, failure },
+    });
+    const want = `couldn't be checked this time (${text})`;
+    expect(render(f, 'F1:verdict')).toBe(want);
+    expect(render(f, 'F1')).toBe(want);
+  });
+
+  it('with no recorded reason it says so, and a release finding is treated the same way', () => {
+    const f = finding(1, { currentStatus: 'unable_to_verify', current: undefined, verdict: null });
+    expect(render(f, 'F1')).toBe("couldn't be checked this time (reason not recorded)");
+    const r = finding(2, {
+      intent: 'releases',
+      currentStatus: 'unable_to_verify',
+      verdict: null,
+      coverage: { ...finding(2).coverage, failure: 'deadline' },
+    });
+    expect(render(r, 'F2')).toBe("couldn't be checked this time (time ran out)");
+  });
+
+  it('a finding that was checked and has no value is still not described as a failed check', () => {
+    const f = finding(1, { currentStatus: 'unknown', current: undefined });
+    expect(render(f, 'F1')).toBe('no verified price was found');
   });
 });
 
