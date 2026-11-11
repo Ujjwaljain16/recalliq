@@ -17,6 +17,7 @@ import { declarationFitsSymbol, declaredCurrency, findAmounts, markerFor } from 
 import type { AmountToken, MarkerResult } from './currency.js';
 import { hasEffectiveCue, parseDates } from './dates.js';
 import { isOfficialHost } from './authority.js';
+import { bindPrice, type PriceBinding } from './binding.js';
 import {
   findPhrase,
   locateVerbatim,
@@ -88,6 +89,8 @@ interface Work {
   occ: Occurrence | null;
   seg: Segment | null;
   scope: string;
+  /** Cues bound to the claimed amount when the segment holds several prices; null for a single price. */
+  bind: PriceBinding | null;
 }
 
 export interface VerifierOptions {
@@ -269,7 +272,9 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
       seg = (hit ? segmentAt(segs, hit.start + H) : null) ?? segs[0] ?? null;
     }
     const scope = (seg ? W.slice(seg.start, seg.end) : qn) + (headerUsable ? `\n${header}` : '');
-    return { raw, s, e, now, qn, cn: header, W, H, headerUsable, segs, occ, seg, scope };
+    const bind =
+      occ && seg ? bindPrice(W.slice(seg.start, seg.end), occ.token.start + H - seg.start) : null;
+    return { raw, s, e, now, qn, cn: header, W, H, headerUsable, segs, occ, seg, scope, bind };
   }
 
   // ── price: value, currency, unit, billing period ──
@@ -330,7 +335,7 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
   private unitCheck(w: Work): CheckResult {
     const v = w.raw.fields.value;
     if (!v) return res('unit', 'n/a');
-    const sc = w.scope;
+    const sc = boundScope(w);
     if (v.unit !== 'usage' && v.usageUnit !== null)
       return res('unit', 'fail', 'a usage unit was given for a non-usage price');
     switch (v.unit) {
@@ -362,6 +367,7 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
   private periodCheck(w: Work): CheckResult {
     const v = w.raw.fields.value;
     if (!v) return res('billing_period', 'n/a');
+    if (w.bind) return this.boundPeriodCheck(w, w.bind);
     const sc = w.scope;
     const monthly = MONTHLY.test(sc);
     const billedAnnually = new RegExp(BILLED_ANNUALLY.source, 'i').test(sc);
@@ -389,6 +395,62 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
         return ONE_TIME.test(sc)
           ? res('billing_period', 'pass')
           : res('billing_period', 'fail', 'one_time claimed without a one-time marker');
+    }
+  }
+
+  /**
+   * The period check for a quote with several prices: only cues attached to this amount, or shared by all of
+   * them, count. A cue attached to another price never satisfies the claim, and a cue attached to this amount
+   * that contradicts the claim fails it.
+   */
+  private boundPeriodCheck(w: Work, b: PriceBinding): CheckResult {
+    const v = w.raw.fields.value;
+    if (!v || v.billingPeriod === 'unspecified') return res('billing_period', v ? 'pass' : 'n/a');
+    if (b.ambiguous || b.duplicateAmount)
+      return res(
+        'billing_period',
+        'weak',
+        'the period cue could belong to another price, or the amount appears more than once',
+      );
+    const sc = boundScope(w);
+    const monthly = MONTHLY.test(sc);
+    const billedAnnually = new RegExp(BILLED_ANNUALLY.source, 'i').test(sc);
+    const annual = ANNUAL.test(sc.replace(BILLED_ANNUALLY, ' '));
+    const oneTime = ONE_TIME.test(sc);
+    const attached = monthly || billedAnnually || annual || oneTime;
+    if (!attached) {
+      const elsewhere = [MONTHLY, ANNUAL, ONE_TIME].some((re) => re.test(b.others));
+      return elsewhere
+        ? res('billing_period', 'weak', 'the period cue in the quote is attached to another price')
+        : res('billing_period', 'fail', `${v.billingPeriod} claimed without a period marker`);
+    }
+    // "$35/month (annual)" is a monthly price billed annually.
+    const monthlyBilledAnnually = monthly && (billedAnnually || annual);
+    switch (v.billingPeriod) {
+      case 'monthly':
+        return monthly && !monthlyBilledAnnually
+          ? res('billing_period', 'pass')
+          : res('billing_period', 'fail', 'the cue attached to this amount does not say monthly');
+      case 'annual':
+        return (annual || billedAnnually) && !monthlyBilledAnnually
+          ? res('billing_period', 'pass')
+          : res('billing_period', 'fail', 'the cue attached to this amount does not say annual');
+      case 'monthly_billed_annually':
+        return monthlyBilledAnnually
+          ? res('billing_period', 'pass')
+          : res(
+              'billing_period',
+              'fail',
+              'needs a monthly marker and an annual billing cue on this amount',
+            );
+      case 'one_time':
+        return oneTime
+          ? res('billing_period', 'pass')
+          : res(
+              'billing_period',
+              'fail',
+              'one_time claimed without a one-time marker on this amount',
+            );
     }
   }
 
@@ -768,6 +830,12 @@ const CHECK_ORDER: VerificationCheck[] = [
   'conditional_cue',
   'planned_cue',
 ];
+
+/** Unit and period cues for the claimed amount: its own and the shared ones, plus an associated header. */
+function boundScope(w: Work): string {
+  if (!w.bind) return w.scope;
+  return [w.bind.own, w.bind.shared, w.headerUsable ? w.cn : ''].join(' ; ');
+}
 
 function orderChecks(checks: CheckResult[]): CheckResult[] {
   return [...checks].sort((a, b) => CHECK_ORDER.indexOf(a.check) - CHECK_ORDER.indexOf(b.check));
