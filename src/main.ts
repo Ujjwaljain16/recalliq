@@ -11,6 +11,7 @@ import { scriptedFactory } from './app/scripted/index.js';
 async function main(): Promise<void> {
   const logger = createLogger();
   const env = loadAppEnv(process.env);
+  for (const warning of env.warnings) logger.warn({}, warning);
   if (env.sessionSecretEphemeral) {
     logger.warn(
       {},

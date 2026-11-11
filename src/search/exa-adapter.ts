@@ -93,7 +93,8 @@ export class ExaSearchAdapter implements SearchPort {
   }
 }
 
-function abortError(signal: AbortSignal): SearchError {
+/** The search error for an aborted signal: a timeout is not a cancellation. */
+export function abortError(signal: AbortSignal): SearchError {
   const reason: unknown = signal.reason;
   const name = reason instanceof Error ? reason.name : '';
   return name === 'TimeoutError'

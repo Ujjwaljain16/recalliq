@@ -33,6 +33,8 @@ export type PriceVerdictReason =
   | 'stated_effective_date'
   | 'listed_differently'
   | 'insufficient_coverage'
+  /** The baseline or the current value rests only on tier C sources, so no change or confirmation is computed. */
+  | 'low_authority_source'
   | CoverageFailure;
 
 export type ReleaseVerdict = 'releases_found' | 'none_found' | 'unable_to_verify';

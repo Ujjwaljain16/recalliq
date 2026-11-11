@@ -48,11 +48,11 @@ allowed).
 | HO-01d | re-observation from a cached result | same | no_evidence_of_change | no_evidence_of_change | PASS |
 | HO-02a | page says the other price was effective before the answer | section 8 row 6a | baseline_incorrect (other_value_in_effect_at_T0), retracted_was_wrong | as expected, "my earlier answer was already out of date" | PASS |
 | HO-02b | different price, no date | section 8 row 6d | differs_timing_unknown | differs_timing_unknown | PASS |
-| HO-02c | prior-effect proof at tier C with a tier C baseline | section 8 prior-effect proof | baseline_incorrect | baseline_incorrect | PASS |
+| HO-02c | prior-effect proof at tier C with a tier C baseline | section 8 low-authority gate | differs_timing_unknown (low_authority_source) | differs_timing_unknown (low_authority_source) | PASS |
 | HO-03a | old value re-observed live, then new value, same url, en-GB | ADR-36 proof 1 | changed, same_source_bracketing, window {2026-11-12 10:00, 2026-11-22 12:00 UTC} exactly the two observation times, direction up, middle audit unchanged_confirmed | as expected (window matched to the millisecond) | PASS |
 | HO-03b | explicit effective date 5 November after the answer, A1, known locale | ADR-36 proof 2 | changed, stated_effective_date, effectiveFrom 2026-11-05 | as expected, "changed from 5 Nov 2026" | PASS |
 | HO-03c | same effective date on an unregistered domain | ADR-36 proof 2 (A1 or A2) | differs_timing_unknown | differs_timing_unknown | PASS |
-| HO-03d | bracketing with no registry | ADR-36 proof 1 | changed | changed (middle audit no_evidence_of_change) | PASS |
+| HO-03d | bracketing with no registry | ADR-36 proof 1, section 8 low-authority gate | differs_timing_unknown (low_authority_source) | differs_timing_unknown (middle audit no_evidence_of_change) | PASS |
 | HO-04a | one live observation, lower price | section 8 row 6d | differs_timing_unknown, no cut or drop wording | as expected | PASS |
 | HO-04b | cached result with a provider last-updated time | R3 displayedAt rules, ADR-36 | differs_timing_unknown | differs_timing_unknown, snapshot crawl_basis cached | PASS |
 | HO-04c | unmarked, undated new value | R3, section 8 row 5 | no_evidence_of_change | no_evidence_of_change, snapshot crawl_basis unknown | PASS |

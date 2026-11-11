@@ -51,6 +51,7 @@ Each search result and each snapshot records a `crawl_basis` with exactly four d
 - The baseline's own observation precedes its presentation, so the first audit that sees a different price will usually be `differs_timing_unknown` unless an explicit effective date is stated. `changed` by bracketing needs a re-observation of the old value after the answer, so the demo recordings must include one.
 - Cached results with no usable content as-of time never support `changed`, so a provider that mostly returns cached pages with no dates will mostly give `differs_timing_unknown`.
 - Pages whose locale cannot be determined never yield `changed` by bracketing, which gives more `differs_timing_unknown` on vendors with a single global page.
+- Added later: both proofs need the baseline evidence and the current evidence to be tier A1, A2 or B (the low-authority gate, architecture §8, reason `low_authority_source`). Without an owner registry, re-observation bracketing on unlisted pages therefore gives `differs_timing_unknown`, never `changed`. See [security.md](../security.md).
 - Architecture §8, scenarios 2 and 3, the scenario matrix and open items U12 and U19 were corrected on 2026-11-12; the old text is kept there as history. The contract's reason values (`same_source_bracketing`, `stated_effective_date`) still fit and are unchanged.
 
 ## Evidence and implementation references

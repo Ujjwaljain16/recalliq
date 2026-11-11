@@ -78,6 +78,10 @@ export class RuleChangeDetector implements ChangeDetector {
     const forKey = ev.filter(sameKey);
 
     if (current?.status === 'confirmed' && current.value !== null) {
+      // Low-authority gate: a baseline or a current value resting only on tier C (an unlisted site) cannot
+      // support a code-computed change or confirmation; anyone can publish a tier C page (docs/security.md).
+      const lowAuthority =
+        bestTier(b.evidence.filter(isPass)) === 'C' || currentTier(current, forKey) === 'C';
       if (valuesEqual(current.value, b.value)) {
         // 4. an A1 live observation after T0 shows the same value
         const winners = new Set(current.winningEvidence);
@@ -89,6 +93,8 @@ export class RuleChangeDetector implements ChangeDetector {
             e.displayedAt !== null &&
             e.displayedAt > t0,
         );
+        if (fresh && lowAuthority)
+          return { verdict: 'no_evidence_of_change', reason: 'low_authority_source' };
         return fresh
           ? { verdict: 'unchanged_confirmed', reason: null }
           : { verdict: 'no_evidence_of_change', reason: null };
@@ -96,8 +102,16 @@ export class RuleChangeDetector implements ChangeDetector {
       // 6. the value differs: evaluate both proofs
       const cv = current.value;
       const dir = direction(b.value, cv);
-      const prior = priorEffect(b, forKey);
-      const post = postBaseline(b, forKey, cv);
+      if (lowAuthority)
+        return {
+          verdict: 'differs_timing_unknown',
+          reason: 'low_authority_source',
+          direction: dir,
+        };
+      // The proofs read only A1, A2 and B statements: a tier C page can neither bracket nor predate a change.
+      const authoritative = forKey.filter((e) => e.authorityTier !== 'C');
+      const prior = priorEffect(b, authoritative);
+      const post = postBaseline(b, authoritative, cv);
       if (prior && post.proved) return { verdict: 'contested', reason: 'timing_conflict' };
       if (prior) return { verdict: 'baseline_incorrect', reason: 'other_value_in_effect_at_T0' };
       if (post.proved) {
@@ -140,6 +154,17 @@ export class RuleChangeDetector implements ChangeDetector {
       return { verdict: 'unable_to_verify', items: [] };
     return { verdict: 'none_found', items: [] };
   }
+}
+
+/**
+ * The best tier among the current belief's winning statements for this key that state the current value. A
+ * winner that is not among the statements given counts as C, so missing evidence never raises the tier.
+ */
+function currentTier(current: Belief, forKey: VerifiedEvidence[]): AuthorityTier {
+  const winners = new Set(current.winningEvidence);
+  return bestTier(
+    forKey.filter((e) => winners.has(e.id) && valuesEqual(e.fields.value, current.value)),
+  );
 }
 
 /** Row 3: the baseline evidence must be present, pass, and actually state the baseline value. */

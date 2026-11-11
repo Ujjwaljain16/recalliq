@@ -18,7 +18,8 @@
     "dev": "node --env-file-if-exists=.env --import tsx --watch src/main.ts",
     "start": "node --env-file-if-exists=.env --import tsx src/main.ts",
     "dev:replay": "node --import tsx scripts/dev-replay.ts",
-    "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts"
+    "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",
+    "bench": "node --env-file-if-exists=.env --import tsx scripts/bench/cli.ts"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",

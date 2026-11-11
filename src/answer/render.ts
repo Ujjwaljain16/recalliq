@@ -120,6 +120,7 @@ const REASON_TEXT: Record<string, string> = {
   extraction_failed: 'the pages could not be read',
   deadline: 'time ran out',
   insufficient_coverage: 'too few recent release sources were found to say there were none',
+  low_authority_source: 'only unofficial sources were found',
 };
 
 /**

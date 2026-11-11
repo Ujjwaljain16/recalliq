@@ -693,6 +693,8 @@ flowchart LR
 | 6d | Neither proof | **`differs_timing_unknown`** | "is different now; I can't tell whether it changed after my answer or my answer was already out of date" |
 | 7 | C is STALE or UNKNOWN, and coverage succeeded | `no_evidence_of_change` (plus `note: listed_differently` where §R3 comparable keys apply) | "no current evidence either way (latest: \<date\>)" |
 
+**Low-authority gate (rows 4 to 6).** When C is CONFIRMED, the baseline's best `pass` evidence and C's best winning statement for C.value must both be tier A1, A2 or B. Otherwise no proof is evaluated: a same value is `no_evidence_of_change` and a different value is `differs_timing_unknown`, both with reason `low_authority_source`, so `unchanged_confirmed`, `changed` and `baseline_incorrect` (`other_value_in_effect_at_T0`) are never computed from tier C pages. The proofs themselves read only A1, A2 and B statements. Tier B is the short curated list of secondary sources in `src/evidence/authority.ts`; every other site is C unless the owner registry lists it. Rows 1 to 3 are unaffected (row 3 only re-checks the baseline's own stored evidence). Reason: without a registry anyone can publish a tier C page with an entity-named price, which could otherwise become a baseline and turn a later honest value into a computed `changed` ([security.md](security.md), baseline poisoning).
+
 The two proofs:
 
 - **Prior-effect proof.** Some `pass` statement with value ≠ `vB` for `kB`, at a tier at least as high as `tier_B`, has either `effectiveFrom ≤ T0`, or `displayedAt ≤ T0` with a basis other than `unknown`.
@@ -891,8 +893,8 @@ This is unchanged from Stage 3, with one 3.1 addition: source titles and URLs ca
 | Secrets | API keys are server-side only, and logs are redacted |
 | User isolation | Signed cookie identity; every query is scoped by user, plus the owner triggers |
 | Request forgery | Origin and content-type checks |
-| Abuse and cost | Rate limits and per-turn budgets |
-| Network exposure | Binds to localhost |
+| Abuse and cost | Per-user running-turn cap and turn rate, per-address session rate, a process-wide search limiter, and per-turn budgets ([security.md](security.md)) |
+| Network exposure | Binds to localhost; a non-loopback address needs a production configuration; unknown `Host` names are refused (DNS rebinding) |
 
 ### 16. Concurrency and idempotency
 

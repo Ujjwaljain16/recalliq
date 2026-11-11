@@ -15,7 +15,8 @@ Read at startup and validated together; an error names the variable and the rule
 |---|---|
 | `APP_MODE` | `real` or `demo`; selects the database file exactly as `src/config/env.ts` does |
 | `PORT`, `HOST` | Listening port (default 3001) and address (default `127.0.0.1`) |
-| `ALLOWED_ORIGIN` | The one cross-origin origin allowed to call the API (CORS with credentials) |
+| `ALLOWED_ORIGIN` | The one cross-origin origin allowed to call the API (CORS with credentials). Unset by default: no CORS headers at all |
+| Quotas | `MAX_RUNNING_TURNS_PER_USER`, `TURN_RATE_PER_MINUTE`, `TURN_RATE_BURST`, `NEW_SESSIONS_PER_HOUR`, `EXA_MAX_CONCURRENT`, `SERVER_MAX_CONNECTIONS`, `SERVER_HEADERS_TIMEOUT_MS`, `SERVER_REQUEST_TIMEOUT_MS`; defaults and ranges in `.env.example`, see [security.md](security.md) |
 | `SESSION_SECRET` | At least 32 characters; signs the session cookie. Unset in development: a random secret is generated for the process and a warning is logged (sessions end at restart). Required when `NODE_ENV=production` |
 | `APP_COMPONENTS` | `scripted`, `replay` or `live`, fixed for the life of the process. Default `scripted`. `replay` runs the real pipeline against recorded fixtures (`APP_MODE=demo` and `REPLAY_FIXTURE` required). `live` runs the real pipeline against Gemini and Exa (`APP_MODE=real`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `EXA_API_KEY` required). A missing variable fails at startup and names it. No set ever falls back to another. See [running.md](running.md) |
 | `SHUTDOWN_GRACE_MS` | How long a shutdown waits for running turns to persist (default 15000) |
@@ -28,13 +29,14 @@ period, and closes the database. At startup turns left `running` by a crash beco
 ## Identity
 
 An anonymous signed cookie names a user row (ADR-20): `recalliq_session=<userId>.<HMAC-SHA256>`, `HttpOnly`,
-`SameSite=Lax`, `Path=/`, one year, `Secure` when `ALLOWED_ORIGIN` is https. It is set by the first
+`SameSite=Lax`, `Path=/`, one year (`Max-Age`), `Secure` when `NODE_ENV=production` or `ALLOWED_ORIGIN` is https. It is set by the first
 `POST /api/conversations`. A forged, tampered or unknown-user cookie gets `401 invalid_session` and the cookie
 is cleared. Every route is scoped to the cookie's user: another user's conversation or turn is a `404`,
 indistinguishable from one that does not exist.
 
 State-changing requests with an `Origin` header must come from the page's own origin or `ALLOWED_ORIGIN`
-(otherwise `403 forbidden_origin`). Request bodies are JSON (`Content-Type: application/json`, else `415`) and
+(otherwise `403 forbidden_origin`). Every request must name a known host in `Host` (`localhost`, `127.0.0.1`,
+`[::1]`, `HOST`, or the `ALLOWED_ORIGIN` host), otherwise `421 misdirected_request`. Request bodies are JSON (`Content-Type: application/json`, else `415`) and
 limited to 32 KiB (`413`).
 
 ## Errors
@@ -51,6 +53,8 @@ limited to 32 KiB (`413`).
 | 404 | `not_found` |
 | 405, 413, 415 | `method_not_allowed`, `payload_too_large`, `unsupported_media_type` |
 | 409 | `turn_in_progress` (`turnId`), `idempotency_conflict`, `turn_not_finished` |
+| 421 | `misdirected_request` (unknown `Host`) |
+| 429 | `too_many_turns`, `turn_rate_limited`, `too_many_sessions`; each with a `Retry-After` header in seconds |
 | 500, 503 | `internal_error`, `database_busy`, `shutting_down` |
 
 ## Routes

@@ -125,6 +125,8 @@ export interface StartOptions {
   heartbeatMs?: number;
   graceMs?: number;
   allowedOrigin?: string;
+  /** Extra environment variables (HOST, quotas, NODE_ENV). */
+  vars?: Record<string, string>;
 }
 
 /** The real server, real SQLite with real migrations, the real orchestrator and the scripted components. */
@@ -135,6 +137,7 @@ export async function startTestApp(options: StartOptions = {}): Promise<TestApp>
     SESSION_SECRET: SECRET,
     ...(options.allowedOrigin ? { ALLOWED_ORIGIN: options.allowedOrigin } : {}),
     SHUTDOWN_GRACE_MS: String(options.graceMs ?? 5000),
+    ...options.vars,
   });
   const env: AppEnv = { ...base, config: { ...base.config, dbPath: options.dbPath ?? IN_MEMORY } };
   const app = await startApplication({
@@ -145,7 +148,7 @@ export async function startTestApp(options: StartOptions = {}): Promise<TestApp>
     ...(options.decorate ? { decorate: options.decorate } : {}),
     ...(options.heartbeatMs !== undefined ? { heartbeatMs: options.heartbeatMs } : {}),
   });
-  const url = `http://127.0.0.1:${app.port}`;
+  const url = `http://${env.host}:${app.port}`;
   return {
     app,
     clock,
