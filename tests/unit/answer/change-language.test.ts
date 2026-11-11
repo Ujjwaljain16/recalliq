@@ -5,7 +5,7 @@ import { checkFreeText } from '../../../src/answer/t3a.js';
 import { validateCompletion } from '../../../src/db/repositories/turn-completion.js';
 import { FakeLlm } from '../../../src/llm/fake.js';
 import type { Finding } from '../../../src/shared/findings.js';
-import type { MessageId, TurnId } from '../../../src/shared/ids.js';
+import type { MessageId } from '../../../src/shared/ids.js';
 import type { TurnCompletion } from '../../../src/shared/repositories.js';
 import { FakeBudget } from '../../helpers/budget.js';
 import { buildCompletion } from '../../helpers/turns.js';
