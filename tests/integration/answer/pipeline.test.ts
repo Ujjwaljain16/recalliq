@@ -202,10 +202,13 @@ describe('answer pipeline: only validated sentences are released', () => {
       ctx: context({ memoryHits: [{ messageId: MSG_1 } as never] }),
       recall: new Map([[MSG_1, { text: 'Shortlist Slack', localTime: '2026-11-03 14:05' }]]),
     });
-    const r = await pipeline(llm).run(input, new FakeBudget(60_000), sink().emit);
+    const s = sink();
+    const r = await pipeline(llm).run(input, new FakeBudget(60_000), s.emit);
     expect(r.sentences[0]?.text).toBe('You said "Shortlist Slack" (Tuesday 3 Nov, 14:05).');
     expect(r.sentences[0]?.placeholders[0]?.messageId).toBe(MSG_1);
-    expect(r.sentences[1]?.text).toBe('See [1].');
+    // a source shown with no excerpt this turn cannot carry a sentence of its own: it fails closed
+    expect(r.sentences).toHaveLength(1);
+    expect(JSON.stringify(withheld(s.events))).toContain('ungrounded_source');
   });
 
   it('uses the time zone of the input to render dates', async () => {
@@ -379,7 +382,11 @@ describe('answer pipeline: interruption, deadline and abort', () => {
     );
     expect(warnings(s2.events)).toEqual([]);
     expect(full.streamCalls[0]?.maxTokens).toBe(1200);
-    expect(full.streamCalls[0]?.messages).toHaveLength(2);
+    // history travels in a fenced data block, never as conversation turns
+    expect(full.streamCalls[0]?.messages).toHaveLength(1);
+    expect(full.streamCalls[0]?.messages[0]?.content).toContain(
+      '<data kind="history">' + String.fromCharCode(10) + 'user: earlier',
+    );
   });
 
   it('a sink that throws stops the streamed count; validated sentences are still returned', async () => {
@@ -506,7 +513,7 @@ describe('answer pipeline: prompt data and citations', () => {
   });
 
   it('lists the cited snapshots in citation order', async () => {
-    const llm = new FakeLlm().queueStream({ deltas: ['See [[F1]]. Also [[S:src_two]].'] });
+    const llm = new FakeLlm().queueStream({ deltas: ['See [[F1]], also [[S:src_two]].'] });
     const input = inputFor({ findings: findingSet([finding(1)]) });
     const r = await pipeline(llm).run(input, new FakeBudget(60_000), sink().emit);
     const ids = citedSnapshotIds(r.sentences, recordsFor([finding(1)]));
