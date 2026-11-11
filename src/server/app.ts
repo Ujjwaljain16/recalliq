@@ -48,7 +48,7 @@ export interface ServerOptions {
   /** Absolute path of the browser client directory. */
   webRoot: string;
   /** What `GET /api/health` reports about the running configuration. */
-  info: { mode: string; components: 'scripted' | 'live'; banner: string | null };
+  info: { mode: string; components: 'scripted' | 'replay' | 'live'; banner: string | null };
   heartbeatMs?: number;
 }
 

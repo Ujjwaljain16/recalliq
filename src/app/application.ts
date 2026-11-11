@@ -7,32 +7,24 @@ import {
   openDatabase,
   SqliteTurnRepository,
   UserRepository,
-  type BeliefRebuilder,
   type Db,
 } from '../db/index.js';
+import { BeliefRepository } from '../belief/repository.js';
+import { DEFAULT_BELIEF_POLICY, RuleBeliefResolver } from '../belief/resolver.js';
 import { DefaultTurnOrchestrator, type OrchestratorDeps } from '../orchestration/index.js';
 import { createAppServer, type AppServer } from '../server/app.js';
 import type { Clock, Logger } from '../shared/infrastructure.js';
 import { SystemClock } from '../temporal/clock.js';
 import { DefaultTemporalResolver } from '../temporal/resolver.js';
-import { SCRIPTED_BANNER, type ComponentFactory, type Components } from './components.js';
+import {
+  REPLAY_BANNER,
+  SCRIPTED_BANNER,
+  type ComponentFactory,
+  type Components,
+} from './components.js';
 import { SqliteConversationView } from './conversation-view.js';
 import type { AppEnv } from './env.js';
 import { silentLogger } from './logger.js';
-
-/**
- * INTEGRATION POINT: belief recomputation after a privacy deletion.
- *
- * Deleting a conversation must rebuild the beliefs of the keys whose evidence it supplied (contracts 1.1,
- * step 7). The belief resolver does not exist yet, and with it no belief rows are ever written, so there is
- * nothing to rebuild. Replace this with the real resolver when it lands; until then a deletion that touched
- * belief keys would leave derived data stale, which cannot happen while no beliefs exist.
- */
-const NO_BELIEFS_YET: BeliefRebuilder = {
-  rebuild() {
-    /* no beliefs are written yet, so there is nothing to recompute */
-  },
-};
 
 export interface ApplicationOptions {
   env: AppEnv;
@@ -80,7 +72,15 @@ export async function startApplication(options: ApplicationOptions): Promise<App
     const users = new UserRepository(db, clock);
     const conversations = new ConversationRepository(db, clock);
     const messages = new MessageRepository(db, clock);
-    const turns = new SqliteTurnRepository(db, clock, { beliefs: NO_BELIEFS_YET });
+    const turns = new SqliteTurnRepository(db, clock, {
+      // Privacy deletion rebuilds the beliefs of the keys it touched from the evidence that survives.
+      beliefs: new BeliefRepository({
+        db,
+        resolver: new RuleBeliefResolver(),
+        policy: DEFAULT_BELIEF_POLICY,
+        clock,
+      }),
+    });
 
     // A turn left running by a crash or restart can never finish; mark it so its conversation is not blocked.
     const recovered = turns.recoverRunning(clock.now());
@@ -118,7 +118,12 @@ export async function startApplication(options: ApplicationOptions): Promise<App
       info: {
         mode: env.config.mode,
         components: components.kind,
-        banner: components.kind === 'scripted' ? SCRIPTED_BANNER : null,
+        banner:
+          components.kind === 'scripted'
+            ? SCRIPTED_BANNER
+            : components.kind === 'replay'
+              ? REPLAY_BANNER
+              : null,
       },
       ...(options.heartbeatMs !== undefined ? { heartbeatMs: options.heartbeatMs } : {}),
     });

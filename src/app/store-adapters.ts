@@ -1,5 +1,11 @@
 import type { Db, MessageRepository } from '../db/index.js';
+import { decodePriceKey } from '../belief/belief-key.js';
+import { DEFAULT_BELIEF_POLICY } from '../belief/resolver.js';
 import { BaselineLoader } from '../db/index.js';
+import { EvidenceRepository } from '../evidence/repository.js';
+import type { PriceBeliefKey } from '../shared/belief.js';
+import type { VerifiedEvidence } from '../shared/evidence.js';
+import type { Baseline } from '../shared/memory.js';
 import type {
   BaselineSource,
   ConversationWindowReader,
@@ -26,29 +32,74 @@ export class MessageWindowReader implements ConversationWindowReader {
 }
 
 /**
- * INTEGRATION POINT: the belief-key decoder.
+ * Baselines for an audit (ADR-38). `eligible` completes each claim the baseline loader accepts into a shared
+ * Baseline: the belief key is decoded (the key names its entity), the entity must still exist for the user,
+ * the claim's own stored evidence is loaded, and `evidenceStatusAtT0` is computed:
  *
- * An eligible baseline (src/shared/memory.ts `Baseline`) needs a parsed `PriceBeliefKey` and an entity id,
- * which come from decoding the stored `belief_key` string. That decoder belongs to the belief module and does
- * not exist yet, so this adapter returns NO eligible baselines: an audit has nothing to compare against and
- * says so. Nothing is invented in its place.
+ *   missing       no linked evidence could be loaded
+ *   weak          some loaded statement is not a `pass`
+ *   pass_current  every statement passes and one was a fresh fetch no more than the price freshness window
+ *                 (30 days, the belief policy) before the answer was presented
+ *   pass_stale    every statement passes, but none was a fresh fetch within that window
  *
- * `unverified` is real: it is the existing baseline loader's `recallUnverified`, which already has the
- * UnverifiedClaim shape (what the user was shown, never presented as a verified fact, ADR-38).
- *
- * To wire the real thing, replace `eligible` with the mapping described on `BaselineSource` in
- * src/orchestration/ports.ts: loadBaselines(...) for each conversation, each claim completed with the decoded
- * key, entity id, stored evidence and evidence status at T0.
+ * A claim whose key cannot be decoded is skipped: nothing is invented in its place.
+ * `unverified` is the loader's `recallUnverified` (what the user was shown, never a verified fact).
  */
 export class LoaderBaselineSource implements BaselineSource {
   private readonly loader: BaselineLoader;
+  private readonly evidence: EvidenceRepository;
 
-  constructor(db: Db) {
+  constructor(
+    private readonly db: Db,
+    private readonly freshnessMs: number = DEFAULT_BELIEF_POLICY.freshnessMs.price,
+  ) {
     this.loader = new BaselineLoader(db);
+    this.evidence = new EvidenceRepository(db);
   }
 
-  eligible(): never[] {
-    return [];
+  eligible(q: Parameters<BaselineSource['eligible']>[0]): Baseline[] {
+    const out: Baseline[] = [];
+    for (const conversationId of q.conversationIds) {
+      for (const claim of this.loader.loadBaselines(q.userId, q.currentTurnId, {
+        conversationId,
+      })) {
+        let key: PriceBeliefKey;
+        try {
+          key = decodePriceKey(claim.beliefKey);
+        } catch {
+          continue;
+        }
+        const owned = this.db
+          .prepare('SELECT 1 FROM entities WHERE id = ? AND user_id = ?')
+          .pluck()
+          .get(key.entityId, q.userId);
+        if (owned === undefined) continue;
+        const evidence = this.evidence.getMany(q.userId, claim.evidenceIds);
+        out.push({
+          assertionId: claim.assertionId,
+          beliefKey: claim.beliefKey,
+          key,
+          entityId: key.entityId,
+          value: claim.value,
+          presentedAt: claim.presentedAt,
+          evidence,
+          evidenceStatusAtT0: this.statusAtT0(evidence, claim.presentedAt),
+        });
+      }
+    }
+    return out;
+  }
+
+  private statusAtT0(
+    evidence: VerifiedEvidence[],
+    presentedAt: number,
+  ): Baseline['evidenceStatusAtT0'] {
+    if (evidence.length === 0) return 'missing';
+    if (evidence.some((e) => e.verification.status !== 'pass')) return 'weak';
+    const current = evidence.some(
+      (e) => e.freshFetch && presentedAt - e.observedAt <= this.freshnessMs,
+    );
+    return current ? 'pass_current' : 'pass_stale';
   }
 
   unverified(q: Parameters<BaselineSource['unverified']>[0]): UnverifiedClaim[] {

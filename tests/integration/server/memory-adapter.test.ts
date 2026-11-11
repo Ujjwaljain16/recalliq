@@ -216,13 +216,8 @@ describe('LoaderBaselineSource', () => {
   it('returns no eligible baselines and no unverified claims when nothing was presented', () => {
     const { t, alice, a } = setup();
     const source = new LoaderBaselineSource(t.db);
-    expect(source.eligible()).toEqual([]);
-    expect(
-      source.unverified({
-        userId: alice,
-        currentTurnId: a.turnId,
-        conversationIds: [a.conversationId],
-      }),
-    ).toEqual([]);
+    const query = { userId: alice, currentTurnId: a.turnId, conversationIds: [a.conversationId] };
+    expect(source.eligible(query)).toEqual([]);
+    expect(source.unverified(query)).toEqual([]);
   });
 });
