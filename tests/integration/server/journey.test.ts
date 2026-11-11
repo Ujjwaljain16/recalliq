@@ -127,6 +127,36 @@ describe('a full user journey', () => {
     });
   });
 
+  it('returns the findings, recalled messages and activity of a turn on reload', async () => {
+    t = await startTestApp();
+    const user = t.client();
+    const conversationId = await user.newConversation();
+    const first = await user.turn(conversationId, 'What does HubSpot cost?', 'k-1');
+    const streamed = first.events.filter((e) => e.event === 'finding').map((e) => e.data);
+    t.clock.advance(24 * 60 * 60 * 1000);
+    await user.turn(conversationId, 'What did I ask yesterday about HubSpot?', 'k-2');
+
+    interface ReloadBody {
+      messages: Array<{
+        role: string;
+        findings: unknown[];
+        memoryHits: Array<{ excerpt: string; localTime: string }>;
+        activity: { plannedSearches: number | null; elapsedMs: number | null } | null;
+      }>;
+    }
+    const view = await user.json<ReloadBody>(
+      'GET',
+      `/api/conversations/${conversationId}/messages`,
+    );
+    const [question, research, , recall] = view.body.messages;
+    expect(question).toMatchObject({ role: 'user', findings: [], memoryHits: [], activity: null });
+    expect(research?.findings).toEqual(streamed);
+    expect(research?.activity?.plannedSearches).toBeGreaterThan(0);
+    expect(typeof research?.activity?.elapsedMs).toBe('number');
+    expect(recall?.memoryHits.map((h) => h.excerpt)).toContain('What does HubSpot cost?');
+    expect(recall?.activity?.plannedSearches).toBeNull();
+  });
+
   it('shows an unable_to_verify finding as a partial turn with an honest sentence', async () => {
     t = await startTestApp();
     const user = t.client();

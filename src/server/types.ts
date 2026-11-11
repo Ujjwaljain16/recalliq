@@ -1,5 +1,6 @@
 import type { SentenceIssue, SentenceKind, SentenceStatus } from '../shared/answer.js';
 import type { DeliveryState } from '../shared/delivery.js';
+import type { Finding } from '../shared/findings.js';
 import type { AuthorityTier } from '../shared/evidence.js';
 import type { ConversationId, MessageId, Ms, SnapshotId, TurnId, UserId } from '../shared/ids.js';
 import type { SseEvent } from '../shared/sse.js';
@@ -38,6 +39,13 @@ export interface SourceView {
   tier: AuthorityTier;
 }
 
+export interface ActivityView {
+  /** From the turn's `plan` event; null when the turn searched nothing. */
+  plannedSearches: number | null;
+  /** The turn's time to completion; null when unknown. */
+  elapsedMs: number | null;
+}
+
 export interface MessageView {
   id: MessageId;
   role: 'user' | 'assistant';
@@ -53,6 +61,12 @@ export interface MessageView {
   sources: SourceView[];
   /** Assistant only: the options of a clarifying question, to offer as choices. */
   clarification: { question: string; options: Array<{ label: string; ref: string }> } | null;
+  /** Assistant only: the turn's stored findings, so a reloaded answer shows the same findings card. */
+  findings: Finding[];
+  /** Assistant only: the earlier messages the turn recalled (its stored `context` event). */
+  memoryHits: Array<{ messageId: MessageId; localTime: string; excerpt: string }>;
+  /** Assistant only: what the turn did, for a one-line activity summary. null for older turns. */
+  activity: ActivityView | null;
   /** The turn this message belongs to: its outcome, so a turn with no stored answer can be shown honestly. */
   turn: { status: TurnStatus; lane: Lane | null; errorCode: string | null } | null;
 }

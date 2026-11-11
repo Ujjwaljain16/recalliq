@@ -8,6 +8,7 @@ import type { Finding, FindingSet } from '../shared/findings.js';
 import { parseId, type ConversationId, type TurnId, type UserId } from '../shared/ids.js';
 import type { SseEvent } from '../shared/sse.js';
 import type {
+  ActivityView,
   ConversationSummary,
   ConversationView,
   MessageView,
@@ -70,6 +71,20 @@ function sourcesOf(events: SseEvent[]): SourceView[] {
 interface TurnExtras {
   sources: SourceView[];
   clarification: MessageView['clarification'];
+  findings: Finding[];
+  memoryHits: MessageView['memoryHits'];
+  activity: ActivityView | null;
+}
+
+/** What the turn did, for the one-line activity summary a reloaded answer shows. */
+function activityOf(events: SseEvent[]): ActivityView | null {
+  let plannedSearches: number | null = null;
+  let elapsedMs: number | null = null;
+  for (const e of events) {
+    if (e.event === 'plan') plannedSearches = e.data.plannedSearches;
+    if (e.event === 'turn.completed') elapsedMs = e.data.metrics.ttcMs;
+  }
+  return events.length === 0 ? null : { plannedSearches, elapsedMs };
 }
 
 function clarificationOf(events: SseEvent[]): MessageView['clarification'] {
@@ -140,9 +155,13 @@ export class SqliteConversationView implements ConversationView {
         [turnId, userId],
       );
       const events = parseEvents(row?.events_json ?? null);
+      const context = events.find((e) => e.event === 'context');
       const extras: TurnExtras = {
         sources: sourcesOf(events),
         clarification: clarificationOf(events),
+        findings: events.flatMap((e): Finding[] => (e.event === 'finding' ? [e.data] : [])),
+        memoryHits: context?.event === 'context' ? context.data.memoryHits : [],
+        activity: activityOf(events),
       };
       eventCache.set(turnId, extras);
       return extras;
@@ -174,6 +193,9 @@ export class SqliteConversationView implements ConversationView {
         sentences,
         sources: extras?.sources ?? [],
         clarification: extras?.clarification ?? null,
+        findings: extras?.findings ?? [],
+        memoryHits: extras?.memoryHits ?? [],
+        activity: extras?.activity ?? null,
         turn: turn ? { status: turn.status, lane: turn.lane, errorCode: turn.error_code } : null,
       };
     });
