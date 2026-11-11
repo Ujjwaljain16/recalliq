@@ -514,11 +514,20 @@ stateDiagram-v2
   CLARIFYING --> PERSISTING
   ANALYZING --> PERSISTING: LLM outage → deterministic reply
   SYNTHESIZING --> PERSISTING: stream failure / deadline → interrupted
+  RECEIVED --> PERSISTING: unexpected error
+  RESOLVING_CONTEXT --> PERSISTING: unexpected error
+  PLANNING --> PERSISTING: unexpected error
+  SEARCHING --> PERSISTING: unexpected error
+  EXTRACTING --> PERSISTING: unexpected error
+  VERIFYING --> PERSISTING: unexpected error
+  RESOLVING_BELIEFS --> PERSISTING: unexpected error
   PERSISTING --> COMPLETED
   PERSISTING --> FAILED: DB failure
   COMPLETED --> [*]
   FAILED --> [*]
 ```
+
+*Revised 2026-11-12 ([ADR-39](adr/ADR-39.md)): the diagram above first had 19 edges. Seven failure edges were added so that a turn that cannot continue, for example after a replay fixture miss or a programmer error, always reaches a terminal state: the coordinator moves it to PERSISTING and completes it with status `failed`, never with a made-up answer. The full 26-edge table is in [turn-lifecycle.md](turn-lifecycle.md).*
 
 **Budgets.**
 
