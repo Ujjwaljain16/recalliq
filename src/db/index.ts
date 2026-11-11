@@ -29,6 +29,15 @@ export {
   type StoredAssertion,
   type StoredAssertionEvent,
 } from './repositories/assertions.js';
+export {
+  BaselineLoader,
+  type BaselineClaim,
+  type ClaimFilter,
+  type IneligibleReason,
+  type PresentedClaim,
+  type RecalledClaim,
+} from './repositories/baseline-loader.js';
+export { normalizeTerm } from './repositories/enrichment.js';
 export { ConversationRepository, type Conversation } from './repositories/conversations.js';
 export { MessageRepository, type NewMessage, type StoredMessage } from './repositories/messages.js';
 export { validateCompletion } from './repositories/turn-completion.js';
