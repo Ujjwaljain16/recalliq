@@ -125,6 +125,15 @@ const REASON_TEXT: Record<string, string> = {
 
 /** A finding whose check ran but produced no verified value: said as what it is, not as "no price exists". */
 export const NO_VERIFIED_PRICE_TEXT = 'I could not confirm a price through my checks';
+/**
+ * The short qualifier that follows a sourced sentence about the same entity when a finding line renders one of
+ * the negative statements above, or null when the rendering is not one of them.
+ */
+export function negativeQualifier(rendered: string): string | null {
+  if (rendered === NO_VERIFIED_PRICE_TEXT) return 'not confirmed by my own checks';
+  const m = /^couldn't be checked this time \((.+)\)$/.exec(rendered);
+  return m ? `my own check of the page failed (${m[1] ?? ''})` : null;
+}
 /** A releases finding with no interval to look in: there is nothing to report releases against. */
 export const NO_TIME_WINDOW_TEXT = 'I can only report releases for a period you name';
 

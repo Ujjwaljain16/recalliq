@@ -26,7 +26,7 @@ import {
 import { SentenceAssembler, type Candidate } from './assembler.js';
 import { PlaceholderParser } from './placeholders.js';
 import { buildRecords, resolveRef, type AnswerRecords } from './records.js';
-import { defaultRenderer, recordCitations, type Renderer } from './render.js';
+import { defaultRenderer, negativeQualifier, recordCitations, type Renderer } from './render.js';
 import type { T3aContext } from './t3a.js';
 import { selectExcerpts } from './excerpts.js';
 import type { SourcedContext } from './sourced.js';
@@ -241,6 +241,33 @@ export class LlmAnswerPipeline implements AnswerPipeline {
           judgeFacts: null,
         });
       }
+      deliver(c);
+    };
+
+    // A finding line that only says "no verified price" / "couldn't be checked" is held for the sourced sentence
+    // that may follow about the same entity, so the two are one statement instead of a contradiction.
+    let held: { c: Candidate; entity: string; qualifier: string } | null = null;
+    const nameOf = new Map(findings.map((f) => [f.id, f.entityName]));
+    const flushHeld = (): void => {
+      const h = held;
+      held = null;
+      if (h) emitReleased(h.c);
+    };
+    const deliver = (c: Candidate): void => {
+      const h = held;
+      if (h && c.kind === 'sourced' && namesEntity(c.text, h.entity)) {
+        held = null;
+        emitReleased(mergeQualifier(c, h.c, h.qualifier));
+        return;
+      }
+      flushHeld();
+      const only = c.placeholders.length === 1 ? c.placeholders[0] : undefined;
+      const qualifier = only ? negativeQualifier(only.rendered) : null;
+      const entity = only?.findingId ? nameOf.get(only.findingId) : undefined;
+      if (!quick && excerpts.length > 0 && c.kind === 'verified' && qualifier && entity) {
+        held = { c, entity, qualifier };
+        return;
+      }
       emitReleased(c);
     };
 
@@ -357,6 +384,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
     }
 
     await gate; // sentences already complete finish their checks (and judge) in order
+    flushHeld();
     if (!quick && !interrupted && released.length === 0) {
       safeEmit({
         event: 'error',
@@ -455,6 +483,29 @@ export class ParagraphLayout {
     const named = this.names.filter((n) => n.re.test(c.text));
     return named.length === 1 ? (named[0]?.name ?? null) : null;
   }
+}
+
+const namesEntity = (text: string, entity: string): boolean =>
+  new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(entity)}(?![\\p{L}\\p{N}])`, 'iu').test(text);
+
+/**
+ * One statement from a sourced sentence and the finding line about the same entity that says its own checks found
+ * no price: the sourced sentence stays, the finding's negative follows it as a short qualifier. The finding's
+ * placeholder stays in the template (so the sentence is typed from it), and its stored rendering is the qualifier.
+ */
+function mergeQualifier(sourced: Candidate, finding: Candidate, qualifier: string): Candidate {
+  const open = (s: string): string => s.replace(/\.\s*$/, '');
+  const own = finding.placeholders[0];
+  if (!own) return sourced;
+  return {
+    sep: finding.sep,
+    template: `${open(sourced.template)} — ${own.token}.`,
+    text: `${open(sourced.text)} — ${qualifier}.`,
+    placeholders: [...sourced.placeholders, { ...own, rendered: qualifier }],
+    issues: [],
+    judgeFacts: null,
+    kind: 'sourced',
+  };
 }
 
 function join(
