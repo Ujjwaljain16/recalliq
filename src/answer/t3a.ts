@@ -104,7 +104,8 @@ export type ChangeKind =
   | 'differs'
   | 'wrong'
   | 'launch'
-  | 'removal';
+  | 'removal'
+  | 'releaseNoun';
 
 interface WordRule {
   kind: ChangeKind;
@@ -166,9 +167,10 @@ export const EXTRA_WORDS: WordRule[] = [
     kind: 'removal',
     re: /\b(?:deprecat(?:e|es|ed|ing)|discontinu(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|retir(?:e|es|ed|ing)|sunset(?:s|ted|ting)?|phas(?:e|es|ed|ing) out|end(?:ed)? of life)\b/gi,
   },
+  { kind: 'releaseNoun', re: /\breleases?\b/gi },
   {
     kind: 'launch',
-    re: /\b(?:launch(?:es|ed|ing)?|releas(?:e|es|ed|ing)|ship(?:s|ped|ping)|introduc(?:e|es|ed|ing)|unveil(?:s|ed|ing)?|announc(?:e|es|ed|ing)|roll(?:s|ed|ing)? out|new (?:plan|tier|feature|version))\b/gi,
+    re: /\b(?:launch(?:es|ed|ing)?|releas(?:ed|ing)|ship(?:s|ped|ping)|introduc(?:e|es|ed|ing)|unveil(?:s|ed|ing)?|announc(?:e|es|ed|ing)|roll(?:s|ed|ing)? out|new (?:plan|tier|feature|version))\b/gi,
   },
 ];
 
@@ -178,7 +180,28 @@ export const EXTRA_WORDS: WordRule[] = [
  * `differs_timing_unknown` never permits a confirmed-change word. Contested, unable_to_verify, stale and unknown
  * findings authorise no definitive change claim because no rule below accepts them.
  */
+/** Kinds that speak about a PRICE: a releases-intent finding never authorises them. */
+const PRICE_KINDS: ReadonlySet<ChangeKind> = new Set<ChangeKind>([
+  'up',
+  'down',
+  'more',
+  'less',
+  'change',
+  'timing',
+  'unchanged',
+  'nosign',
+  'differs',
+  'wrong',
+]);
+
+/**
+ * `release` and `releases` as a NOUN name the topic; the placeholder renders the statement. Any finding of the
+ * releases intent justifies the noun, whatever its verdict (releases_found, none_found, unable_to_verify), and a
+ * pricing finding never does. The verb forms (launched, released, shipped, ...) are the `launch` kind and still
+ * need releases_found with a compatible item: none_found never authorises them.
+ */
 const COMPATIBLE: Record<ChangeKind, Predicate> = {
+  releaseNoun: (f) => f.intent === 'releases',
   up: (f) => f.verdict === 'changed' && f.direction === 'up' && f.currentStatus === 'confirmed',
   down: (f) => f.verdict === 'changed' && f.direction === 'down' && f.currentStatus === 'confirmed',
   more: (f) => f.verdict === 'changed' && f.direction === 'up' && f.currentStatus === 'confirmed',
@@ -197,8 +220,8 @@ const COMPATIBLE: Record<ChangeKind, Predicate> = {
     f.verdict === 'differs_timing_unknown' ||
     (f.verdict === 'changed' && f.currentStatus === 'confirmed'),
   wrong: (f) => f.verdict === 'baseline_incorrect',
-  launch: releaseKind('launch', 'change'),
-  removal: releaseKind('removal'),
+  launch: (f) => f.intent === 'releases' && releaseKind('launch', 'change')(f),
+  removal: (f) => f.intent === 'releases' && releaseKind('removal')(f),
 };
 
 const MARK_OPEN = String.fromCharCode(0x27e6);
@@ -272,7 +295,10 @@ function languageRefused(
         continue; // between findings: the judge decides, and it authorises nothing else
       } else return true; // ambiguous, or nothing to attach to
       const f = byOrd.get(ord);
-      if (!f || !pool.some((k) => k.ord === ord && k.anchoring)) return true;
+      // The release noun is anchored by any placeholder of the finding; every other kind needs :verdict/:baseline.
+      const anchored = pool.some((k) => k.ord === ord && (kind === 'releaseNoun' || k.anchoring));
+      if (!f || !anchored) return true;
+      if (PRICE_KINDS.has(kind) && f.intent === 'releases') return true;
       if (!COMPATIBLE[kind](f)) return true;
     }
   }
