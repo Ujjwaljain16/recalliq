@@ -1,7 +1,7 @@
 /**
  * THE ONE MODULE THAT KNOWS THE ANTHROPIC MESSAGES API WIRE FORMAT.
  *
- * Verified against the public documentation on 2026-11-12 (platform.claude.com/docs: streaming, errors,
+ * Read from the public documentation on 2026-11-12 (platform.claude.com/docs: streaming, errors,
  * structured outputs, prompt caching), not against a live call (no API key was available):
  *   - POST {base}/v1/messages with headers x-api-key, anthropic-version, content-type: application/json;
  *   - body: model, max_tokens, messages, system (array of text blocks, cache_control {type:'ephemeral'}),

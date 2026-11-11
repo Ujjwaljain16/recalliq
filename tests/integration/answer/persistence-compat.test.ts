@@ -25,6 +25,7 @@ describe('answer pipeline output is accepted by the completion check', () => {
         ctx: context(),
         userMessage: 'What does it cost?',
         window: [],
+        tz: 'Europe/London',
       },
       new FakeBudget(60_000),
       sink().emit,
@@ -80,12 +81,12 @@ describe('answer pipeline output is accepted by the completion check', () => {
     expect(() => validateCompletion(turnId, c)).not.toThrow();
   });
 
-  it('an interrupted answer with a truncated last sentence', async () => {
+  it('an interrupted answer containing only its released sentences', async () => {
     const { c, turnId } = await complete(
       ['Fine. It costs [[F1]] and', ' more'],
       new LlmError('timeout', 't'),
     );
-    expect(c.assistant?.sentences.map((s) => s.status)).toEqual(['no_claims', 'truncated']);
+    expect(c.assistant?.sentences.map((s) => s.status)).toEqual(['no_claims']);
     expect(c.assistant?.streamedThrough).toBe(0);
     expect(() => validateCompletion(turnId, c)).not.toThrow();
   });

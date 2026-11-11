@@ -7,7 +7,7 @@
 | Piece | Where | State |
 |---|---|---|
 | Gemini adapter behind `LlmPort` (`generateContent`, `streamGenerateContent`) | `src/llm/gemini/` | Built, tested against hand-authored `[SYNTHETIC]` HTTP fixtures. Never called live. |
-| Anthropic adapter behind `LlmPort` | `src/llm/anthropic/` | Built and tested against fixtures. Kept as written; not extended. |
+| Anthropic adapter behind `LlmPort` | `src/llm/anthropic/` | Frozen. Written from documentation and tested only against hand-authored fixtures. It was never run live, so its wire format is not verified. |
 | Scripted fake, recording and replay adapters | `src/llm/fake.ts`, `src/llm/replay.ts` | Built. Replay never falls back to a live call. |
 | Client-side limiter, bounded retries with backoff and jitter | `src/llm/limiter.ts`, `src/llm/gemini/adapter.ts` | Built, unit-tested with injected time and randomness. |
 | Fixed benchmark set and harness | `src/llm/bench/`, `scripts/model-bench.ts` | Built and unit-tested against the fake adapter. **Not run against any model.** |
@@ -23,7 +23,7 @@ The set is `bench-set-1` (`src/llm/bench/cases.ts`). Every case is synthetic (in
 |---|---|---|
 | Structured extraction reliability | The analysis prompt returns JSON that passes the zod schema, then per-case checks: entities found, temporal expression kept as data (never computed), "still correct?" cue, a user fact with a verbatim quote. A schema failure after the bounded repair is a failure; a schema-valid wrong answer is `wrong`. | 3 |
 | T2/T3 assist | The judge prompt must call a supported comparison supported and an unsupported one not supported. | 2 |
-| Answer synthesis | One streamed reply; checks that it is non-empty and records time to first token. Placeholder discipline is judged by the answer pipeline's own checks, not by this harness. | 1 |
+| Answer synthesis | One streamed reply; checks that it is non-empty and records time to first token from the provider (the browser sees text only when a whole sentence has been validated). Placeholder discipline is judged by the answer pipeline's own checks, not by this harness. | 1 |
 | Correctness | Share of cases `ok` among those attempted. | all |
 | Latency | Per call, as reported by the adapter (`latencyMs`, `ttftMs`); summarised only from observed values. | all |
 | Tokens | Input, output and cached tokens as reported by the provider; thinking tokens are counted as output. | all |

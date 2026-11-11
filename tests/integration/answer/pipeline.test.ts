@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { LlmAnswerPipeline, citedSnapshotIds } from '../../../src/answer/pipeline.js';
 import { defaultRenderer, type Renderer } from '../../../src/answer/render.js';
 import { FakeLlm } from '../../../src/llm/fake.js';
-import { LlmError } from '../../../src/shared/llm.js';
+import { LlmError, type LlmPort } from '../../../src/shared/llm.js';
 import type { SseEvent } from '../../../src/shared/sse.js';
 import type { MessageId } from '../../../src/shared/ids.js';
 import { persistedSentencesSchema } from '../../../src/db/schemas.js';
 import { FakeBudget } from '../../helpers/budget.js';
 import {
   MSG_1,
-  SRC_1,
   context,
   finding,
   findingSet,
@@ -29,18 +28,27 @@ function inputFor(over: Partial<Parameters<LlmAnswerPipeline['run']>[0]> = {}) {
   };
 }
 
-function pipeline(llm: FakeLlm, over: { renderer?: Renderer; judge?: boolean } = {}) {
+function pipeline(
+  llm: LlmPort,
+  over: { renderer?: Renderer; judge?: boolean; judgeCapMs?: number } = {},
+) {
   return new LlmAnswerPipeline({
     llm,
     renderer: over.renderer,
-    options: { judge: over.judge },
+    options: { judge: over.judge, judgeCapMs: over.judgeCapMs },
   });
 }
 
 const types = (events: SseEvent[]) => events.map((e) => e.event);
+const deltas = (events: SseEvent[]) =>
+  events.flatMap((e) => (e.event === 'answer.delta' ? [e.data.text] : []));
+const warnings = (events: SseEvent[]) =>
+  events.flatMap((e) => (e.event === 'warning' ? [e.data] : []));
+const withheld = (events: SseEvent[]) =>
+  warnings(events).filter((w) => w.code === 'sentence_withheld');
 
-describe('answer pipeline: streaming, rendering and extents', () => {
-  it('renders placeholders by code, ends sentences in order, and reports the exact streamed extent', async () => {
+describe('answer pipeline: only validated sentences are released', () => {
+  it('releases each sentence as ONE delta with its complete rendered text, then its sentence_end', async () => {
     const llm = new FakeLlm().queueStream({
       deltas: ['ExampleCo1 costs [[F', '1]]. ExampleCo2: [[F2:verd', 'ict]]. Done.'],
     });
@@ -48,16 +56,13 @@ describe('answer pipeline: streaming, rendering and extents', () => {
     const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
 
     expect(r.interrupted).toBe(false);
+    expect(r.sentences.map((x) => x.index)).toEqual([0, 1, 2]);
     expect(r.sentences.map((x) => x.status)).toEqual(['verified', 'verified', 'no_claims']);
     expect(r.sentences[0]?.text).toBe('ExampleCo1 costs US$90 per user per month (pro) [1].');
     expect(r.sentences[0]?.template).toBe('ExampleCo1 costs [[F1]].');
-    expect(r.sentences[1]?.text).toContain('the official page still showed the same price');
     expect(r.streamedThrough).toBe(2);
-    expect(r.rendered).toBe(r.sentences.map((x, i) => (i === 0 ? '' : ' ') + x.text).join(''));
-    expect(r.template).toContain('[[F2:verdict]]');
     expect(() => persistedSentencesSchema.parse(r.sentences)).not.toThrow();
 
-    // deltas of a sentence precede its sentence_end, and the delta text is the rendered text
     const order = s.events
       .filter((e) => e.event === 'answer.delta' || e.event === 'answer.sentence_end')
       .map((e) =>
@@ -65,24 +70,35 @@ describe('answer pipeline: streaming, rendering and extents', () => {
           ? `d${e.data.sentenceIndex}`
           : `e${(e.data as { index: number }).index}`,
       );
-    expect(order.join(' ').replace(/(d\d) (?=\1)/g, '')).toBe('d0 e0 d1 e1 d2 e2');
-    const streamed = s.events
-      .flatMap((e) => (e.event === 'answer.delta' ? [e.data.text] : []))
-      .join('');
-    expect(streamed).toBe(r.rendered);
-    expect(types(s.events)).not.toContain('answer.completed');
-    expect(types(s.events)).not.toContain('turn.completed');
+    expect(order).toEqual(['d0', 'e0', 'd1', 'e1', 'd2', 'e2']); // one delta per sentence
+    expect(deltas(s.events).join('')).toBe(r.rendered);
+    expect(deltas(s.events)[0]).toBe(r.sentences[0]?.text);
+    expect(r.template).toContain('[[F2:verdict]]');
+    for (const t of ['answer.completed', 'turn.completed', 'verification']) {
+      expect(types(s.events)).not.toContain(t);
+    }
+    expect(JSON.stringify(s.events)).not.toContain('pending_judge');
   });
 
-  it('a held placeholder never leaks as text: the stream only ever carries rendered text', async () => {
+  it('holds received text: nothing is sent while a sentence is still arriving, even a placeholder split across deltas', async () => {
+    const s = sink();
+    const seen: number[] = [];
+    const llm = new FakeLlm().queueStream({
+      deltas: ['It costs [[F', '1]] and more', ' text. Then ', 'one more.'],
+      beforeDelta: () => void seen.push(s.events.length),
+    });
+    await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
+    // before each of the four deltas arrived the sink had received nothing at all
+    expect(seen.slice(0, 3)).toEqual([0, 0, 0]);
+    expect(s.events.length).toBeGreaterThan(0);
+  });
+
+  it('a held [[ never leaks as text', async () => {
     const llm = new FakeLlm().queueStream({ deltas: ['Costs [', '[F1', ']]', '.'] });
     const s = sink();
     await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
-    const streamed = s.events
-      .flatMap((e) => (e.event === 'answer.delta' ? [e.data.text] : []))
-      .join('');
-    expect(streamed).not.toContain('[[');
-    expect(streamed).toContain('US$90');
+    expect(deltas(s.events).join('')).not.toContain('[[');
+    expect(deltas(s.events).join('')).toContain('US$90');
   });
 
   it('a decimal inside a rendered price does not split a sentence', async () => {
@@ -105,63 +121,45 @@ describe('answer pipeline: streaming, rendering and extents', () => {
     expect(r.sentences[0]?.text).toContain('US$9.50');
   });
 
-  it('unknown refs, inapplicable variants and malformed placeholders are dropped and flagged', async () => {
+  it('a typed "$100/month" sentence is never emitted, never stored, and leaves no index gap', async () => {
     const llm = new FakeLlm().queueStream({
-      deltas: [
-        'A [[F9]] b. ',
-        'C [[F1:baseline]] d. ',
-        'E [[F1:derived:3]] f. ',
-        'G [[nonsense]] h. ',
-        'I [[M:msg_unlisted]] j. ',
-        `K [[S:src_unknown]] l. `,
-        'M [[F2]] n.',
-      ],
+      deltas: ['First [[F1]]. It is $100/month. Third [[F1]] again.'],
     });
-    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
-    expect(r.sentences.map((x) => x.issues)).toEqual([
-      ['unknown_ref'],
-      ['inapplicable_variant'],
-      ['inapplicable_variant'],
-      ['malformed_placeholder'],
-      ['unknown_ref'],
-      ['unknown_ref'],
-      [],
-    ]);
-    expect(r.sentences.slice(0, 6).every((x) => x.status === 'unverified')).toBe(true);
-    expect(r.sentences[6]?.status).toBe('verified');
-    expect(r.rendered).not.toContain('[[');
-    expect(r.template).not.toContain('F9');
+    const s = sink();
+    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
+    expect(r.sentences.map((x) => x.index)).toEqual([0, 1]);
+    expect(r.sentences.map((x) => x.template)).toEqual(['First [[F1]].', 'Third [[F1]] again.']);
+    expect(JSON.stringify(s.events)).not.toContain('$100');
+    expect(r.rendered).not.toContain('$100');
+    expect(r.template).not.toContain('100');
+    expect(withheld(s.events)).toHaveLength(1);
+    expect(withheld(s.events)[0]?.text).toContain('free_currency');
+    expect(r.streamedThrough).toBe(1);
+    const sentIdx = s.events.flatMap((e) =>
+      e.event === 'answer.sentence_end' ? [e.data.index] : [],
+    );
+    expect(sentIdx).toEqual([0, 1]);
   });
 
-  it('authorises message and source placeholders and renders them', async () => {
-    const llm = new FakeLlm().queueStream({
-      deltas: [`You said [[M:${MSG_1}]]. See [[S:${SRC_1}]].`],
-    });
-    const input = inputFor({
-      ctx: context({
-        memoryHits: [{ messageId: MSG_1 } as never],
-      }),
-      recall: new Map([[MSG_1, { text: 'Shortlist Slack', localTime: '2026-11-03 14:05' }]]),
-    });
-    const r = await pipeline(llm).run(input, new FakeBudget(60_000), sink().emit);
-    expect(r.sentences[0]?.text).toBe('You said "Shortlist Slack" (Tuesday 3 Nov, 14:05).');
-    expect(r.sentences[0]?.placeholders[0]?.messageId).toBe(MSG_1);
-    expect(r.sentences[1]?.text).toBe('See [1].');
-    expect(r.sentences.every((x) => x.status === 'verified')).toBe(true);
-  });
-
-  it('free text: $100 is flagged, the rendered $ is not', async () => {
-    const llm = new FakeLlm().queueStream({ deltas: ['It costs [[F1]]. Honestly it is $100. '] });
-    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
-    expect(r.sentences[0]?.status).toBe('verified');
-    expect(r.sentences[1]?.status).toBe('unverified');
-    expect(r.sentences[1]?.issues).toEqual(['free_currency']);
-  });
-
-  it('verdict words without a compatible finding, and unsupported global negatives, downgrade the sentence', async () => {
-    const llm = new FakeLlm().queueStream({
-      deltas: ['The price was raised: [[F2]]. Nothing changed. '],
-    });
+  it.each([
+    ['an unknown ref', 'A [[F9]] b.', 'unknown_ref'],
+    ['an inapplicable baseline', 'A [[F1:baseline]] b.', 'inapplicable_variant'],
+    ['an out-of-range derived index', 'A [[F1:derived:3]] b.', 'inapplicable_variant'],
+    ['a malformed placeholder', 'A [[nonsense]] b.', 'malformed_placeholder'],
+    ['an unlisted message', 'A [[M:msg_unlisted]] b.', 'unknown_ref'],
+    ['an unknown source', 'A [[S:src_unknown]] b.', 'unknown_ref'],
+    ['a typed percentage', 'Prices rose 15%.', 'free_percent'],
+    ['a typed date', 'It changed on 3 November.', 'free_date'],
+    ['a typed number', 'There are 3 plans.', 'free_number'],
+    [
+      'a verdict word with no compatible finding',
+      'The price was raised: [[F2]].',
+      'unsupported_verdict_word',
+    ],
+    ['an unsupported global negative', 'Nothing changed.', 'unsupported_global_negative'],
+  ])('withholds a sentence with %s', async (_name, text, issue) => {
+    const llm = new FakeLlm().queueStream({ deltas: [`Fine [[F1]]. ${text} After [[F1]].`] });
+    const s = sink();
     const r = await pipeline(llm).run(
       inputFor({
         findings: findingSet([
@@ -170,21 +168,72 @@ describe('answer pipeline: streaming, rendering and extents', () => {
         ]),
       }),
       new FakeBudget(60_000),
-      sink().emit,
+      s.emit,
     );
-    expect(r.sentences[0]?.issues).toEqual(['unsupported_verdict_word']);
-    expect(r.sentences[1]?.issues).toEqual(['unsupported_global_negative']);
+    expect(r.sentences.map((x) => x.index)).toEqual([0, 1]);
+    expect(withheld(s.events)).toHaveLength(1);
+    expect(withheld(s.events)[0]?.text).toContain(issue);
+    expect(r.rendered).not.toContain('nonsense');
   });
 
-  it('render-integrity: a renderer that changes its answer after delivery is caught, flagged and logged', async () => {
-    let armed = false;
+  it('when every sentence is withheld: no sentences, not interrupted, an empty_answer error', async () => {
+    const llm = new FakeLlm().queueStream({ deltas: ['It is $100. And $200.'] });
+    const s = sink();
+    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
+    expect(r).toMatchObject({
+      sentences: [],
+      streamedThrough: -1,
+      interrupted: false,
+      rendered: '',
+      template: '',
+    });
+    expect(withheld(s.events)).toHaveLength(2);
+    expect(s.events.find((e) => e.event === 'error')).toMatchObject({
+      data: { code: 'empty_answer' },
+    });
+    expect(deltas(s.events)).toEqual([]);
+  });
+
+  it('authorises message and source placeholders and renders them', async () => {
+    const llm = new FakeLlm().queueStream({
+      deltas: [`You said [[M:${MSG_1}]]. See [[S:src_one]].`],
+    });
+    const input = inputFor({
+      ctx: context({ memoryHits: [{ messageId: MSG_1 } as never] }),
+      recall: new Map([[MSG_1, { text: 'Shortlist Slack', localTime: '2026-11-03 14:05' }]]),
+    });
+    const r = await pipeline(llm).run(input, new FakeBudget(60_000), sink().emit);
+    expect(r.sentences[0]?.text).toBe('You said "Shortlist Slack" (Tuesday 3 Nov, 14:05).');
+    expect(r.sentences[0]?.placeholders[0]?.messageId).toBe(MSG_1);
+    expect(r.sentences[1]?.text).toBe('See [1].');
+  });
+
+  it('uses the time zone of the input to render dates', async () => {
+    const f = finding(1, {
+      baseline: {
+        value: finding(1).current!.value!,
+        presentedAt: Date.UTC(2026, 10, 3, 23, 30),
+        citations: [],
+        assertionId: 'asr_1',
+      },
+    });
+    const run = (tz: string) =>
+      pipeline(new FakeLlm().queueStream({ deltas: ['Before: [[F1:baseline]].'] })).run(
+        inputFor({ findings: findingSet([f]), tz }),
+        new FakeBudget(60_000),
+        sink().emit,
+      );
+    expect((await run('Europe/London')).rendered).toContain('as of 3 Nov 2026');
+    expect((await run('Pacific/Auckland')).rendered).toContain('as of 4 Nov 2026');
+  });
+
+  it('render integrity: a renderer that answers differently the second time withholds the sentence and logs', async () => {
+    let n = 0;
     const faulty: Renderer = {
-      render: (record, records) =>
-        defaultRenderer.render(record, records) +
-        (armed && record.kind === 'finding' ? ' (drift)' : ''),
+      render: (record, records) => `${defaultRenderer.render(record, records)} #${n++}`,
     };
     const errors: object[] = [];
-    const llm = new FakeLlm().queueStream({ deltas: ['ExampleCo1 costs [[F1]].'] });
+    const llm = new FakeLlm().queueStream({ deltas: ['ExampleCo1 costs [[F1]]. Plain sentence.'] });
     const p = new LlmAnswerPipeline({
       llm,
       renderer: faulty,
@@ -197,29 +246,17 @@ describe('answer pipeline: streaming, rendering and extents', () => {
         },
       },
     });
-    const emit = (e: SseEvent): void => {
-      if (e.event === 'answer.delta' && e.data.text.includes('US$')) armed = true; // delivered, then it drifts
-    };
-    const r = await p.run(inputFor(), new FakeBudget(60_000), emit);
-    expect(r.sentences[0]?.issues).toContain('render_mismatch');
-    expect(r.sentences[0]?.status).toBe('unverified');
+    const s = sink();
+    const r = await p.run(inputFor(), new FakeBudget(60_000), s.emit);
+    expect(r.sentences.map((x) => x.template)).toEqual(['Plain sentence.']);
+    expect(withheld(s.events)[0]?.text).toContain('render_mismatch');
     expect(errors).toHaveLength(1);
-  });
-
-  it('render-integrity: a renderer that returns different text for the same record each time is caught even on the first sentence', async () => {
-    const faulty: Renderer = { render: () => `v${Math.random()}` };
-    const llm = new FakeLlm().queueStream({ deltas: ['Costs [[F1]].'] });
-    const r = await pipeline(llm, { renderer: faulty }).run(
-      inputFor(),
-      new FakeBudget(60_000),
-      sink().emit,
-    );
-    expect(r.sentences[0]?.issues).toContain('render_mismatch');
+    expect(deltas(s.events).join('')).not.toContain('#');
   });
 });
 
 describe('answer pipeline: interruption, deadline and abort', () => {
-  it('a stream that fails mid-sentence persists the exact streamed text as truncated and is not counted as streamed', async () => {
+  it('a stream that fails mid-sentence emits and stores nothing for the incomplete sentence', async () => {
     const llm = new FakeLlm().queueStream({
       deltas: ['First is done. Second costs [[F1]] and then it'],
       failWith: new LlmError('unavailable', 'dropped'),
@@ -227,38 +264,37 @@ describe('answer pipeline: interruption, deadline and abort', () => {
     const s = sink();
     const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
     expect(r.interrupted).toBe(true);
-    expect(r.sentences.map((x) => x.status)).toEqual(['no_claims', 'truncated']);
-    expect(r.sentences[1]?.text).toBe(
-      'Second costs US$90 per user per month (pro) [1] and then it',
-    );
+    expect(r.sentences.map((x) => x.text)).toEqual(['First is done.']);
     expect(r.streamedThrough).toBe(0);
-    const streamed = s.events
-      .flatMap((e) => (e.event === 'answer.delta' ? [e.data.text] : []))
-      .join('');
-    expect(streamed).toBe(r.rendered);
-    const err = s.events.find((e) => e.event === 'error');
-    expect(err).toMatchObject({ data: { code: 'unavailable', recoverable: false } });
+    expect(deltas(s.events)).toEqual(['First is done.']);
+    expect(JSON.stringify(s.events)).not.toContain('Second');
+    expect(r.rendered).toBe('First is done.');
+    expect(s.events.find((e) => e.event === 'error')).toMatchObject({
+      data: { code: 'unavailable', recoverable: false },
+    });
     expect(types(s.events)).not.toContain('answer.completed');
   });
 
-  it('a sentence whose terminator arrived but whose boundary was not confirmed is truncated, not complete', async () => {
+  it('a sentence whose terminator arrived but whose boundary was not confirmed is not released', async () => {
     const llm = new FakeLlm().queueStream({
       deltas: ['Only one.'],
       failWith: new LlmError('timeout', 't'),
     });
-    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
-    expect(r.sentences.map((x) => x.status)).toEqual(['truncated']);
-    expect(r.streamedThrough).toBe(-1);
+    const s = sink();
+    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
+    expect(r.sentences).toEqual([]);
+    expect(deltas(s.events)).toEqual([]);
+    expect(r.interrupted).toBe(true);
   });
 
-  it('an unclosed [[ at the cut is dropped and flagged on the truncated sentence', async () => {
+  it('an unclosed [[ at the cut releases nothing for that sentence', async () => {
     const llm = new FakeLlm().queueStream({
-      deltas: ['Costs [[F'],
+      deltas: ['Fine. Costs [[F'],
       failWith: new LlmError('unavailable', 'x'),
     });
     const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
-    expect(r.sentences[0]).toMatchObject({ status: 'truncated', text: 'Costs ' });
-    expect(r.sentences[0]?.issues).toContain('malformed_placeholder');
+    expect(r.sentences.map((x) => x.text)).toEqual(['Fine.']);
+    expect(r.interrupted).toBe(true);
   });
 
   it('an interruption before any text gives no sentences and interrupted: true', async () => {
@@ -276,22 +312,10 @@ describe('answer pipeline: interruption, deadline and abort', () => {
     });
   });
 
-  it('a stream that ends normally with nothing usable is reported as interrupted with an empty_answer error', async () => {
-    const llm = new FakeLlm().queueStream({ deltas: ['  [[F9]]  '] });
-    const s = sink();
-    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
-    expect(r.interrupted).toBe(true);
-    expect(s.events.find((e) => e.event === 'error')).toMatchObject({
-      data: { code: 'empty_answer' },
-    });
-  });
-
   it('aborting the budget mid-stream ends the answer even when the provider never answers again', async () => {
     const budget = new FakeBudget(60_000);
-    const llm = new FakeLlm().queueStream({ deltas: ['One. Two is not'], hangUntilAbort: true });
-    // an adapter that ignores the signal entirely
-    const stubborn = {
-      structured: llm.structured.bind(llm),
+    const stubborn: LlmPort = {
+      structured: () => new Promise<never>(() => undefined),
       stream: () => ({
         [Symbol.asyncIterator]: () => {
           let n = 0;
@@ -307,14 +331,15 @@ describe('answer pipeline: interruption, deadline and abort', () => {
         },
       }),
     };
-    const p = new LlmAnswerPipeline({ llm: stubborn });
-    const running = p.run(inputFor(), budget, sink().emit);
+    const s = sink();
+    const running = new LlmAnswerPipeline({ llm: stubborn }).run(inputFor(), budget, s.emit);
     await new Promise((r) => setTimeout(r, 10));
     budget.spend(60_000);
     const r = await running;
     expect(r.interrupted).toBe(true);
-    expect(r.sentences.map((x) => x.status)).toEqual(['no_claims', 'truncated']);
+    expect(r.sentences.map((x) => x.text)).toEqual(['One.']);
     expect(r.streamedThrough).toBe(0);
+    expect(deltas(s.events)).toEqual(['One.']);
   });
 
   it('with no time left it does not call the model', async () => {
@@ -342,9 +367,7 @@ describe('answer pipeline: interruption, deadline and abort', () => {
       new FakeBudget(11_999),
       s.emit,
     );
-    expect(s.events.find((e) => e.event === 'warning')).toMatchObject({
-      data: { code: 'deadline_compacted' },
-    });
+    expect(warnings(s.events)[0]).toMatchObject({ code: 'deadline_compacted' });
     expect(llm.streamCalls[0]?.maxTokens).toBe(600);
     expect(llm.streamCalls[0]?.messages).toHaveLength(1);
     const full = new FakeLlm().queueStream({ deltas: ['Hi.'] });
@@ -354,16 +377,16 @@ describe('answer pipeline: interruption, deadline and abort', () => {
       new FakeBudget(30_000),
       s2.emit,
     );
-    expect(s2.events.some((e) => e.event === 'warning')).toBe(false);
+    expect(warnings(s2.events)).toEqual([]);
     expect(full.streamCalls[0]?.maxTokens).toBe(1200);
     expect(full.streamCalls[0]?.messages).toHaveLength(2);
   });
 
-  it('a sink that throws stops the streamed count but not the answer (the turn runs on)', async () => {
+  it('a sink that throws stops the streamed count; validated sentences are still returned', async () => {
     const llm = new FakeLlm().queueStream({ deltas: ['One. Two. Three.'] });
     let n = 0;
     const emit = (): void => {
-      if (++n > 3) throw new Error('socket closed'); // delta0, end0, delta1 ok; then it breaks
+      if (++n > 2) throw new Error('socket closed'); // delta0 and end0 are written, then it breaks
     };
     const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), emit);
     expect(r.interrupted).toBe(false);
@@ -372,92 +395,98 @@ describe('answer pipeline: interruption, deadline and abort', () => {
   });
 });
 
-describe('answer pipeline: judge (comparisons) and late results', () => {
+describe('answer pipeline: the judge gates comparisons', () => {
   const comparative = 'ExampleCo1 is cheaper than [[F2]] by far, see [[F1]].';
 
-  it('a comparison is pending_judge, then confirmed by a verification event', async () => {
+  it('a supported comparison is released like any other, with no pending or verification event', async () => {
     const llm = new FakeLlm()
       .queueStream({ deltas: [comparative] })
       .queueStructured({ verdict: 'supported' });
     const s = sink();
     const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
-    const end = s.events.find((e) => e.event === 'answer.sentence_end');
-    expect(end).toMatchObject({ data: { status: 'pending_judge' } });
-    expect(s.events.find((e) => e.event === 'verification')).toMatchObject({
-      data: { index: 0, status: 'verified' },
-    });
-    expect(r.sentences[0]?.status).toBe('verified');
+    expect(r.sentences.map((x) => x.status)).toEqual(['verified']);
+    expect(types(s.events)).not.toContain('verification');
+    expect(JSON.stringify(s.events)).not.toContain('pending_judge');
     expect(llm.structuredCalls[0]?.role).toBe('judge');
   });
 
   it.each([
     ['partial', 'judge_partial'],
     ['unsupported', 'judge_unsupported'],
-  ] as const)('a %s judgement downgrades to unverified', async (verdict, issue) => {
-    const llm = new FakeLlm().queueStream({ deltas: [comparative] }).queueStructured({ verdict });
-    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
-    expect(r.sentences[0]).toMatchObject({ status: 'unverified', issues: [issue] });
+  ] as const)('a %s judgement withholds the sentence', async (verdict, issue) => {
+    const llm = new FakeLlm()
+      .queueStream({ deltas: ['Before [[F1]]. ' + comparative + ' After [[F1]].'] })
+      .queueStructured({ verdict });
+    const s = sink();
+    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
+    expect(r.sentences.map((x) => x.index)).toEqual([0, 1]);
+    expect(withheld(s.events)[0]?.text).toContain(issue);
+    expect(r.rendered).not.toContain('cheaper');
   });
 
-  it('a failed judge leaves the sentence unchecked, never verified', async () => {
+  it('a failed judge withholds the sentence: it is never sent as unchecked', async () => {
     const llm = new FakeLlm()
       .queueStream({ deltas: [comparative] })
       .queueStructured(new LlmError('unavailable', 'x'));
-    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
-    expect(r.sentences[0]).toMatchObject({ status: 'unchecked', issues: ['judge_unavailable'] });
+    const s = sink();
+    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), s.emit);
+    expect(r.sentences).toEqual([]);
+    expect(withheld(s.events)[0]?.text).toContain('judge_unavailable');
   });
 
-  it('with the judge disabled the sentence is unchecked at once and a judge_skipped warning is sent', async () => {
+  it('with the judge disabled the comparison is withheld and a judge_skipped warning is sent', async () => {
     const llm = new FakeLlm().queueStream({ deltas: [comparative] });
     const s = sink();
     const r = await pipeline(llm, { judge: false }).run(inputFor(), new FakeBudget(60_000), s.emit);
-    expect(r.sentences[0]?.status).toBe('unchecked');
-    expect(s.events.find((e) => e.event === 'warning')).toMatchObject({
-      data: { code: 'judge_skipped' },
-    });
+    expect(r.sentences).toEqual([]);
+    expect(warnings(s.events).map((w) => w.code)).toContain('judge_skipped');
     expect(llm.structuredCalls).toHaveLength(0);
   });
 
-  it('a judge result that never arrives before the turn ends leaves the sentence unchecked', async () => {
-    const budget = new FakeBudget(60_000);
-    const never = {
-      structured: () => new Promise<never>(() => undefined),
-      stream: new FakeLlm()
-        .queueStream({ deltas: [comparative] })
-        .stream.bind(new FakeLlm().queueStream({ deltas: [comparative] })),
-    };
-    const running = new LlmAnswerPipeline({ llm: never }).run(inputFor(), budget, sink().emit);
-    await new Promise((r) => setTimeout(r, 10));
-    budget.spend(60_000);
-    const r = await running;
-    expect(r.sentences[0]?.status).toBe('unchecked');
-  });
-
-  it('a late result can never upgrade a sentence that T3a already flagged', async () => {
-    const llm = new FakeLlm().queueStream({
-      deltas: ['ExampleCo1 is cheaper than [[F2]] and $5 less.'],
+  it('a judge that gives no result within its cap withholds the sentence and the answer goes on', async () => {
+    const scripted = new FakeLlm().queueStream({
+      deltas: ['Start [[F1]]. ' + comparative + ' Finish [[F1]].'],
     });
-    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
-    expect(r.sentences[0]?.status).toBe('unverified');
-    expect(llm.structuredCalls).toHaveLength(0); // the judge is not even asked
+    const llm: LlmPort = {
+      stream: scripted.stream.bind(scripted),
+      structured: () => new Promise<never>(() => undefined),
+    };
+    const s = sink();
+    const r = await pipeline(llm, { judgeCapMs: 20 }).run(
+      inputFor(),
+      new FakeBudget(60_000),
+      s.emit,
+    );
+    expect(r.sentences.map((x) => x.template)).toEqual(['Start [[F1]].', 'Finish [[F1]].']);
+    expect(r.sentences.map((x) => x.index)).toEqual([0, 1]);
+    expect(withheld(s.events)[0]?.text).toContain('judge_unavailable');
   });
 
-  it('an interrupted answer marks a pending judgement unchecked without waiting for it', async () => {
+  it('an interrupted answer withholds a comparison whose judge never answered', async () => {
     const scripted = new FakeLlm().queueStream({
       deltas: [comparative + ' And then'],
       failWith: new LlmError('unavailable', 'x'),
     });
-    const llm = {
+    const llm: LlmPort = {
       stream: scripted.stream.bind(scripted),
       structured: () => new Promise<never>(() => undefined),
     };
-    const r = await new LlmAnswerPipeline({ llm }).run(
+    const r = await pipeline(llm, { judgeCapMs: 20 }).run(
       inputFor(),
       new FakeBudget(60_000),
       sink().emit,
     );
     expect(r.interrupted).toBe(true);
-    expect(r.sentences.map((x) => x.status)).toEqual(['unchecked', 'truncated']);
+    expect(r.sentences).toEqual([]);
+  });
+
+  it('a comparison that already failed the free-text check is withheld without asking the judge', async () => {
+    const llm = new FakeLlm().queueStream({
+      deltas: ['ExampleCo1 is cheaper than [[F2]] and $5 less.'],
+    });
+    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
+    expect(r.sentences).toEqual([]);
+    expect(llm.structuredCalls).toHaveLength(0);
   });
 });
 

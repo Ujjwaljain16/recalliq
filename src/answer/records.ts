@@ -35,7 +35,7 @@ export interface RecordsInput {
   recall: ReadonlyMap<MessageId, { text: string; localTime: string }>;
   ctx: ResolvedContext;
   /** Used when the context carries no timezone (it only exposes one through resolved dates). */
-  tz?: IanaTz;
+  tz: IanaTz;
 }
 
 export function validTz(tz: string): boolean {
@@ -47,11 +47,9 @@ export function validTz(tz: string): boolean {
   }
 }
 
-/** The user's timezone: an explicit one, else the one the resolved dates were computed in, else UTC. */
+/** The user's timezone from the input; an invalid zone name falls back to UTC (the caller says so). */
 export function pickTz(input: RecordsInput): IanaTz {
-  const fromCtx = input.ctx.temporal.find((t) => t.candidates[0])?.candidates[0]?.tz;
-  for (const tz of [input.tz, fromCtx]) if (tz && validTz(tz)) return tz;
-  return 'UTC';
+  return validTz(input.tz) ? input.tz : 'UTC';
 }
 
 export function buildRecords(input: RecordsInput): AnswerRecords {

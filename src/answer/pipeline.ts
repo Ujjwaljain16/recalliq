@@ -1,6 +1,5 @@
-import type { AnswerPipeline, PersistedSentence } from '../shared/answer.js';
+import type { AnswerPipeline, PersistedSentence, SentenceIssue } from '../shared/answer.js';
 import type { Finding } from '../shared/findings.js';
-import type { IanaTz } from '../shared/ids.js';
 import type { Logger, TurnBudget } from '../shared/infrastructure.js';
 import { LlmError, type LlmPort } from '../shared/llm.js';
 import type { SseEvent } from '../shared/sse.js';
@@ -16,17 +15,14 @@ import {
   buildSynthesisMessages,
   type SynthesisFindingView,
 } from '../llm/prompts/synthesis.js';
-import { SentenceAssembler } from './assembler.js';
+import { SentenceAssembler, type Candidate } from './assembler.js';
 import { PlaceholderParser } from './placeholders.js';
 import { buildRecords, resolveRef, type AnswerRecords } from './records.js';
 import { defaultRenderer, recordCitations, type Renderer } from './render.js';
 import type { T3aContext } from './t3a.js';
 import type { SnapshotId } from '../shared/ids.js';
 
-type RunInput = Parameters<AnswerPipeline['run']>[0] & {
-  /** The user's timezone, when the caller has it (the context only exposes one through resolved dates). */
-  tz?: IanaTz;
-};
+type RunInput = Parameters<AnswerPipeline['run']>[0];
 type RunResult = Awaited<ReturnType<AnswerPipeline['run']>>;
 
 export interface AnswerPipelineOptions {
@@ -53,16 +49,24 @@ export interface AnswerPipelineDeps {
 export const SYNTH_COMPACT_BELOW_MS = 12_000;
 
 /**
- * The answer pipeline: the model writes a template, code renders the facts. Streams sentence by sentence,
- * checks each sentence (placeholder authorisation, render integrity, T3a), runs the optional T3b judge off the
- * critical path, and returns what must be persisted.
+ * The answer pipeline: the model writes a template, code renders the facts, and only validated sentences leave
+ * the pipeline (ADR-40). Three states stay distinct: `received` (model text held here, never sent, never
+ * stored), `validated` (placeholders authorised, rendered, integrity and free-text checks passed, and the judge
+ * agreed where it applies) and `presented` (the browser acknowledged it, which is not this class's business).
  *
- * Failure contract: this method does not throw for model or stream failure. A stream that fails, is aborted at
- * the deadline, or produces nothing yields `interrupted: true`; completed sentences keep their statuses, the
- * unfinished sentence is persisted as `truncated`, and an `error` event is emitted. With no sentence at all
- * (`sentences.length === 0`) the caller must produce its own deterministic reply.
- * It never emits `answer.completed` or `turn.completed`: those need ids that exist only after persistence.
- * It never touches acknowledgement: `streamedThrough` is only what was written to the stream.
+ * The release unit is the sentence. At its end a sentence is checked; if it passes, ONE `answer.delta` with its
+ * complete rendered text is emitted, then `answer.sentence_end`. A sentence that fails any check, or needs the
+ * judge and gets no answer within the judge cap, is WITHHELD: not emitted, not stored, it consumes no sentence
+ * index, and a `sentence_withheld` warning names the issue codes. An interrupted stream never releases its
+ * incomplete trailing sentence.
+ *
+ * Failure contract: this method does not throw for model or stream failure. A stream that fails or is aborted
+ * yields `interrupted: true` and an `error` event; already released sentences are kept. If nothing was released
+ * (`sentences.length === 0`), the caller must write its own deterministic reply: this is also what happens when
+ * every sentence was withheld (`interrupted: false`, with an `empty_answer` error event).
+ * It never emits `answer.completed` or `turn.completed` (they need ids that exist only after persistence), and
+ * it never emits `pending_judge` or `verification` events. It never touches acknowledgement: `streamedThrough`
+ * is the highest released sentence whose events reached the sink.
  */
 export class LlmAnswerPipeline implements AnswerPipeline {
   readonly promptVersion = SYNTHESIS_PROMPT_VERSION;
@@ -101,32 +105,74 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       nameNumerals: nameNumerals(input.ctx.entities),
     };
 
-    // ── judge bookkeeping (T3b runs off the critical path) ──
-    const judgements: Array<Promise<void>> = [];
-    const outstanding = new Set<number>();
-    let settled = false;
+    // ── the release gate: candidates pass through it one at a time, in order ──
+    const released: PersistedSentence[] = [];
+    const seps: string[] = [];
+    let streamedThrough = -1;
+    let judgeSkippedWarned = false;
     const judgeOn = opts.judge ?? true;
+    let gate: Promise<void> = Promise.resolve();
 
-    const assembler: SentenceAssembler = new SentenceAssembler({
+    const withhold = (issues: readonly SentenceIssue[]): void => {
+      safeEmit({
+        event: 'warning',
+        data: {
+          code: 'sentence_withheld',
+          text: `A sentence was withheld because it did not pass validation (${issues.join(', ')}).`,
+        },
+      });
+    };
+
+    const release = async (c: Candidate): Promise<void> => {
+      if (c.issues.length > 0) return withhold(c.issues);
+      if (c.judgeFacts) {
+        if (!judgeOn || !budget.admit('judge')) {
+          if (!judgeSkippedWarned) {
+            judgeSkippedWarned = true;
+            safeEmit({
+              event: 'warning',
+              data: {
+                code: 'judge_skipped',
+                text: 'A comparison could not be double-checked in time.',
+              },
+            });
+          }
+          return withhold(['judge_unavailable']);
+        }
+        const verdict = await this.judge(c.text, c.judgeFacts, budget, opts.judgeCapMs ?? 4000);
+        if (verdict === 'partial') return withhold(['judge_partial']);
+        if (verdict === 'unsupported') return withhold(['judge_unsupported']);
+        if (verdict === 'unavailable') return withhold(['judge_unavailable']);
+      }
+      const index = released.length;
+      const sep = index === 0 ? '' : c.sep;
+      const status = c.placeholders.length > 0 ? 'verified' : 'no_claims';
+      released.push({
+        index,
+        text: c.text,
+        template: c.template,
+        status,
+        issues: [],
+        placeholders: c.placeholders,
+      });
+      seps.push(sep);
+      const sentDelta = safeEmit({
+        event: 'answer.delta',
+        data: { sentenceIndex: index, text: sep + c.text },
+      });
+      const sentEnd =
+        sentDelta &&
+        safeEmit({ event: 'answer.sentence_end', data: { index, status, issues: [] } });
+      if (sentEnd && streamedThrough === index - 1) streamedThrough = index;
+    };
+
+    const assembler = new SentenceAssembler({
       records,
       renderer: this.renderer,
       t3a,
-      emit: safeEmit,
       logger: log,
-      requestJudge: (index, sentenceText, facts) => {
-        if (!judgeOn || !budget.admit('judge')) return false;
-        outstanding.add(index);
-        judgements.push(
-          this.judge(sentenceText, facts, budget, opts.judgeCapMs ?? 4000).then((v) => {
-            if (settled || !outstanding.delete(index)) return;
-            if (v === 'supported') assembler.update(index, 'verified', []);
-            else if (v === 'partial') assembler.update(index, 'unverified', ['judge_partial']);
-            else if (v === 'unsupported')
-              assembler.update(index, 'unverified', ['judge_unsupported']);
-            else assembler.update(index, 'unchecked', ['judge_unavailable']);
-          }),
-        );
-        return true;
+      onCandidate: (c) => {
+        gate = gate.then(() => release(c));
       },
     });
 
@@ -177,60 +223,56 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         safeEmit(errorEvent(e));
         // Do not wait for a stream that may never end: ask it to stop and move on.
         void Promise.resolve(iterator.return?.()).catch(() => undefined);
-        assembler.truncate(parser.pending.startsWith('[['));
+        assembler.discardOpen(); // the incomplete trailing sentence is never released
       }
     }
 
-    if (!interrupted && assembler.sentences.length === 0) {
-      interrupted = true;
+    await gate; // sentences already complete finish their checks (and judge) in order
+    if (!interrupted && released.length === 0) {
       safeEmit({
         event: 'error',
-        data: { code: 'empty_answer', text: 'The answer came back empty.', recoverable: false },
+        data: {
+          code: 'empty_answer',
+          text: 'No sentence of the answer could be released.',
+          recoverable: false,
+        },
       });
     }
 
-    // ── late judgements: wait for them, but never past the turn ──
-    if (!interrupted && outstanding.size > 0) {
-      const turnEnded = new Promise<void>((resolve) => {
-        if (budget.signal.aborted) resolve();
-        else budget.signal.addEventListener('abort', () => resolve(), { once: true });
-      });
-      await Promise.race([Promise.allSettled(judgements), turnEnded]);
-    }
-    settled = true;
-    for (const index of outstanding) assembler.update(index, 'unchecked', ['judge_unavailable']);
-    outstanding.clear();
-
-    const sentences = assembler.sentences;
     return {
-      sentences,
-      streamedThrough: assembler.streamedThrough,
+      sentences: released,
+      streamedThrough,
       interrupted,
-      template: join(assembler.seps, sentences, (s) => s.template),
-      rendered: join(assembler.seps, sentences, (s) => s.text),
+      template: join(seps, released, (s) => s.template),
+      rendered: join(seps, released, (s) => s.text),
     };
   }
 
+  /** The T3b judge. Never throws and never hangs: no answer within the cap is `unavailable`. */
   private async judge(
     sentence: string,
     facts: string[],
     budget: TurnBudget,
     capMs: number,
   ): Promise<'supported' | 'partial' | 'unsupported' | 'unavailable'> {
-    try {
-      const r = await this.deps.llm.structured({
+    const signal = budget.signalFor('judge', capMs);
+    const expired = new Promise<'unavailable'>((resolve) => {
+      if (signal.aborted) resolve('unavailable');
+      else signal.addEventListener('abort', () => resolve('unavailable'), { once: true });
+    });
+    const answer = this.deps.llm
+      .structured({
         role: 'judge',
         system: JUDGE_SYSTEM,
         messages: buildJudgeMessages(sentence, facts),
         schema: judgeSchema,
         schemaName: JUDGE_SCHEMA_NAME,
         maxTokens: 50,
-        signal: budget.signalFor('judge', capMs),
-      });
-      return r.value.verdict;
-    } catch {
-      return 'unavailable';
-    }
+        signal,
+      })
+      .then((r) => r.value.verdict)
+      .catch((): 'unavailable' => 'unavailable');
+    return Promise.race([answer, expired]);
   }
 }
 
