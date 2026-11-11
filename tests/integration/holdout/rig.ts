@@ -192,7 +192,7 @@ export class Rig {
     }
     const fallbackStep: SearchEntry['steps'][number] =
       o.fallback === 'unavailable' ? { error: 'unavailable' } : { hits: [] };
-    const fx = fixture({
+    const base = fixture({
       analysis: [researchOf(FIRST, ['Acme CRM']), auditOf(AGAIN, 'Acme CRM')],
       extraction: [...claims.values()].map(extractionFor),
       synthesis: [
@@ -208,6 +208,16 @@ export class Rig {
         },
       ],
     });
+    // A synthetic stand-in for the entailment judge: it confirms a quote that states the claimed price and a date.
+    const fx: ReplayFixtureInput = {
+      ...base,
+      llm: {
+        ...base.llm,
+        judge: [
+          { whenContains: 'effective', reply: { verdict: 'supports', reason: '[SYNTHETIC]' } },
+        ],
+      },
+    };
     const registry =
       o.registry === 'none'
         ? OfficialDomains.none()
@@ -330,6 +340,7 @@ const OWN_TEMPLATES: Array<RegExp> = [
   /official sources disagree/g,
   /sources disagree about when this changed/g,
   /couldn't be checked this time \([^)]*\)/g,
+  /whether anything changed since then/g,
   /changed between [^.]*?(?=\.|$)/g,
   /changed from [^.]*?(?=\.|$)/g,
 ];
