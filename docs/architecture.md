@@ -204,6 +204,8 @@ resolve(key, S_all, prev, now, policy):
   verifiedAt = max displayedAt among winners whose basis = fresh_fetch, else null
 ```
 
+**Note (2026-11-12): conflicts are contested, also when nothing is current.** When no statement is current the best candidates are the highest tier present, a strictly later `displayedAt` of that tier supersedes an earlier one, and only candidates tied on `displayedAt` (or all untimed) compete. If those carry more than one distinct value (amount, currency, unit, usage unit, billing period, value kind) the belief is `contested` and lists each value with its evidence ids and the condition texts of that evidence, never `stale` with one arbitrarily chosen value. A plan that a vendor lists at several subscription tiers with different prices is the motivating case; the keys are not changed, the conflict is surfaced.
+
 **Transitions** (recorded in `belief_history.reason`):
 
 | Reason | When |
@@ -697,10 +699,12 @@ The two proofs:
 | Verdict | Condition |
 |---|---|
 | `releases_found` | `pass` release statements with `eventDate` (falling back to the provider's `publishedAt`) at or after T0. A release whose `publishedAt` < T0 ≤ `eventDate` is flagged `announcedBeforeBaseline` |
-| `none_found` | Searches for the key succeeded and no dated evidence falls in the interval. The wording always includes the coverage: the number of sources checked and the newest dated source |
-| `unable_to_verify` | Coverage failure |
+| `none_found` | No qualifying release was found **and** the coverage supports a negative conclusion (see the note below). The wording always includes the coverage: the number of sources checked and the newest dated source |
+| `unable_to_verify` | Coverage failure, or coverage too thin to support "none found" |
 
 Content published before T0 never counts as new.
+
+**Note (2026-11-12): a negative needs coverage.** Not finding a release is not proof that none occurred. `none_found` requires all of: no search for the entity failed and at least one succeeded, extraction succeeded, at least one source obtained by a search made for releases (news, blog, changelog, announcements; pricing pages do not count), and at least one such source dated inside the interval (not before T0). The minimum is the named constant `MIN_RELEASE_COVERAGE` in `src/belief/detector.ts` and is deliberately conservative. Anything less is `unable_to_verify` with reason `search_timeout`, `search_unavailable`, `extraction_failed`, `deadline` or `insufficient_coverage`. A release that was found is still reported when coverage is partial; only the negative is withheld. A turn that did not ask for releases makes no release finding at all.
 
 ```mermaid
 flowchart TD
