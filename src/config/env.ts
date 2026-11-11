@@ -7,6 +7,12 @@ import { z } from 'zod';
  */
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 
+/**
+ * The model asked once when the main model is rate limited, overloaded or too slow (GEMINI_FALLBACK_MODEL;
+ * "none" turns it off). A lighter model, because free-tier limits are per model.
+ */
+export const DEFAULT_GEMINI_FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+
 export type AppMode = 'real' | 'demo';
 
 export interface AppConfig {
@@ -18,7 +24,7 @@ export interface AppConfig {
   allowedOrigin: string | undefined;
   models: { fast: string; main: string };
   /** Gemini model id for the Gemini adapter (GEMINI_MODEL); DEFAULT_GEMINI_MODEL when unset. */
-  gemini: { model: string | undefined };
+  gemini: { model: string | undefined; fallbackModel: string | undefined };
   /**
    * Secrets are optional at this layer: the database tooling needs none of them.
    * The composition root of the research pipeline asserts the ones it uses are present.
@@ -53,6 +59,7 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: optionalString,
   GEMINI_API_KEY: optionalString,
   GEMINI_MODEL: optionalString,
+  GEMINI_FALLBACK_MODEL: optionalString,
   EXA_API_KEY: optionalString,
   // Signs the anonymous user cookie, so a short value is a security defect rather than a typo.
   SESSION_SECRET: z.preprocess(blankToUndefined, z.string().min(32).optional()),
@@ -83,7 +90,13 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
     port: e.PORT,
     allowedOrigin: e.ALLOWED_ORIGIN,
     models: { fast: e.MODEL_FAST, main: e.MODEL_MAIN },
-    gemini: { model: e.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL },
+    gemini: {
+      model: e.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
+      fallbackModel: fallbackModelOf(
+        e.GEMINI_FALLBACK_MODEL,
+        e.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
+      ),
+    },
     secrets: {
       anthropicApiKey: e.ANTHROPIC_API_KEY,
       geminiApiKey: e.GEMINI_API_KEY,
@@ -91,4 +104,10 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
       sessionSecret: e.SESSION_SECRET,
     },
   };
+}
+
+/** The fallback model, or undefined when it is off ("none") or the same as the main model. */
+function fallbackModelOf(raw: string | undefined, main: string): string | undefined {
+  const m = raw ?? DEFAULT_GEMINI_FALLBACK_MODEL;
+  return m.toLowerCase() === 'none' || m === main ? undefined : m;
 }

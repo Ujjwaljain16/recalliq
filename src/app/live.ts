@@ -1,3 +1,4 @@
+import { FallbackLlm } from '../llm/fallback.js';
 import path from 'node:path';
 import { ExaSearchAdapter } from '../search/exa-adapter.js';
 import { LimitedSearchPort } from '../search/limited.js';
@@ -77,12 +78,30 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
   const doFetch = options.fetch ?? fetch;
   return (c) => {
     const limiter = new ClientLimiter(env.geminiLimiter, { clock: c.clock, sleep: realSleep });
-    const llm = new GeminiLlm({
+    const primary = new GeminiLlm({
       config: geminiConfigFromApp(c.config),
       fetch: doFetch,
       clock: c.clock,
       limiter,
     });
+    const fallbackModel = c.config.gemini.fallbackModel;
+    const llm =
+      fallbackModel === undefined
+        ? primary
+        : new FallbackLlm(
+            primary,
+            new GeminiLlm({
+              config: geminiConfigFromApp({
+                ...c.config,
+                gemini: { ...c.config.gemini, model: fallbackModel },
+              }),
+              fetch: doFetch,
+              clock: c.clock,
+              limiter,
+            }),
+            { primary: c.config.gemini.model ?? '', fallback: fallbackModel },
+            (n) => c.logger.warn({ ...n }, 'model fallback'),
+          );
     const search = liveSearchPort(env, doFetch, c.clock);
     return buildRealComponents(c, { kind: 'live', llm, search, origin: 'live', registry });
   };
