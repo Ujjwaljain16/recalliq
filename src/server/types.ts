@@ -1,4 +1,4 @@
-import type { SentenceIssue, SentenceStatus } from '../shared/answer.js';
+import type { SentenceIssue, SentenceKind, SentenceStatus } from '../shared/answer.js';
 import type { DeliveryState } from '../shared/delivery.js';
 import type { AuthorityTier } from '../shared/evidence.js';
 import type { ConversationId, MessageId, Ms, SnapshotId, TurnId, UserId } from '../shared/ids.js';
@@ -22,6 +22,8 @@ export interface SentenceView {
   text: string;
   status: SentenceStatus;
   issues: SentenceIssue[];
+  /** What the sentence rests on (verified finding or quoted source); absent for neither and for older messages. */
+  kind?: SentenceKind;
   /** Derived from the message's streamed and rendered extents (src/shared/delivery.ts). */
   delivery: DeliveryState;
 }

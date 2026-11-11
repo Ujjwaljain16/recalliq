@@ -55,7 +55,7 @@ export type SseEvent =
       event: 'answer.completed';
       data: {
         assistantMessageId: MessageId;
-        sentences: Array<Pick<PersistedSentence, 'index' | 'status' | 'issues'>>;
+        sentences: Array<Pick<PersistedSentence, 'index' | 'status' | 'issues' | 'kind'>>;
         citations: SnapshotId[];
       };
     }

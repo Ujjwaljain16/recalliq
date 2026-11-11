@@ -56,6 +56,11 @@ const ISSUE_TEXT = {
   judge_unsupported: 'the check found it unsupported',
   judge_partial: 'the check found it only partly supported',
   judge_unavailable: 'the check could not run',
+  ungrounded_number: 'it states a number its cited source does not contain',
+  ungrounded_name: 'it names something its cited source does not mention',
+  ungrounded_source: 'it cites a source that was not read in this turn',
+  sourced_link: 'it contains a link or an email address',
+  sourced_too_long: 'it quotes too much of a source',
 };
 
 /** A plain-language reason list for a tooltip or a screen reader. */
