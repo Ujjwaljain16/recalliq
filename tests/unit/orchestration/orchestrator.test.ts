@@ -487,7 +487,7 @@ describe('research and audit through the coordinator', () => {
     expect(t.research.calls[0]?.ctx.baselines).toHaveLength(1);
   });
 
-  it('a research service failure propagates: no answer, no completion, the turn is not finished', async () => {
+  it('a research service failure is rethrown, and the turn is finalised as failed with no answer', async () => {
     const boom = Object.assign(new Error('trigger rejected write'), {
       code: 'SQLITE_CONSTRAINT_TRIGGER',
     });
@@ -498,9 +498,15 @@ describe('research and audit through the coordinator', () => {
     });
     await expect(t.run()).rejects.toBe(boom);
     expect(t.answer.calls).toEqual([]);
-    expect(t.store.completions).toEqual([]);
-    expect(t.store.failed).toEqual([]); // not in PERSISTING: fail() is for persistence only
-    expect(t.store.status).toBe('running');
+    expect(t.store.failed).toEqual([]); // fail() is for a failing finalisation only
+    expect(t.store.completions).toHaveLength(1);
+    expect(t.store.completions[0]).toMatchObject({
+      status: 'failed',
+      assistant: null,
+      errorCode: 'persistence:sqlite_constraint_trigger',
+    });
+    expect(t.store.status).toBe('failed');
+    expect(t.store.state).toBe('COMPLETED');
   });
 
   it('a self-contradicting finding set is a defect, not a result', async () => {
@@ -513,7 +519,12 @@ describe('research and audit through the coordinator', () => {
       research: new FakeResearch((r) => findingSet(r.turnId, [lie])),
     });
     await expect(t.run()).rejects.toBeInstanceOf(ContractViolationError);
-    expect(t.store.completions).toEqual([]);
+    expect(t.store.completions).toHaveLength(1);
+    expect(t.store.completions[0]).toMatchObject({
+      status: 'failed',
+      assistant: null,
+      errorCode: 'contract_violation',
+    });
   });
 });
 
@@ -537,10 +548,16 @@ describe('analysis and synthesis failures', () => {
     expect(t.store.states).toEqual(['RECEIVED', 'ANALYZING', 'PERSISTING']);
   });
 
-  it('a programmer error in the analyzer propagates and is never an answer', async () => {
+  it('a programmer error in the analyzer is rethrown and is never an answer: the turn ends failed', async () => {
     const t = build({ analyzer: new FakeAnalyzer(new TypeError('x is undefined')) });
     await expect(t.run()).rejects.toBeInstanceOf(TypeError);
-    expect(t.store.completions).toEqual([]);
+    expect(t.store.completions).toHaveLength(1);
+    expect(t.store.completions[0]).toMatchObject({
+      status: 'failed',
+      assistant: null,
+      errorCode: 'internal_error',
+    });
+    expect(t.store.states).toEqual(['RECEIVED', 'ANALYZING', 'PERSISTING']);
     expect(t.store.failed).toEqual([]);
   });
 
@@ -552,10 +569,15 @@ describe('analysis and synthesis failures', () => {
     expect(t.store.completions[0]?.errorCode).toBe('synthesis_external_retryable');
   });
 
-  it('a defect in the answer pipeline propagates', async () => {
+  it('a defect in the answer pipeline is rethrown and the turn ends failed with no answer', async () => {
     const t = build({ answer: new FakeAnswer(() => new RangeError('bad index')) });
     await expect(t.run()).rejects.toBeInstanceOf(RangeError);
-    expect(t.store.completions).toEqual([]);
+    expect(t.store.completions).toHaveLength(1);
+    expect(t.store.completions[0]).toMatchObject({
+      status: 'failed',
+      assistant: null,
+      errorCode: 'internal_error',
+    });
   });
 
   it('an interrupted stream persists an interrupted message and status, through SYNTHESIZING to PERSISTING', async () => {
@@ -642,14 +664,15 @@ describe('persistence', () => {
     expect(store.failed).toHaveLength(1);
   });
 
-  it('an illegal transition is a defect: it propagates and no failure edge is invented', async () => {
+  it('an illegal transition is a defect: it is rethrown and the turn is finalised through the failure edge', async () => {
     const store = new FakeTurnStore();
     store.setStateErrorAt = { state: 'RESOLVING_CONTEXT', error: new Error('illegal transition') };
     const t = build({ store });
     await expect(t.run()).rejects.toThrow('illegal transition');
-    expect(store.state).toBe('ANALYZING');
+    expect(store.states).toEqual(['RECEIVED', 'ANALYZING', 'PERSISTING']);
     expect(store.failed).toEqual([]);
-    expect(store.completions).toEqual([]);
+    expect(store.completions).toHaveLength(1);
+    expect(store.completions[0]).toMatchObject({ status: 'failed', assistant: null });
   });
 
   it('a failing fail() does not hide the original error', async () => {

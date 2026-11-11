@@ -21,12 +21,12 @@ function uniqueNames(input: LaneInput, deps: LaneDeps, ctx: ResolvedContext): st
  * budget, check what comes back, and advance the turn.
  *
  * The coordinator does not see the service's inner stages, so the extraction and verification states are
- * entered after the service returns, and only when it returned sources. That keeps every transition on one of
- * the 19 existing edges (no failure edge is invented: what a mid-pipeline failure should do is an open design question).
+ * entered after the service returns, and only when it returned sources. Every transition is an edge of the state
+ * machine table; an unexpected error from any step is finalised by the coordinator (ADR-39), not here.
  *
  * `ResearchService.run` does not throw for provider, extraction or deadline failure (those arrive as
  * `unable_to_verify` findings). Anything it does throw is therefore a persistence failure or a defect, and
- * propagates from here untouched. It is never converted into a result.
+ * propagates from here untouched, and the coordinator then finalises the turn as failed. It is never converted into a result.
  */
 export async function runResearch(
   input: LaneInput,

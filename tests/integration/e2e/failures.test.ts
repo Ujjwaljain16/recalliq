@@ -102,6 +102,14 @@ describe('T-E2E failures are reported as what they are', () => {
     expect(scalar(t.app, "SELECT count(*) FROM turns WHERE status = 'complete'")).toBe(0);
     expect(scalar(t.app, "SELECT count(*) FROM messages WHERE role = 'assistant'")).toBe(0);
     expect(scalar(t.app, 'SELECT count(*) FROM assertions')).toBe(0);
+    // the turn is terminal: failed and finished, with the class in its error code, never left running
+    expect(scalar(t.app, "SELECT count(*) FROM turns WHERE status = 'running'")).toBe(0);
+    expect(
+      scalar(
+        t.app,
+        "SELECT count(*) FROM turns WHERE status = 'failed' AND state = 'COMPLETED' AND error_code LIKE 'persistence:%'",
+      ),
+    ).toBe(1);
   });
 
   it('a refusal by the model is a failed turn with no claim stored', async () => {
