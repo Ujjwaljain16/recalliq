@@ -882,8 +882,8 @@ This is unchanged from Stage 3, with one 3.1 addition: source titles and URLs ca
 | Secrets | API keys are server-side only, and logs are redacted |
 | User isolation | Signed cookie identity; every query is scoped by user, plus the owner triggers |
 | Request forgery | Origin and content-type checks |
-| Abuse and cost | Rate limits and per-turn budgets |
-| Network exposure | Binds to localhost |
+| Abuse and cost | Per-user running-turn cap and turn rate, per-address session rate, a process-wide search limiter, and per-turn budgets ([security.md](security.md)) |
+| Network exposure | Binds to localhost; a non-loopback address needs a production configuration; unknown `Host` names are refused (DNS rebinding) |
 
 ### 16. Concurrency and idempotency
 
