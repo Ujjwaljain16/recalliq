@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { TemporalExpression, TurnAnalysis } from '../../shared/understanding.js';
+import { isGenericCategory, normaliseMention } from './generic-categories.js';
 
 const weekday = z.union([
   z.literal(1),
@@ -121,6 +122,8 @@ const clean = (xs: string[], max: number): string[] =>
  */
 export function toTurnAnalysis(m: AnalysisModelOutput): TurnAnalysis {
   const seen = new Set<string>();
+  // A generic category (Postgres, CRM, hosting, ...) is a topic, not a vendor: it moves to topicTerms.
+  const movedToTopics: string[] = [];
   const entities = m.entities
     .map((e) => ({
       ...e,
@@ -130,6 +133,10 @@ export function toTurnAnalysis(m: AnalysisModelOutput): TurnAnalysis {
     .filter((e) => {
       if (e.text === '' || e.normalized === '' || seen.has(e.normalized)) return false;
       seen.add(e.normalized);
+      if (isGenericCategory(e.normalized) || isGenericCategory(e.text)) {
+        movedToTopics.push(normaliseMention(e.text));
+        return false;
+      }
       return true;
     })
     .slice(0, ANALYSIS_CAPS.entities);
@@ -139,7 +146,7 @@ export function toTurnAnalysis(m: AnalysisModelOutput): TurnAnalysis {
     temporal: m.temporal.filter((t) => t.text.trim() !== '' && validExpression(t.expr)),
     entities,
     references: m.references.filter((r) => r.text.trim() !== ''),
-    topicTerms: clean(m.topicTerms, ANALYSIS_CAPS.topicTerms),
+    topicTerms: clean([...m.topicTerms, ...movedToTopics], ANALYSIS_CAPS.topicTerms),
     asksStillCorrect: m.asksStillCorrect,
     queries: clean(m.queries, ANALYSIS_CAPS.queries),
     alternateQueries: clean(m.alternateQueries, ANALYSIS_CAPS.queries),
