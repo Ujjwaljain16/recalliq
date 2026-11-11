@@ -3,6 +3,7 @@ import type { EntityMention } from '../../shared/understanding.js';
 import { TURN_LIMITS } from '../config.js';
 import {
   ambiguousEntityOutcome,
+  askedSentences,
   clarifyOutcome,
   emitContext,
   emitEntityCap,
@@ -11,6 +12,7 @@ import {
   resolveShortlist,
   resolveTemporal,
 } from './common.js';
+import { deriveFromRecall, listNames, recallDay, severalConversations } from './recall-context.js';
 import { runResearch } from './research-core.js';
 import type { LaneHandler } from './types.js';
 
@@ -21,7 +23,10 @@ import type { LaneHandler } from './types.js';
  *     clarifying question, not a pick;
  *  2. a reference to a stored decision or shortlist ("the shortlist since Monday") is read from memory; if
  *     nothing is stored and no entity was named, the user is asked which companies they mean;
- *  3. the plan is built in code and executed by the injected ResearchService.
+ *  3. a day the user points at ("last Tuesday I asked ...") is recalled like the audit lane does; when no company
+ *     was named, the companies come from the earlier message itself (its tags and the stored entities it
+ *     names), several candidate conversations being a question and never a pick. What was asked opens the answer;
+ *  4. the plan is built in code and executed by the injected ResearchService.
  */
 export const researchLane: LaneHandler = async (input, deps) => {
   const base = { ...emptyContext('research'), temporal: resolveTemporal(input, deps) };
@@ -29,6 +34,12 @@ export const researchLane: LaneHandler = async (input, deps) => {
   const named = resolveEntities(input, deps, input.analysis.entities);
   const ambiguous = ambiguousEntityOutcome(input, base, named);
   if (ambiguous) return ambiguous;
+
+  // The day the user points at, recalled like the audit lane does. No record there changes nothing here.
+  const recalled = recallDay(input, deps, base);
+  if (recalled.kind === 'clarify') return recalled.outcome;
+  const hits = recalled.kind === 'found' ? recalled.hits : [];
+  const withHits = { ...base, memoryHits: hits };
 
   let entities = named.entities;
   let capped = named.capped;
@@ -85,7 +96,12 @@ export const researchLane: LaneHandler = async (input, deps) => {
       entities = [...merged.values()].slice(0, TURN_LIMITS.maxEntities);
       capped = capped || more.capped;
     }
-    if (decisions.length === 0 && entities.length === 0 && input.analysis.entities.length === 0) {
+    if (
+      decisions.length === 0 &&
+      entities.length === 0 &&
+      input.analysis.entities.length === 0 &&
+      hits.length === 0
+    ) {
       emitContext(input, base);
       return clarifyOutcome(
         input,
@@ -97,7 +113,40 @@ export const researchLane: LaneHandler = async (input, deps) => {
     }
   }
 
-  const ctx = { ...base, entities, decisions };
+  // Nobody was named and no shortlist gave companies: take them from the earlier message the user pointed at.
+  const lead = askedSentences(hits);
+  if (
+    hits.length > 0 &&
+    entities.length === 0 &&
+    unresolved.length === 0 &&
+    input.analysis.entities.length === 0
+  ) {
+    const several = severalConversations(input, base, hits);
+    if (several) return several;
+    const derived = deriveFromRecall(input, deps, hits);
+    if (derived.entities.length === 0 && derived.unresolved.length === 0) {
+      const ctx = { ...withHits, decisions };
+      emitContext(input, ctx);
+      return clarifyOutcome(
+        input,
+        ctx,
+        'missing_referent',
+        [
+          ...lead,
+          'I could not tell which company you mean from it. Which company or product should I look into?',
+        ].join(' '),
+        [],
+      );
+    }
+    entities = derived.entities;
+    unresolved = derived.unresolved;
+    capped = derived.capped;
+    lead.push(
+      `I took the companies from that earlier message: ${listNames([...entities.map((e) => e.name), ...unresolved.map((m) => m.text)])}.`,
+    );
+  }
+
+  const ctx = { ...withHits, entities, decisions };
   emitContext(input, ctx);
   if (capped) emitEntityCap(input);
   const researchInput =
@@ -107,5 +156,6 @@ export const researchLane: LaneHandler = async (input, deps) => {
           analysis: { ...input.analysis, entities: [...input.analysis.entities, ...unresolved] },
         }
       : input;
-  return runResearch(researchInput, deps, ctx, 'research');
+  const outcome = await runResearch(researchInput, deps, ctx, 'research');
+  return outcome.kind === 'synthesize' && lead.length > 0 ? { ...outcome, lead } : outcome;
 };

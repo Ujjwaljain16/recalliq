@@ -118,7 +118,10 @@ export class SqliteMessageMemory implements MessageMemory {
         ? queryAll(
             this.db,
             `SELECT m.id AS message_id, m.conversation_id, m.turn_id, m.created_at, m.tz, m.content,
-                    NULL AS body, NULL AS tags, NULL AS rank
+                    NULL AS body,
+                    (SELECT ms2.tags FROM message_search ms2
+                      WHERE ms2.message_id = m.id AND ms2.user_id = m.user_id) AS tags,
+                    NULL AS rank
                FROM messages m
               WHERE m.user_id = ? AND m.role = 'user' AND (${range})
               ORDER BY m.created_at ASC, m.id ASC
@@ -189,6 +192,7 @@ export class SqliteMessageMemory implements MessageMemory {
       createdAt: row.created_at,
       localTime: formatLocal(row.created_at, tz),
       excerpt: excerptOf(row.content),
+      tags: (row.tags ?? '').split(/\s+/).filter((t) => t.length > 0),
       matchedTerms:
         row.rank === null ? [] : matchedTokens(tokens, `${row.body ?? ''} ${row.tags ?? ''}`),
       // bm25() is lower-is-better and negative; expose higher-is-better. Listing has no relevance.

@@ -25,6 +25,8 @@ export interface MemoryCandidate {
   score: number;
   /** Which candidate interval it fell into. */
   intervalIndex: number;
+  /** The message's stored tags: normalised topic terms and entity names, written at enrichment. Absent in test doubles. */
+  tags?: string[];
 }
 
 export interface DecisionRecord {
