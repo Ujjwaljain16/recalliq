@@ -129,6 +129,25 @@ All fixtures are hand-authored and labelled `[SYNTHETIC]`: no live provider call
 
 Counts are from a full run (123 tests across these files; the worker reported a smaller figure). Reported mutation checks (Agent A): 17 deliberate breaks caught, two surviving mutants explained (a trigger rename; a redundant rethrow).
 
+## Evidence verification, beliefs and the research service
+
+All evidence in these tests is synthetic (`.example` vendors) and the model is a fake `LlmPort` returning fixture JSON: nothing here shows how a real model or a real provider behaves, and the weak and fail rates on real pages are unmeasured.
+
+| Group | Test files | What it covers |
+|---|---|---|
+| Verification T0 to T2 | `tests/unit/evidence/verifier.test.ts` | Citation integrity, verbatim quotes and context, subject and competitor attribution, plan binding, currency (bare `$`, `¥`), unit (flat vs seat, metered needs a usage unit), billing period, negation, historical, conditional, planned and promotional cues, effective-date cues, adversarial prompt-injection text |
+| Extraction and batching | `tests/unit/evidence/extraction.test.ts` | Adaptive batching, bounded concurrency, failure isolation, retry and split only when the budget admits |
+| Authority and entailment | `tests/unit/evidence/authority-entailment.test.ts` | Authority tiers; the judge may confirm or downgrade, never upgrade |
+| Belief keys | `tests/unit/belief/belief-key.test.ts` | Encoding, locale, comparability |
+| Resolver | `tests/unit/belief/resolver.test.ts` | Tier, freshness, recency, contested, modality, pending signals |
+| Change detector | `tests/unit/belief/detector.test.ts`, `as-of.test.ts` | Both proofs of `changed`, every way each can fail, the as-of rule, prior-effect, coverage failure, releases |
+| Findings | `tests/unit/belief/assembler.test.ts` | Status and verdict combinations that are allowed |
+| Repositories and rebuild | `tests/integration/belief/repository.test.ts` | Incremental beliefs equal a rebuild, including after privacy deletion with the real rebuilder |
+| Ownership (migration 008) | `tests/integration/belief/ownership.test.ts` | Cross-user rejection per trigger, same-user acceptance |
+| Research service | `tests/integration/evidence/research-service.test.ts` | Research and audit on a real database; provider, extraction and deadline failures become coverage and `unable_to_verify`; database errors propagate; user isolation |
+
+Reported mutation checks: 25 deliberate breaks in the verifier, resolver, detector, key encoding and three triggers, all caught after four tests were added for early survivors.
+
 ## Documentation checks (`tests/integration/docs.test.ts`)
 
 Added in the post-M2 documentation pass. They check the documents against each other and against the code; they do not test application behaviour.

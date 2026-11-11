@@ -136,6 +136,25 @@ describe('price verdicts: observed against effective time (T-BEL-20..28)', () =>
     }
   });
 
+  it('T-BEL-27b: an unknown locale cannot establish changed even with an explicit effective date', () => {
+    const url = 'acme.example/pricing';
+    const own = ev({ id: 'b0', urlNorm: url, observedAt: T0 - H });
+    const nu = ev({
+      id: 'new',
+      amount: 100,
+      tier: 'A1',
+      urlNorm: url,
+      observedAt: T0 + 10 * DAY,
+      effectiveFrom: T0 + 3 * DAY,
+    });
+    const key = ev({ id: 'k', urlNorm: url }).beliefKey ?? '';
+    const base: Baseline = { ...baseline(), beliefKey: key, key: decode(key), evidence: [own] };
+    const all = [own, nu];
+    const out = detector.price(base, resolveAll(all, key).belief, all, OK_COVERAGE);
+    expect(base.key.locale).toBe('und');
+    expect(out.verdict).toBe('differs_timing_unknown');
+  });
+
   it('T-BEL-28: an effective date from a tier B source, or on or before the answer, does not establish changed', () => {
     const lowTier = ev({
       id: 'b',

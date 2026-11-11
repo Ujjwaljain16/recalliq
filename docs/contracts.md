@@ -16,7 +16,7 @@ Conventions:
 > **Correction (final documentation pass, 2026-11-12).** Two statements in this section are narrower in the implementation, and the schema below is no longer the whole database:
 >
 > - **The two `PRAGMA` lines are connection settings, not migration statements.** `foreign_keys` is per connection and `journal_mode = WAL` cannot be changed inside a transaction on a file database (verified, [ADR-25](adr/ADR-25.md)), so `openDatabase()` sets them on every connection and `001_init.sql` omits them. A test compares the rest of the SQL block below with `001_init.sql` ([tests/integration/db/contract-parity.test.ts](../tests/integration/db/contract-parity.test.ts)).
-> - **Migrations 002–007 add triggers that this block does not show.** They are listed in [§1.2](#12-migrations-applied-on-top-of-the-schema) and in [turn-lifecycle.md](turn-lifecycle.md). Where this document or the architecture says a trigger "blocks" something, §1.2 says whether it does so today.
+> - **Migrations 002–008 add triggers that this block does not show.** They are listed in [§1.2](#12-migrations-applied-on-top-of-the-schema) and in [turn-lifecycle.md](turn-lifecycle.md). Where this document or the architecture says a trigger "blocks" something, §1.2 says whether it does so today.
 
 ```sql
 PRAGMA journal_mode = WAL;
@@ -370,11 +370,12 @@ Added after this document was reconciled (002 to 005 in milestone 2, 006 in mile
 | # | Migration | Enforces in the database | Not covered |
 |---|---|---|---|
 | 002 | `002_demo_isolation.sql` | A `real` database rejects inserts of non-live messages, entities and decisions, relabelling of users, conversations, entities and decisions, and any change to `meta.db_mode` | Other tables carry no origin column or are not checked; isolation is partial (Q-002) |
-| 003 | `003_ownership_consistency.sql` | Evidence, findings and assertions reference only rows of the same user as their turn; `assertion_evidence` and the evidence/finding references are immutable | snapshots by turn (no turn column), `beliefs`, `belief_history` (Q-007; plan in [questions.md](questions.md)) |
+| 003 | `003_ownership_consistency.sql` | Evidence, findings and assertions reference only rows of the same user as their turn; `assertion_evidence` and the evidence/finding references are immutable | snapshots by turn (they have no turn column; protected at their links) (Q-007; plan in [questions.md](questions.md)) |
 | 004 | `004_turn_lifecycle.sql` | The 19-edge transition table, immutable turn identity, finished turns are final, state/status coupling | Failure edges from intermediate states (Q-011) |
 | 005 | `005_delivery_acknowledgement.sql` | Streamed vs rendered extents, "presented only if acknowledged", the `presented`, `not_presented` and verdict event rules | |
 | 006 | `006_decision_ownership.sql` | `decisions` and `decision_entities`: owner equals the conversation's and the message's, the message belongs to the conversation, `supersedes_id` is the same user's, identity columns are immutable, links are append-only | Added in milestone 3 |
 | 007 | `007_search_ownership.sql` | `search_requests` (owner equals the turn's; entity, if set, is the same user's; identity columns immutable) and `search_results` (request and snapshot belong to the same user; append-only). `source_snapshots` has no turn, so its ownership is enforced at its links | Added in milestone 4 |
+| 008 | `008_belief_ownership.sql` | `beliefs` (user exists; entity belongs to the same user; every winning evidence id belongs to the same user, checked with `json_each`; identity columns immutable) and `belief_history` (user exists; a non-null turn and every evidence id belong to the same user; append-only was already enforced) | Added with the belief resolver |
 
 The origin triggers mentioned in architecture §12 therefore block **some** fixture rows, not all, and ownership is enforced for some tables, not all.
 

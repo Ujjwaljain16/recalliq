@@ -1,7 +1,7 @@
 # ADR-36: Stricter proof for a post-baseline change
 
 - **Status:** Accepted
-- **Implementation:** not implemented
+- **Implementation:** implemented
 - **Decided:** Owner decision, 2026-11-11 (Q-001), the effective-date distinction, 2026-11-12, the definitions of source identity and comparability, approved 2026-11-12, and the observation definition, relaxed from a fresh-crawl requirement to a content as-of requirement on 2026-11-12
 - **Recorded:** 2026-11-11, updated 2026-11-12
 - **Related:** [ADR-22](ADR-22.md), [ADR-37](ADR-37.md), [Q-001](../questions.md)
@@ -25,7 +25,7 @@ A different current value does not prove it changed after the earlier answer. Th
    - matching source identity: the same `url_norm`, which keeps semantically meaningful query parameters and removes only tracking parameters;
    - comparable context: `comparableKeys === 'equal'` across every pricing dimension, including locale;
    - a known locale: an unknown locale (`und`) cannot independently establish `changed`.
-2. **Explicit effective date.** An effective date that is explicitly associated with the new price, from a reliable source (tier A1 or A2), later than the previous answer. A publication date or a fetch date alone never establishes timing; a fresh fetch never sets an effective date.
+2. **Explicit effective date.** An effective date that is explicitly associated with the new price, from a reliable source (tier A1 or A2), later than the previous answer, with a known locale (an unknown locale cannot independently establish `changed` by either route). A publication date or a fetch date alone never establishes timing; a fresh fetch never sets an effective date.
 
 An **observation** is an immutable, timestamped source snapshot that (1) was successfully retrieved after the relevant event (the previous answer for the old value, the old-value observation for the new value), with its retrieval timestamp (`observed_at`) recorded independently of the source's publication or modification timestamps; (2) keeps any cache metadata and age the provider reports; and (3) has content sufficient to support the specific pricing claim (a validated `pass` statement). A provider-cached copy can be an observation. **A fresh retrieval is not necessarily fresh source content:** a cached result establishes what the provider returned at a particular time, not that the underlying source had that value at that time. So each observation also needs a **content as-of time**: `observed_at` when the provider reports a successful live crawl (`fresh_fetch` and `crawl_status = ok`); otherwise the provider's last-updated time when it gives one (the conservative choice: the earlier time); otherwise unknown. If the as-of time cannot be established, the observation cannot support a positive `changed` verdict. For the proof, the old-value observation's retrieval and as-of times must both be later than the previous answer, and the new-value observation's must be later than the old-value observation's. This introduces no crawler: it only reads what the search provider returned. Whether the contract can hold a provider-reported cache age or capture time is open: Q-019.
 
@@ -40,7 +40,7 @@ If neither proof can be established, the verdict is `differs_timing_unknown`. Th
 
 ## Evidence and implementation references
 
-- A recorded owner decision only. Nothing is implemented or tested; the change detector is milestone 4.
+- [src/belief/detector.ts](../../src/belief/detector.ts) and [src/belief/as-of.ts](../../src/belief/as-of.ts), tested by [tests/unit/belief/detector.test.ts](../../tests/unit/belief/detector.test.ts) and [tests/unit/belief/as-of.test.ts](../../tests/unit/belief/as-of.test.ts): both proofs, the baseline's own fetch, a snapshot exactly at the answer time, a different `url_norm`, a different or unknown locale, cached copies with and without a last-updated time, a new-value as-of not later than the old one, weak statements, and the effective-date cases. Tested with synthetic evidence only; nothing here has seen a real provider response.
 
 ## Revisit when
 

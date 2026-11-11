@@ -13,13 +13,13 @@ questions, including resolved ones and their history.
 
 | ID | Topic | Status | Blocks | ADR |
 |---|---|---|---|---|
-| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **decided** (rule, definitions a–e, effective-date distinction); locale **applied to the contract and shared type** (2026-11-12); detector not implemented | Milestone 4 change detector (unimplemented) | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
+| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **applied**: rule, definitions, locale in the key, content as-of time and the change detector are implemented and tested (2026-11-12) | — | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
 | Q-002 | Demo isolation covers only some tables | **applied** (migration 002, M2); complete isolation still not claimed | — | [ADR-28](adr/ADR-28.md) |
 | Q-003 | PRAGMAs outside migrations | **applied**, approved | — | [ADR-25](adr/ADR-25.md) |
 | Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — | — |
 | Q-005 | Deletion and the belief rebuilder | **applied**, rebuild correctness untested until M4 | T-DB-09 | [ADR-35](adr/ADR-35.md) |
 | Q-006 | `begin` while a different key is running | **applied** (M2) | — | [ADR-30](adr/ADR-30.md) |
-| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003 in M2, 006 in M3 for `decisions`); plan recorded (2026-11-12); `search_requests` and `search_results` (migration 007, M4); `beliefs` and `belief_history` **not yet enforced** (Agent B, migration 008) | Each table, before its first use in M4 | [ADR-27](adr/ADR-27.md) |
+| Q-007 | `user_id` consistency beyond messages and turns | **applied** (migrations 003, 006, 007, 008); plan recorded (2026-11-12); `search_requests`, `search_results` (migration 007) and `beliefs`, `belief_history` (migration 008); only snapshots-by-turn (no such column) remain, protected at their links | — | [ADR-27](adr/ADR-27.md) |
 | Q-008 | Declared-only contract functions | applied | — | — |
 | Q-009 | Type-identical lint edits | applied | — | — |
 | Q-010 | Small implementation choices | applied | — | — |
@@ -152,7 +152,7 @@ regions, on the same domain, therefore maps to **one** key:
 6. Open point for the reviewer: two observations of the **same URL** with locale `unspecified` are
    comparable (same page), but `unspecified` against a known locale is not.
 
-Status: **applied to the contract** (2026-11-12): locale is a required pricing-comparability dimension ([ADR-37](adr/ADR-37.md)). The owner approved a different encoding from the proposal above: a canonical BCP-47 tag (`Intl.getCanonicalLocales`) with `und` for unknown, instead of a lower-cased tag with `unspecified`; contracts §2 and `src/shared/belief.ts` carry it. The key-encoding functions and the change detector are not implemented. Item 6 is superseded: different locales, `und` against a known locale included, are incomparable, and `und` cannot independently establish `changed`.
+Status: **applied to the contract** (2026-11-12): locale is a required pricing-comparability dimension ([ADR-37](adr/ADR-37.md)). The owner approved a different encoding from the proposal above: a canonical BCP-47 tag (`Intl.getCanonicalLocales`) with `und` for unknown, instead of a lower-cased tag with `unspecified`; contracts §2 and `src/shared/belief.ts` carry it. The key-encoding functions and the change detector are implemented. Item 6 is superseded: different locales, `und` against a known locale included, are incomparable, and `und` cannot independently establish `changed`.
 
 ---
 

@@ -51,7 +51,8 @@ function bestTier(ev: VerifiedEvidence[]): AuthorityTier {
  *     times are both later than the old-value observation's; comparableKeys === 'equal' with the baseline key,
  *     locale included; and a known (non-'und') locale. An unknown content as-of time supports nothing.
  *  2. An explicitly associated A1/A2 effective date later than T0 (the verifier sets `effectiveFrom` only
- *     from a date in the quote or header that carries an effectiveness cue; a fetch never sets it).
+ *     from a date in the quote or header that carries an effectiveness cue; a fetch never sets it), also
+ *     only with a known (non-'und') locale: an unknown locale cannot independently establish `changed`.
  * Publication and fetch dates alone never establish timing; otherwise the verdict is differs_timing_unknown.
  */
 export class RuleChangeDetector implements ChangeDetector {
@@ -175,7 +176,7 @@ function postBaseline(
   const t0 = b.presentedAt;
   const result: PostProof = { proved: false };
 
-  // Route 2: an explicitly associated A1/A2 effective date after T0.
+  // Route 2: an explicitly associated A1/A2 effective date after T0. Never with an unknown locale.
   const dated = forKey
     .filter(
       (e) =>
@@ -186,7 +187,7 @@ function postBaseline(
     )
     .sort((x, y) => (x.effectiveFrom as Ms) - (y.effectiveFrom as Ms));
   const firstDated = dated[0];
-  if (firstDated) {
+  if (firstDated && b.key.locale !== 'und') {
     result.proved = true;
     result.effectiveFrom = firstDated.effectiveFrom as Ms;
   }
