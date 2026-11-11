@@ -53,7 +53,7 @@ function researchWith(w: World, verdicts: Record<string, 'changed' | 'unchanged_
           return {
             ...finding(i + 1, { entityId: e.id, entityName: e.name }),
             ...(verdict ? { verdict } : {}),
-          } as ReturnType<typeof finding>;
+          };
         }),
       ),
     );
@@ -124,10 +124,7 @@ describe('a change since a day that cannot be established is said so', () => {
   it('when every tool has a verdict, nothing is added', async () => {
     const w = world(analysis('research'));
     w.seedMonday();
-    researchWith(
-      w,
-      Object.fromEntries(CRM.map((n) => [n, 'changed' as const])) as Record<string, 'changed'>,
-    );
+    researchWith(w, Object.fromEntries(CRM.map((n) => [n, 'changed' as const])));
     const { reply } = await w.ask(S1_MESSAGE);
     expect(reply).not.toContain('I have no earlier prices of my own');
   });
