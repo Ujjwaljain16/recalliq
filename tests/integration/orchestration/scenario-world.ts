@@ -11,6 +11,7 @@ import {
 } from '../../../src/shared/ids.js';
 import type { TurnAnalyzer } from '../../../src/shared/pipeline.js';
 import type { MemoryRetriever } from '../../../src/shared/memory.js';
+import type { ResearchPlanner } from '../../../src/shared/research.js';
 import type { SseEvent } from '../../../src/shared/sse.js';
 import type { TurnAnalysis } from '../../../src/shared/understanding.js';
 import { DefaultTemporalResolver } from '../../../src/temporal/resolver.js';
@@ -132,7 +133,10 @@ export const NO_BASELINE =
 export const OLD_REPLY =
   'I have no earlier claim of mine on this that I can compare against. If you want, I can look up the current state on the web instead.';
 
-export function world(analyzer: TurnAnalyzer | TurnAnalysis) {
+export function world(
+  analyzer: TurnAnalyzer | TurnAnalysis,
+  options: { planner?: ResearchPlanner } = {},
+) {
   const t: TestDb = openTestDb('real');
   const userId: UserId = t.users.create();
   const seedConversation = (): ConversationId => t.conversations.create({ userId }).id;
@@ -221,6 +225,7 @@ export function world(analyzer: TurnAnalyzer | TurnAnalysis) {
     baselines: new LoaderBaselineSource(t.db),
     window: new MessageWindowReader(t.messages),
     clock: t.clock,
+    ...(options.planner === undefined ? {} : { planner: options.planner }),
   });
   t.clock.set(NOW);
   let key = 0;
