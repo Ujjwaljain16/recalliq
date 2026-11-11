@@ -13,8 +13,14 @@ import {
 /**
  * The grounding check of a SOURCED sentence: a sentence the model wrote from the text of the sources, which cites
  * at least one source of this turn ([[S:src_..]]) and renders no finding. It is deterministic, runs on the
- * template with every placeholder removed, and compares the sentence only with the stored text of the sources the
- * sentence itself cites (their union when it cites several). No model takes part.
+ * template with every placeholder removed, and compares the sentence only with the excerpts (title, domain and the
+ * excerpt text exactly as the model was shown them) of the sources the sentence itself cites. No model takes part.
+ *
+ * Same-source binding: ONE cited excerpt must contain everything the sentence states, numbers and names together.
+ * Citing two sources does not let a sentence take its number from one and its name or second number from the
+ * other. Normalisation is identical on both sides and folds nothing: invisible and bidi characters are removed,
+ * and any digit outside 0-9 or a full-width currency sign in the sentence fails the check outright (the excerpt
+ * shown to the model was already NFKC-normalised, so an honest copy is ASCII).
  *
  * The rule, all strict:
  *  1. Every date (as T3a recognises dates: "3 November 2026", "Nov 3, 2026", "2026-11-03", "11/03/2026",
@@ -44,7 +50,7 @@ import {
 export interface GroundingSource {
   title: string | null;
   domain: string;
-  /** The stored text of the source. Empty for a source the sentence may not rest on. */
+  /** The excerpt shown to the model. Empty for a source the sentence may not rest on. */
   text: string;
 }
 
