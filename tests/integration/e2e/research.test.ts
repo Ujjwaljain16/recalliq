@@ -68,7 +68,9 @@ describe('T-E2E research across several tools', () => {
     const text = turn.sentences.join(' ');
     expect(text).toContain('US$90');
     expect(text).toContain('US$80');
-    expect(text).toContain('Gamma Desk: no verified price was found.');
+    expect(text).toContain(
+      "Gamma Desk: couldn't be checked this time (the search service was unavailable).",
+    );
     expect(text).not.toMatch(/Gamma Desk: [^.]*US[$]/);
     expect(text.match(/\[\d\]/g)).toHaveLength(2);
 
@@ -79,30 +81,24 @@ describe('T-E2E research across several tools', () => {
     );
   });
 
-  // DEFECT in src/answer/render.ts (currentText): a finding that is unable_to_verify and has no verdict (a
-  // first-time question) renders its current value as "no verified price was found". That is true but hides
-  // that the search FAILED; the reader cannot tell "nothing exists" from "could not be checked". Proposed fix:
-  // in currentText, when f.currentStatus === 'unable_to_verify' return the reason text used by verdictText
-  // ("couldn't be checked this time (...)"). This test documents the expected behaviour and is expected to fail.
-  it.fails(
-    'DEFECT: an unable_to_verify finding without a verdict is rendered as "could not be checked"',
-    async () => {
-      t = await startE2e({
-        fixture: fixture({
-          analysis: [researchOf(QUESTION, ['Gamma Desk'])],
-          search: [
-            priceSearch('Gamma Desk', 'unavailable', 'unavailable'),
-            {
-              query: 'Gamma Desk pricing plans per user 2026',
-              steps: [{ error: 'unavailable' }, { error: 'unavailable' }],
-            },
-          ],
-          synthesis: [say(QUESTION, 'Gamma Desk: [[F1]].')],
-        }),
-      });
-      const user = t.client();
-      const turn = await ask(user, await user.newConversation(), QUESTION);
-      expect(turn.sentences.join(' ')).toMatch(/could(n't| not) be checked/);
-    },
-  );
+  // A finding that is unable_to_verify and has no verdict (a first-time question) must say the check failed,
+  // not that nothing exists: the reader has to be able to tell the two apart.
+  it('an unable_to_verify finding without a verdict is rendered as "could not be checked", not as "nothing found"', async () => {
+    t = await startE2e({
+      fixture: fixture({
+        analysis: [researchOf(QUESTION, ['Gamma Desk'])],
+        search: [
+          priceSearch('Gamma Desk', 'unavailable', 'unavailable'),
+          {
+            query: 'Gamma Desk pricing plans per user 2026',
+            steps: [{ error: 'unavailable' }, { error: 'unavailable' }],
+          },
+        ],
+        synthesis: [say(QUESTION, 'Gamma Desk: [[F1]].')],
+      }),
+    });
+    const user = t.client();
+    const turn = await ask(user, await user.newConversation(), QUESTION);
+    expect(turn.sentences.join(' ')).toMatch(/could(n't| not) be checked/);
+  });
 });
