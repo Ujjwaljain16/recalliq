@@ -1,3 +1,4 @@
+import type { FindingSet } from '../../shared/findings.js';
 import type { ResolvedContext } from '../../shared/memory.js';
 import { assertFindingSetConsistent } from '../findings-guard.js';
 import { clarifyOutcome } from './common.js';
@@ -36,6 +37,7 @@ export async function runResearch(
   deps: LaneDeps,
   ctx: ResolvedContext,
   lane: 'research' | 'audit',
+  options: { quick?: boolean } = {},
 ): Promise<LaneOutcome> {
   const plan = deps.planner.plan(ctx, input.analysis, input.now);
   if (plan.specs.length === 0) {
@@ -58,6 +60,9 @@ export async function runResearch(
     },
   });
 
+  // The general research path runs no extraction, so it never enters the extraction and verification states.
+  const extracted = [...plan.specs, ...plan.fallback].some((s) => s.intent !== 'general');
+  const { onSourcesReady } = input;
   input.progress('SEARCHING', 'Searching');
   const findings = await deps.research.run({
     userId: input.userId,
@@ -68,11 +73,12 @@ export async function runResearch(
     now: input.now,
     budget: input.budget,
     emit: input.emit,
+    ...(options.quick === true && extracted && onSourcesReady
+      ? { onSourcesReady: (sources: FindingSet['sources']) => onSourcesReady({ ctx, sources }) }
+      : {}),
   });
   assertFindingSetConsistent(findings, input.turnId);
 
-  // The general research path runs no extraction, so it never enters the extraction and verification states.
-  const extracted = [...plan.specs, ...plan.fallback].some((s) => s.intent !== 'general');
   if (extracted && Object.keys(findings.sources).length > 0) {
     input.progress('EXTRACTING', 'Reading the sources');
     input.progress('VERIFYING', 'Checking the evidence');

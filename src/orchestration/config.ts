@@ -8,7 +8,10 @@ import type { Ms } from '../shared/ids.js';
 export interface TurnBudgetConfig {
   /** TURN_DEADLINE_MS: the single absolute deadline, measured from the start of the turn. */
   deadlineMs: Ms;
-  /** Upper bounds of a single call. `synthesis` runs until the deadline, so it has no cap. */
+  /**
+   * Upper bounds of a single call. `synthesis` runs until the deadline, so it has no cap. `quick` is the sourced
+   * answer that streams while extraction runs: it ends by its cap whatever else is happening.
+   */
   capMs: Record<Exclude<BudgetStage, 'synthesis'>, Ms>;
   /** Time set aside for the stages still to come, subtracted before a stage may start. */
   reserveMs: Record<BudgetStage, Ms>;
@@ -20,9 +23,17 @@ export interface TurnBudgetConfig {
 
 export const DEFAULT_TURN_BUDGET_CONFIG: TurnBudgetConfig = {
   deadlineMs: 60_000,
-  capMs: { analysis: 8_000, search: 9_000, extraction: 25_000, judge: 4_000 },
+  capMs: { analysis: 8_000, search: 9_000, extraction: 25_000, judge: 4_000, quick: 8_000 },
   // search: 12 s synthesis + 1 s persistence; judge must end by deadline - 500 ms.
-  reserveMs: { analysis: 0, search: 13_000, extraction: 10_000, judge: 500, synthesis: 0 },
+  // quick: like search, it leaves the time the verified synthesis and persistence need.
+  reserveMs: {
+    analysis: 0,
+    search: 13_000,
+    extraction: 10_000,
+    judge: 500,
+    synthesis: 0,
+    quick: 13_000,
+  },
   minDurationMs: {
     search_retry: 2_000,
     extraction_retry: 8_000,

@@ -1,5 +1,5 @@
 import type { FindingSet } from './findings.js';
-import type { FindingId, IanaTz, MessageId, SnapshotId } from './ids.js';
+import type { FindingId, IanaTz, MessageId, Ms, SnapshotId, TurnId } from './ids.js';
 import type { TurnBudget } from './infrastructure.js';
 import type { ResolvedContext } from './memory.js';
 import type { EventSink } from './sse.js';
@@ -65,7 +65,38 @@ export interface PersistedSentence {
   }>;
 }
 
+/** What a pipeline call returns: the released sentences and how far the client was sent them. */
+export interface AnswerResult {
+  sentences: PersistedSentence[];
+  streamedThrough: number;
+  interrupted: boolean;
+  template: string;
+  rendered: string;
+}
+
+/**
+ * The sourced answer that streams while extraction and verification still run. It rests only on the excerpts of
+ * the sources the searches returned.
+ */
+export interface QuickAnswerInput {
+  turnId: TurnId;
+  createdAt: Ms;
+  /** The turn's sources with their content, in the order their `source` events were sent. */
+  sources: FindingSet['sources'];
+  ctx: ResolvedContext;
+  userMessage: string;
+  tz: IanaTz;
+  /** Aborted by the caller when the verified section is ready: the stream stops and the open sentence is dropped. */
+  cut: AbortSignal;
+}
+
 export interface AnswerPipeline {
+  /**
+   * Optional. Writes 2 to 4 short sourced sentences from the excerpts alone, each passing the sourced-sentence
+   * validation, opened by one sentence written in code. Never throws and never emits `error`: a failure,
+   * a cut or a timeout leaves what was released and nothing else. Sentences are numbered from 0.
+   */
+  quick?(input: QuickAnswerInput, budget: TurnBudget, emit: EventSink): Promise<AnswerResult>;
   run(
     input: {
       findings: FindingSet | null;
@@ -75,14 +106,13 @@ export interface AnswerPipeline {
       window: Array<{ role: 'user' | 'assistant'; content: string }>;
       /** The user's time zone: recalled times and dates are rendered in it. */
       tz: IanaTz;
+      /**
+       * The sentences already released before this call (the quick section), in order. The model is shown them
+       * and told to confirm, add or correct, never to repeat or silently contradict them.
+       */
+      earlier?: readonly string[];
     },
     budget: TurnBudget,
     emit: EventSink,
-  ): Promise<{
-    sentences: PersistedSentence[];
-    streamedThrough: number;
-    interrupted: boolean;
-    template: string;
-    rendered: string;
-  }>;
+  ): Promise<AnswerResult>;
 }

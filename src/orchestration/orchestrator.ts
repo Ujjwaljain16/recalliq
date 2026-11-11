@@ -1,4 +1,4 @@
-import type { AnswerPipeline, PersistedSentence } from '../shared/answer.js';
+import type { AnswerPipeline, AnswerResult, PersistedSentence } from '../shared/answer.js';
 import type { FindingSet } from '../shared/findings.js';
 import type { MessageId, Ms, TurnId, UserId } from '../shared/ids.js';
 import type { Clock, Logger, TurnBudget } from '../shared/infrastructure.js';
@@ -48,6 +48,7 @@ import {
   statusForFindings,
   type DeterministicAnswer,
 } from './prepare.js';
+import { QuickSection } from './quick.js';
 import { routeTurn } from './routing.js';
 import { DeadlineTurnBudget } from './turn-budget.js';
 
@@ -473,20 +474,46 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
     window: Array<{ role: 'user' | 'assistant'; content: string }>;
   }): Promise<Ending> {
     const route = routeTurn(c.analysis);
-    const outcome: LaneOutcome = await LANES[route.lane](
-      {
-        userId: c.userId,
-        conversationId: c.req.conversationId,
-        turnId: c.turnId,
-        tz: c.tz,
-        analysis: c.analysis,
-        now: c.startedAt,
-        budget: c.budget,
-        emit: c.emit,
-        progress: c.progress,
-      },
-      this.laneDeps,
-    );
+    const quick = new QuickSection({
+      answer: this.deps.answer,
+      budget: c.budget,
+      emit: c.emit,
+      turnId: c.turnId,
+      now: c.startedAt,
+      userMessage: c.req.text,
+      tz: c.tz,
+      ...(this.deps.logger ? { logger: this.deps.logger } : {}),
+    });
+    let outcome: LaneOutcome;
+    try {
+      outcome = await LANES[route.lane](
+        {
+          userId: c.userId,
+          conversationId: c.req.conversationId,
+          turnId: c.turnId,
+          tz: c.tz,
+          analysis: c.analysis,
+          now: c.startedAt,
+          budget: c.budget,
+          emit: c.emit,
+          progress: c.progress,
+          ...(quick.available ? { onSourcesReady: (ready) => quick.start(ready) } : {}),
+        },
+        this.laneDeps,
+      );
+    } catch (error) {
+      // Nothing may be emitted once the turn is finalised: stop the quick section before the error moves on.
+      await quick.finish().catch(() => undefined);
+      throw error;
+    }
+    // The findings are ready: the quick section stops where it is and what it released stays (ADR-43).
+    const early = await quick.finish();
+    if (early && outcome.kind !== 'synthesize') {
+      this.deps.logger?.warn(
+        { turnId: c.turnId },
+        'a quick section was released but the lane did not synthesize',
+      );
+    }
 
     switch (outcome.kind) {
       case 'clarify': {
@@ -510,41 +537,56 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
         c.progress('SYNTHESIZING', 'Writing the answer');
         // Sentences written in code open the answer: they are released first and the model's sentences follow
         // them, numbered after them. No model call is involved in them.
+        // A quick section released while the findings were being made comes first; the numbering continues
+        // after it, then after the sentences written in code, so there is one numbering for the message.
+        const q = early?.sentences.length ?? 0;
         const lead = deterministicAnswer(outcome.lead ?? []);
         const k = lead.sentences.length;
+        const offset = q + k;
         for (const sentence of lead.sentences) {
+          const index = sentence.index + q;
           c.emit({
             event: 'answer.delta',
-            data: {
-              sentenceIndex: sentence.index,
-              text: (sentence.index === 0 ? '' : ' ') + sentence.text,
-            },
+            data: { sentenceIndex: index, text: (index === 0 ? '' : ' ') + sentence.text },
           });
           c.emit({
             event: 'answer.sentence_end',
-            data: { index: sentence.index, status: sentence.status, issues: sentence.issues },
+            data: { index, status: sentence.status, issues: sentence.issues },
           });
         }
         const pipelineEmit: EventSink = (e) => {
-          if (k === 0) return c.emit(e);
+          if (offset === 0) return c.emit(e);
           switch (e.event) {
             case 'answer.delta':
               return c.emit({
                 event: 'answer.delta',
                 data: {
-                  sentenceIndex: e.data.sentenceIndex + k,
+                  sentenceIndex: e.data.sentenceIndex + offset,
                   text: e.data.sentenceIndex === 0 ? ' ' + e.data.text : e.data.text,
                 },
               });
             case 'answer.sentence_end':
-              return c.emit({ event: e.event, data: { ...e.data, index: e.data.index + k } });
+              return c.emit({ event: e.event, data: { ...e.data, index: e.data.index + offset } });
             case 'verification':
-              return c.emit({ event: e.event, data: { ...e.data, index: e.data.index + k } });
+              return c.emit({ event: e.event, data: { ...e.data, index: e.data.index + offset } });
             default:
               return c.emit(e);
           }
         };
-        let result: Awaited<ReturnType<AnswerPipeline['run']>>;
+        /** Everything released before the verified section: the quick section, then the code-written lead. */
+        const opening = (): AnswerResult => ({
+          sentences: [
+            ...(early?.sentences ?? []),
+            ...lead.sentences.map((x) => ({ ...x, index: x.index + q })),
+          ],
+          // The lead is written in code and counted as sent; the quick section counts as far as it was.
+          streamedThrough:
+            early && early.streamedThrough < q - 1 ? early.streamedThrough : offset - 1,
+          interrupted: false,
+          template: [early?.template ?? '', lead.template].filter((t) => t !== '').join(' '),
+          rendered: [early?.rendered ?? '', lead.rendered].filter((t) => t !== '').join(' '),
+        });
+        let result: AnswerResult;
         try {
           result = await this.deps.answer.run(
             {
@@ -554,6 +596,7 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
               userMessage: c.req.text,
               window: c.window,
               tz: c.tz,
+              ...(early ? { earlier: early.sentences.map((s) => s.text) } : {}),
             },
             c.budget,
             pipelineEmit,
@@ -565,6 +608,7 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
             { turnId: c.turnId, cls },
             'synthesis failed; replying deterministically',
           );
+          if (early) return this.keptEnding(opening(), outcome, `synthesis_${cls}`);
           return this.fixedEnding(
             c.emit,
             OUTAGE_REPLY,
@@ -575,6 +619,7 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
           );
         }
         if (result.sentences.length === 0) {
+          if (early) return this.keptEnding(opening(), outcome, 'synthesis_empty');
           return this.fixedEnding(
             c.emit,
             OUTAGE_REPLY,
@@ -585,16 +630,21 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
           );
         }
 
-        if (k > 0) {
+        if (offset > 0) {
+          const head = opening();
           result = {
             ...result,
             sentences: [
-              ...lead.sentences,
-              ...result.sentences.map((x) => ({ ...x, index: x.index + k })),
+              ...head.sentences,
+              ...result.sentences.map((x) => ({ ...x, index: x.index + offset })),
             ],
-            streamedThrough: result.streamedThrough + k,
-            template: lead.template + ' ' + result.template,
-            rendered: lead.rendered + ' ' + result.rendered,
+            // What the client was sent before the verified part counts only if all of it was sent.
+            streamedThrough:
+              head.streamedThrough < offset - 1
+                ? head.streamedThrough
+                : result.streamedThrough + offset,
+            template: head.template + ' ' + result.template,
+            rendered: head.rendered + ' ' + result.rendered,
           };
         }
 
@@ -622,6 +672,30 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
         };
       }
     }
+  }
+
+  /**
+   * The verified section could not be written after a quick section was released: the answer keeps what the
+   * reader has already seen (existing interrupted semantics), the findings still arrive, and nothing is invented.
+   */
+  private keptEnding(
+    released: AnswerResult,
+    outcome: Extract<LaneOutcome, { kind: 'synthesize' }>,
+    errorCode: string,
+  ): Ending {
+    return {
+      status: 'interrupted',
+      answer: {
+        rendered: released.rendered,
+        template: released.template,
+        sentences: released.sentences,
+        streamedThrough: released.streamedThrough,
+        messageStatus: 'interrupted',
+      },
+      findings: outcome.findings,
+      ctx: outcome.ctx,
+      errorCode,
+    };
   }
 
   /** An ending whose text is written in code: streamed as sentences with no claims, no model involved. */

@@ -196,7 +196,11 @@ export async function researchTurn(
   }
   emitContext(input, ctx);
   if (capped) emitEntityCap(input);
-  const outcome = await runResearch(researchInput, deps, ctx, 'research');
+  // The quick sourced answer opens the answer, so it runs only when no sentence written in code has to open
+  // it first; a sentence that can be written only once the findings are known comes after it.
+  const outcome = await runResearch(researchInput, deps, ctx, 'research', {
+    quick: lead.length === 0 && options.noRecordDay === undefined,
+  });
   if (outcome.kind !== 'synthesize') return outcome;
   const unproven =
     options.noRecordDay === undefined

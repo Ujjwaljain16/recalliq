@@ -24,10 +24,16 @@ export class StrictTurnAnalyzer implements TurnAnalyzer {
 }
 
 export class StrictAnswerPipeline implements AnswerPipeline {
+  /** Present only when the wrapped pipeline has one. A quick section is optional, so it is never strict. */
+  readonly quick?: AnswerPipeline['quick'];
+
   constructor(
     private readonly inner: AnswerPipeline,
     private readonly log: MissLog,
-  ) {}
+  ) {
+    const innerQuick = inner.quick?.bind(inner);
+    if (innerQuick) this.quick = innerQuick;
+  }
 
   async run(...args: Parameters<AnswerPipeline['run']>): ReturnType<AnswerPipeline['run']> {
     const before = this.log.count;

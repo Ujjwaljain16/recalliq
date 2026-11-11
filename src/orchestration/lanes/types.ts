@@ -23,6 +23,12 @@ export interface LaneInput {
   budget: TurnBudget;
   emit: EventSink;
   progress(state: TurnState, text: string): void;
+  /**
+   * Set by the coordinator. A lane that will extract calls it once the turn's sources are stored, before
+   * extraction starts, so the coordinator can start the quick sourced answer while extraction runs. A lane that
+   * does not call it gets no quick section.
+   */
+  onSourcesReady?: (ready: { ctx: ResolvedContext; sources: FindingSet['sources'] }) => void;
 }
 
 export interface LaneDeps {

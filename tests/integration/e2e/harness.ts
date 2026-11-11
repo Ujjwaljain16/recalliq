@@ -43,6 +43,8 @@ export interface E2eOptions {
   registry?: OfficialDomains;
   /** Wraps the replay model, e.g. to count calls per role. */
   wrapLlm?: (inner: LlmPort) => LlmPort;
+  /** Turns the quick sourced section on (replay leaves it off: a fixture scripts the full answer only). */
+  quick?: boolean;
 }
 
 /**
@@ -62,7 +64,12 @@ export async function startE2e(o: E2eOptions): Promise<E2eApp> {
   const app = await startApplication({
     env,
     factory: o.wrapLlm
-      ? wrappedFactory(parseReplayFixture(o.fixture), o.registry ?? EXAMPLE_REGISTRY(), o.wrapLlm)
+      ? wrappedFactory(
+          parseReplayFixture(o.fixture),
+          o.registry ?? EXAMPLE_REGISTRY(),
+          o.wrapLlm,
+          o.quick ?? false,
+        )
       : replayFactoryFromFixture(
           parseReplayFixture(o.fixture),
           undefined,
@@ -90,6 +97,7 @@ function wrappedFactory(
   fixture: ReplayFixture,
   registry: OfficialDomains,
   wrap: (inner: LlmPort) => LlmPort,
+  quick: boolean,
 ): ComponentFactory {
   return (c) => {
     const log = new MissLog();
@@ -100,6 +108,7 @@ function wrappedFactory(
       origin: 'synthetic',
       missLog: log,
       registry,
+      quick,
     });
   };
 }
