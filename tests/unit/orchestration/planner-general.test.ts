@@ -115,3 +115,72 @@ describe('planner: the general research path', () => {
     expect(plan.specs[0]?.id.startsWith('beta suite:general')).toBe(true);
   });
 });
+
+describe('planner: "what is new in X" with no interval is a general question', () => {
+  const since: ResolvedContext['temporal'][number] = {
+    mention: {
+      text: 'since Monday',
+      expr: {
+        kind: 'since' as const,
+        anchor: { kind: 'weekday' as const, weekday: 1, modifier: 'last' as const },
+      },
+      role: 'change_since' as const,
+    },
+    candidates: [
+      {
+        startMs: NOW - 2 * 86_400_000,
+        endMs: NOW - 86_400_000,
+        localDate: '2026-11-09',
+        tz: 'UTC',
+      },
+    ],
+    status: 'resolved' as const,
+  };
+
+  it('the live case: "What is new in Node.js 24?" plans the analysis queries and the release notes, no release tracking', () => {
+    const node = entityRecord('Node.js', { domains: ['nodejs.org'] });
+    const plan = planner.plan(
+      ctx({ entities: [node] }),
+      analysis({
+        laneHint: 'research',
+        intents: ['releases'],
+        entities: [mention('Node.js')],
+        queries: ['Node.js 24 new features', 'Node.js 24 release highlights'],
+      }),
+      NOW,
+    );
+    expect(plan.specs.map((s) => [s.request.query, s.intent, s.entityId])).toEqual([
+      ['Node.js 24 new features', 'general', node.id],
+      ['Node.js release notes', 'general', node.id],
+      ['Node.js 24 release highlights', 'general', node.id],
+    ]);
+    for (const s of plan.specs) {
+      expect(s.request.startPublishedDate).toBeUndefined();
+      expect(s.request.includeDomains).toBeUndefined();
+    }
+    expect([...plan.specs, ...plan.fallback].some((s) => s.intent === 'releases')).toBe(false);
+  });
+
+  it('"What is the latest stable version of TypeScript?" with no analysis query still searches the release notes', () => {
+    const ts = entityRecord('TypeScript');
+    const plan = planner.plan(
+      ctx({ entities: [ts] }),
+      analysis({ intents: ['releases'], entities: [mention('TypeScript')] }),
+      NOW,
+    );
+    expect(plan.specs.map((s) => [s.request.query, s.intent])).toEqual([
+      ['TypeScript release notes', 'general'],
+    ]);
+  });
+
+  it('with a "since" anchor the releases are tracked as before, from that day', () => {
+    const node = entityRecord('Node.js', { domains: ['nodejs.org'] });
+    const plan = planner.plan(
+      ctx({ entities: [node], temporal: [since] }),
+      analysis({ intents: ['releases'], entities: [mention('Node.js')] }),
+      NOW,
+    );
+    expect(plan.specs.map((s) => s.intent)).toEqual(['releases']);
+    expect(plan.specs[0]?.request.startPublishedDate).toBe(NOW - 2 * 86_400_000);
+  });
+});

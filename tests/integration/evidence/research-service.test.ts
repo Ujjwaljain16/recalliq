@@ -144,7 +144,7 @@ describe('research lane: search to finding', () => {
       new ScriptedExecutor({ 1: [outcome(w.acme.id, [id])] }),
       new ScriptedLlm(() => ({ statements: [st] })),
     );
-    const set = await service.run(request(w, { intents: ['releases'] }).req);
+    const set = await service.run(request(w, { intents: ['releases'], since: NOW - 30 * DAY }).req);
     const f = finding(set.findings);
     expect(f).toMatchObject({
       intent: 'releases',

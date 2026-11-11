@@ -134,9 +134,13 @@ export class RuleChangeDetector implements ChangeDetector {
   releases(
     evidence: VerifiedEvidence[],
     coverage: Coverage,
-    t0: Ms,
-  ): { verdict: ReleaseVerdict; items: VerifiedEvidence[] } {
+    t0: Ms | null,
+  ): { verdict: ReleaseVerdict; items: VerifiedEvidence[]; reason?: 'no_time_window' } {
     if (coverageReason(coverage) !== null) return { verdict: 'unable_to_verify', items: [] };
+    // No interval start (no "since" and no earlier answer): neither "releases since ..." nor "no releases found"
+    // has a window to be about, so nothing is concluded. The planner routes such questions to general search;
+    // this is the guard behind it.
+    if (t0 === null) return { verdict: 'unable_to_verify', items: [], reason: 'no_time_window' };
     const dateOf = (e: VerifiedEvidence): Ms | null => e.eventDate ?? e.providerPublishedAt;
     const items = evidence
       .filter(

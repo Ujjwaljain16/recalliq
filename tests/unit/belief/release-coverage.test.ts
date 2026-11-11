@@ -7,6 +7,9 @@ import {
 } from '../../../src/belief/detector.js';
 import type { Coverage, VerifiedEvidence } from '../../../src/shared/index.js';
 import { DAY, ev, RELEASE_COVERAGE_AFTER_T0, T0 } from './support.js';
+import { resolveRef } from '../../../src/answer/records.js';
+import { defaultRenderer } from '../../../src/answer/render.js';
+import { recordsFor } from '../answer/builders.js';
 
 /**
  * "No releases found" is a negative conclusion, and not finding something is not proof that it did not happen.
@@ -175,5 +178,66 @@ describe('what the finding says', () => {
     const set = build(GOOD, ['pricing']);
     expect(set.findings.every((f) => f.intent !== 'releases')).toBe(true);
     expect(set.findings.some((f) => f.verdict === 'none_found')).toBe(false);
+  });
+});
+
+describe('no interval start: no release conclusion has a window', () => {
+  // The live case: "What is new in Node.js 24?" rendered "no releases found among 14 sources checked" with no
+  // "since" and no earlier answer, a negative about no period at all.
+  it('T-REL-30: with full coverage and nothing found, no interval start is unable_to_verify (no_time_window), never none_found', () => {
+    const out = detector.releases([], GOOD, null);
+    expect(out).toEqual({ verdict: 'unable_to_verify', items: [], reason: 'no_time_window' });
+  });
+
+  it('T-REL-31: even release evidence lists nothing without an interval to place it in', () => {
+    const out = detector.releases([release('Smart Docs', { eventDate: T0 + DAY })], GOOD, null);
+    expect(out.verdict).toBe('unable_to_verify');
+    expect(out.items).toEqual([]);
+  });
+
+  it('T-REL-32: a coverage failure keeps its own reason', () => {
+    expect(detector.releases([], { ...GOOD, failure: 'deadline' }, null).reason).toBeUndefined();
+  });
+
+  it('T-REL-33: the assembled finding carries no_time_window and renders the period request, not "no releases found"', () => {
+    const assembler = new FindingAssembler({ detector, newFindingId: () => 'fnd_1' });
+    const set = assembler.assemble({
+      turnId: 'trn_1',
+      createdAt: T0,
+      snapshots: new Map(),
+      entities: [
+        {
+          entity: {
+            id: 'ent_node' as const,
+            name: 'Node.js',
+            aliases: [],
+            plans: [],
+            officialDomains: ['nodejs.org'],
+          },
+          intents: ['releases'],
+          coverage: GOOD,
+          beliefs: [],
+          evidenceByKey: new Map(),
+          releaseEvidence: [],
+          baselines: [],
+          releaseSince: null,
+        },
+      ],
+    });
+    const f = set.findings[0];
+    expect(f).toMatchObject({
+      intent: 'releases',
+      verdict: 'unable_to_verify',
+      currentStatus: 'unable_to_verify',
+      verdictReason: 'no_time_window',
+    });
+    const records = recordsFor(f ? [f] : []);
+    const view = (variant: 'current' | 'verdict') => {
+      const r = resolveRef({ kind: 'finding', ord: 1, variant }, records);
+      return r.ok ? defaultRenderer.render(r.record, records) : '';
+    };
+    expect(view('verdict')).toBe('I can only report releases for a period you name');
+    expect(view('current')).toBe('I can only report releases for a period you name');
+    expect(`${view('current')} ${view('verdict')}`).not.toMatch(/no releases/i);
   });
 });

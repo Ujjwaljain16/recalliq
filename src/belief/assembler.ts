@@ -35,8 +35,11 @@ export interface EntityAssemblyInput {
   releaseEvidence: readonly VerifiedEvidence[];
   /** Baselines of this entity, already re-verified under current rules. */
   baselines: readonly Baseline[];
-  /** Start of the release interval (T0). */
-  releaseSince: Ms;
+  /**
+   * Start of the release interval (T0): the earliest baseline, else the user's "since". `null` when the turn has
+   * neither, so no release verdict can be about a window (see the detector).
+   */
+  releaseSince: Ms | null;
 }
 
 export interface AssembleInput {
@@ -304,7 +307,8 @@ export class FindingAssembler {
       verdict: r.verdict,
       verdictReason:
         r.verdict === 'unable_to_verify'
-          ? (isFailure(ent.coverage) ??
+          ? (r.reason ??
+            isFailure(ent.coverage) ??
             (ent.coverage.searchesFailed > 0 ? 'search_unavailable' : 'insufficient_coverage'))
           : null,
       coverage: ent.coverage,
@@ -318,6 +322,7 @@ export class FindingAssembler {
         providerPublishedAt: e.providerPublishedAt,
         significance: e.significance,
         announcedBeforeBaseline:
+          t0 !== null &&
           e.providerPublishedAt !== null &&
           e.providerPublishedAt < t0 &&
           e.eventDate !== null &&
