@@ -8,7 +8,7 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 1. **Understand** (one model call): intent, entities, search queries and time references ("on Monday", "since
    then"). Times are resolved by code in the user's time zone, not by the model.
 2. **Reconstruct context before routing.** Stored messages, shortlists and entities for the referenced day are
-   retrieved (SQLite FTS5), *then* a deterministic router picks a lane: chat, recall, research, audit or clarify.
+   retrieved (SQLite FTS5), _then_ a deterministic router picks a lane: chat, recall, research, audit or clarify.
    History is an input to routing, never something only one lane can see.
 3. **Research, bounded.** A planner (code) turns the analysis into at most 16 searches (4 per entity, 6 entities).
    Search goes through Exa under a per-process limiter. One absolute 60 s deadline covers the whole turn, with a
@@ -18,7 +18,7 @@ against today's sources. **Every statement in an answer says how sure it is: ver
      code (quote present, value in quote, plan/billing/unit binding, owner of the page). Code renders them into
      the answer through placeholders; the model never types a verified number.
    - **Sourced:** for everything else the model writes from source excerpts and must cite one. A deterministic
-     check withholds the sentence unless every number, date, amount and name appears in *one* cited excerpt.
+     check withholds the sentence unless every number, date, amount and name appears in _one_ cited excerpt.
 5. **Temporal truth.** Snapshots, evidence, assertions (what we actually said) and beliefs are separate,
    append-only layers. "Changed" is only ever said when the old value was observed after our answer and the new
    value later on the same page, or the page states an effective date. Otherwise the answer says the values
@@ -32,8 +32,8 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 - **Reason with the model, decide with code.** The model interprets language and writes prose; code owns time,
   routing, budgets, verification, belief resolution and state transitions (a 26-edge turn state machine with
   typed failures). The model cannot silently rewrite what the system believes or what it said before.
-- **The examples are about time and memory.** "Has it changed since Monday?" needs to separate *the world
-  changed*, *my answer was wrong* and *I can't tell when*. That is only possible if what was said, what each
+- **The examples are about time and memory.** "Has it changed since Monday?" needs to separate _the world
+  changed_, _my answer was wrong_ and _I can't tell when_. That is only possible if what was said, what each
   source said and when are stored separately.
 - **Modular monolith + SQLite.** One process, transactional storage with triggers for ownership and
   immutability, `npm install && npm run dev`, no infrastructure to run.
@@ -81,7 +81,7 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 1. Stream the sourced answer first and the verified section when checks finish (price questions under 5 s to
    first text).
 2. Run the benchmark test sets once and publish the numbers with their intervals.
-3. Gap-directed second search round (search for *why* a claim failed: plan, billing period, owner page).
+3. Gap-directed second search round (search for _why_ a claim failed: plan, billing period, owner page).
 4. A small, reviewed official-domain registry flow so change verdicts work out of the box.
 5. Evaluate stronger models per role (analysis, extraction, synthesis) on the dev sets.
 
