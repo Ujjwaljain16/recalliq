@@ -1,13 +1,25 @@
 # Proposal: record what a search result's freshness actually rests on
 
-Status: **proposed, not applied.** Nothing in the contracts, the schema or ADR-36 changes until the owner approves.
+Status: **approved for implementation with constraints (2026-11-12).** The constraints below override the table further down where they differ.
+
+## Approved constraints
+
+- The four states `confirmed_live`, `requested_live`, `cached` and `unknown` are implemented as distinct states.
+- A successful HTTP response, or a request made with `maxAgeHours: 0`, never establishes `confirmed_live` on its own. Only a per-result provider marker can (Exa search returns none).
+- Incomplete or insufficiently structured crawl content cannot establish confirmed freshness: such a result is recorded as `unknown`, not `requested_live`.
+- `requested_live` cannot independently establish confirmed current pricing, nor a historical `changed` or `unchanged_confirmed` verdict. It is recorded and reported, and it changes no belief status and no verdict.
+- The ADR-36 two-observation proof and the effective-date requirement are unchanged.
+- Retrieval time stays separate from source effective and publication time.
+- No existing invariant is weakened.
+
+Consequence for the table below: the `fresh_fetch_requested` displayed-at basis is **not** introduced, and the evidence table is not rebuilt. The new state is stored on the snapshot and reported; it does not feed the resolver or the detector.
 
 ## What was observed (2026-11-12, real Exa and Gemini calls)
 
 - Exa documents `contents.maxAgeHours: 0` as "always live crawl". A search response carries no per-result crawl status, cache marker, crawl date or last-updated field (see [provider-evaluation.md](../provider-evaluation.md)).
 - The adapter therefore never sets `freshFetch`: it requires a per-result marker that does not exist.
 - The evidence verifier derives `displayedAt` (the latest instant the source provably showed a statement) only from a confirmed fresh fetch, a provider last-updated time or a provider published time. Pricing pages usually have none of these.
-- In a real two-turn run, **no belief reached `confirmed`**: every belief stayed `unknown` because `displayedAt` was null, independently of whether extraction and verification succeeded. So the missing marker blocks more than the `changed` verdict: it blocks every confirmed current price on live data.
+- **Correction (2026-11-12):** an earlier version of this note said the missing marker blocked every confirmed price. That was wrong for the run it described. In that run no belief existed at all, because all 47 extracted statements failed or were weak at verification (currency, plan binding, subject binding), so there was nothing to resolve. For statements that do pass, the resolver treats a statement with no displayed-at time as not current and reports the belief as `stale` with its value, not as `unknown`. So the missing marker limits a live price to `stale` (value shown, not confirmed) and makes `changed` unreachable; it does not remove the value.
 
 ## The gap
 
