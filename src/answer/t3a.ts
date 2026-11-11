@@ -82,7 +82,7 @@ const FREE_DIGITS = new RegExp(`(?<![\\p{L}\\d])${DIGITS}`, 'gu');
 
 const NOSIGN = /\bno (?:sign|evidence|indication)s? of (?:any |a )?changes?\b/gi;
 const GLOBAL_NEGATIVE =
-  /\b(?:none of them|none of the (?:\w+ ){0,2}changed|no changes|nothing (?:has )?changed|all (?:of them )?(?:are |remain |stay )?(?:the )?same|all unchanged)\b/gi;
+  /\b(?:none of them(?: (?:has |have )?changed)?|none of the (?:\w+ ){0,2}changed|no changes|nothing (?:has )?changed|all (?:of them )?(?:are |remain |stay )?(?:the )?same|all unchanged)\b/gi;
 
 type Predicate = (f: Finding) => boolean;
 const is =
@@ -129,6 +129,101 @@ export const VERDICT_FAMILIES: Array<{ id: string; re: RegExp; ok: Predicate }> 
     ok: is('baseline_incorrect'),
   },
 ];
+
+const isChange =
+  (direction: 'up' | 'down'): Predicate =>
+  (f) =>
+    f.verdict === 'changed' && f.direction === direction;
+
+type LexiconCategory = 'up' | 'down' | 'more' | 'less' | 'neutral' | 'launch' | 'removal';
+
+/**
+ * Broad lexicon of words that imply a price or product change over time, or a comparison. A blacklist can
+ * never be complete, so these are not the only line of defence: the synthesis prompt forbids free-text change
+ * language, and this list is applied conservatively (when in doubt the sentence is withheld). The verdict
+ * families above are matched first; whatever they cover keeps its own rule.
+ */
+export const CHANGE_LEXICON: Array<{ cat: LexiconCategory; re: RegExp }> = [
+  {
+    cat: 'up',
+    re: /\b(?:rais(?:e|es|ed|ing)|increas(?:e|es|ed|ing)|ris(?:e|es|ing)|rose|risen|jump(?:s|ed|ing)?|surg(?:e|es|ed|ing)|spik(?:e|es|ed|ing)|climb(?:s|ed|ing)?|hik(?:e|es|ed|ing)|bump(?:s|ed|ing)?|doubl(?:e|es|ed|ing)|tripl(?:e|es|ed|ing)|quadrupl(?:e|es|ed|ing)|up ?tick(?:s|ed|ing)?|mark(?:ed)? ?ups?|marked up)\b/i,
+  },
+  {
+    cat: 'down',
+    re: /\b(?:cut(?:s|ting)?|slash(?:es|ed|ing)?|drop(?:s|ped|ping)?|fall(?:s|ing|en)?|fell|plung(?:e|es|ed|ing)|dip(?:s|ped|ping)?|decreas(?:e|es|ed|ing)|reduc(?:e|es|ed|ing|tion)|lower(?:s|ed|ing)?|discount(?:s|ed|ing)?|halv(?:e|es|ed|ing)|down ?tick(?:s|ed|ing)?|mark(?:ed)? ?downs?|marked down)\b/i,
+  },
+  {
+    cat: 'more',
+    re: /\b(?:pricier|priciest|pricey|costlier|costliest|more expensive|more costly|costs? more|costing more)\b/i,
+  },
+  {
+    cat: 'less',
+    re: /\b(?:cheaper|cheapest|less expensive|less costly|costs? less|costing less)\b/i,
+  },
+  {
+    cat: 'neutral',
+    re: /\b(?:chang(?:e|es|ed|ing)|updat(?:e|es|ed|ing)|(?:went|gone) (?:from|to|up|down|over|under|higher|lower)|now costs?|used to|previously|formerly|no longer|any ?more|new pric(?:e|es|ing)|re ?pric(?:e|es|ed|ing)|adjust(?:s|ed|ing|ment)?|revis(?:e|es|ed|ion))\b/i,
+  },
+  {
+    cat: 'removal',
+    re: /\b(?:deprecat(?:e|es|ed|ing)|discontinu(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|retir(?:e|es|ed|ing)|sunset(?:s|ted|ting)?|phas(?:e|es|ed|ing) out|end(?:ed)? of life)\b/i,
+  },
+  {
+    cat: 'launch',
+    re: /\b(?:launch(?:es|ed|ing)?|releas(?:e|es|ed|ing)|ship(?:s|ped|ping)|introduc(?:e|es|ed|ing)|unveil(?:s|ed|ing)?|announc(?:e|es|ed|ing)|roll(?:s|ed|ing)? out|new (?:plan|tier|feature|version))\b/i,
+  },
+];
+
+const chars = (...codes: number[]): string => String.fromCharCode(...codes);
+/** Zero-width characters and the soft hyphen, which can be slipped into a word to hide it. */
+const ZERO_WIDTH = new RegExp(`[${chars(0x200b, 0x200c, 0x200d, 0x2060, 0x00ad, 0xfeff)}]`, 'g');
+/** Hyphen look-alikes: the Unicode dashes, minus sign, small and full-width hyphen-minus. */
+const DASHES = new RegExp(
+  `[${chars(0x2010)}-${chars(0x2015)}${chars(0x2212, 0x2043, 0xfe58, 0xfe63, 0xff0d)}]`,
+  'g',
+);
+/** Apostrophe look-alikes: typographic quotes, modifier letter apostrophe, prime, grave and acute accents. */
+const APOSTROPHES = new RegExp(`[${chars(0x2018, 0x2019, 0x02bc, 0x2032, 0x0060, 0x00b4)}]`, 'g');
+const GREEK_CYRILLIC = new RegExp(`[${chars(0x0370)}-${chars(0x04ff)}]`, 'g');
+/** Characters that look like Latin letters but are not (a small, common set). */
+const HOMOGLYPHS: Record<string, string> = {
+  а: 'a',
+  е: 'e',
+  о: 'o',
+  р: 'p',
+  с: 'c',
+  і: 'i',
+  ј: 'j',
+  у: 'y',
+  х: 'x',
+  ѕ: 's',
+  ο: 'o',
+  α: 'a',
+  ε: 'e',
+  ι: 'i',
+  ν: 'v',
+  ρ: 'p',
+  τ: 't',
+  υ: 'u',
+};
+
+/**
+ * Normalises text for word matching: compatibility forms (full-width letters), look-alike letters, zero-width and
+ * soft-hyphen characters, every kind of dash and apostrophe, case and spacing. Returns two variants, one where
+ * hyphens separate words ("up-ticked" -> "up ticked") and one where they vanish ("re-priced" -> "repriced").
+ */
+export function textVariants(text: string): string[] {
+  const base = text
+    .normalize('NFKC')
+    .replace(ZERO_WIDTH, '')
+    .replace(DASHES, '-')
+    .replace(APOSTROPHES, "'")
+    .toLowerCase()
+    .replace(GREEK_CYRILLIC, (c) => HOMOGLYPHS[c] ?? c);
+  const spaced = base.replace(/-+/g, ' ').replace(/\s+/g, ' ');
+  const joined = base.replace(/-+/g, '').replace(/\s+/g, ' ');
+  return [spaced, joined];
+}
 
 function mask(text: string, start: number, length: number): string {
   return text.slice(0, start) + ' '.repeat(length) + text.slice(start + length);
@@ -257,11 +352,45 @@ export function checkFreeText(sentence: T3aSentence, ctx: T3aContext): SentenceI
     for (const m of negatives) text = mask(text, m.index, m[0].length);
   }
 
-  // Verdict words need a compatible finding in the same sentence.
+  // Verdict words need a compatible finding in the same sentence. Matching runs on normalised text and on a
+  // hyphen-free variant, so case, spacing, look-alike characters and hyphenation do not hide a word.
+  const variants = textVariants(text);
   const linked = sentence.refs.flatMap((r) => (r.finding ? [r.finding] : []));
+  let rest = variants;
   for (const family of VERDICT_FAMILIES) {
-    if (globalSupported && (family.id === 'nosign' || family.id === 'unchanged')) continue;
-    if (family.re.test(text) && !linked.some(family.ok)) issues.add('unsupported_verdict_word');
+    const skip = globalSupported && (family.id === 'nosign' || family.id === 'unchanged');
+    if (!skip && variants.some((v) => family.re.test(v)) && !linked.some(family.ok)) {
+      issues.add('unsupported_verdict_word');
+    }
+    rest = rest.map((v) => v.replace(new RegExp(family.re.source, 'gi'), ' '));
+  }
+
+  // Broad change lexicon (structural rule). Words the families above already cover keep their own rule; every
+  // other word that implies a change over time or a comparison is allowed only when the sentence is about a
+  // finding (it has a finding placeholder, or the turn has findings) AND carries a `:verdict` or `:baseline`
+  // placeholder of a finding whose verdict fits. A plain current-value placeholder never justifies it.
+  const aboutFindings = sentence.refs.some((r) => r.finding !== null) || ctx.findings.length > 0;
+  if (aboutFindings) {
+    const anchored = sentence.refs.flatMap((r) =>
+      r.finding && r.ref.kind === 'finding' && r.ref.variant !== 'current' ? [r.finding] : [],
+    );
+    const distinct = new Set(linked.map((f) => f.ord)).size;
+    for (const { cat, re } of CHANGE_LEXICON) {
+      if (!rest.some((v) => re.test(v))) continue;
+      const ok =
+        (cat === 'up' && anchored.some(isChange('up'))) ||
+        (cat === 'down' && anchored.some(isChange('down'))) ||
+        (cat === 'neutral' &&
+          (anchored.some(is('changed', 'differs_timing_unknown', 'baseline_incorrect')) ||
+            anchored.some(releaseKind('removal')))) ||
+        (cat === 'removal' && anchored.some(releaseKind('removal'))) ||
+        (cat === 'launch' && anchored.some(releaseKind('launch', 'change'))) ||
+        // A comparison between several findings is judged by the T3b judge, not forbidden.
+        ((cat === 'more' || cat === 'less') && distinct >= 2) ||
+        (cat === 'more' && anchored.some(isChange('up'))) ||
+        (cat === 'less' && anchored.some(isChange('down')));
+      if (!ok) issues.add('unsupported_verdict_word');
+    }
   }
 
   const order: SentenceIssue[] = [

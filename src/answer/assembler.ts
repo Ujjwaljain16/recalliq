@@ -10,7 +10,8 @@ const TERMINATORS = new Set(['.', '!', '?']);
 const CLOSERS = new Set(['"', "'", '”', '’', ')', ']', '}']);
 const ABBREVIATION = /(?:^|[\s(])(?:e\.g|i\.e|vs|approx|inc|ltd|mr|mrs|dr)\.$/i;
 const LIST_MARKER = /^\s*(?:[-*]\s+)?\d{1,2}[.)]$/;
-const COMPARATIVE = /\b(?:cheaper|more expensive|best|only|most|least|than)\b/i;
+const COMPARATIVE =
+  /\b(?:cheaper|pricier|costlier|more expensive|less expensive|best|only|most|least|than)\b/i;
 const TOKEN = /\[\[[^\]]*\]\]/g;
 
 const isWhitespace = (ch: string): boolean => /\s/.test(ch);
