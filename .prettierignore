@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+data/
+package-lock.json
+# design documents are written by hand; formatting churn would obscure their history
+docs/
+*.sql

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+
+# local databases (real and demo); never commit user data
+data/
+*.db
+*.db-wal
+*.db-shm
