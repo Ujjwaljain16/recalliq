@@ -26,7 +26,7 @@ export interface StreamScript {
  * queue of raw values (validated with the request's own schema, like the real adapter) or errors; `stream`
  * replays scripts. Requests are recorded for assertions. Not a mock of the provider: see the adapter tests.
  */
-export class ScriptedLlm implements LlmPort {
+export class FakeLlm implements LlmPort {
   readonly structuredCalls: Array<StructuredRequest<unknown>> = [];
   readonly streamCalls: StreamRequest[] = [];
   private readonly structuredQueue: Array<unknown | Error> = [];
@@ -46,13 +46,13 @@ export class ScriptedLlm implements LlmPort {
     this.structuredCalls.push(r as StructuredRequest<unknown>);
     if (r.signal.aborted) return Promise.reject(new LlmError('cancelled', 'aborted'));
     if (this.structuredQueue.length === 0) {
-      return Promise.reject(new LlmError('unavailable', 'ScriptedLlm: no structured reply queued'));
+      return Promise.reject(new LlmError('unavailable', 'FakeLlm: no structured reply queued'));
     }
     const next = this.structuredQueue.shift();
     if (next instanceof Error) return Promise.reject(next);
     const parsed = r.schema.safeParse(next);
     if (!parsed.success) {
-      return Promise.reject(new LlmError('invalid_output', 'ScriptedLlm: reply failed the schema'));
+      return Promise.reject(new LlmError('invalid_output', 'FakeLlm: reply failed the schema'));
     }
     return Promise.resolve({ value: parsed.data, usage: NO_USAGE, model: 'fake', latencyMs: 0 });
   }
@@ -60,7 +60,7 @@ export class ScriptedLlm implements LlmPort {
   async *stream(r: StreamRequest): AsyncGenerator<StreamEvent, void, undefined> {
     this.streamCalls.push(r);
     const script = this.streamQueue.shift();
-    if (!script) throw new LlmError('unavailable', 'ScriptedLlm: no stream queued');
+    if (!script) throw new LlmError('unavailable', 'FakeLlm: no stream queued');
     let i = 0;
     for (const text of script.deltas) {
       script.beforeDelta?.(i++);
