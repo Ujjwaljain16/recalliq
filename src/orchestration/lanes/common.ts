@@ -394,15 +394,17 @@ export function noRecordSentence(day: string, about = ''): string {
 }
 
 /**
- * Written in code, before research findings, when nothing is stored for the day the user pointed at: says once
- * that no change since then (or no earlier answer) can be established and that what follows is current.
+ * Written in code when nothing is stored for the day the user pointed at and the turn goes on to look the subject
+ * up: says once that no change since then (or no earlier answer) can be established. Before findings it adds that
+ * what follows is current (`findings`); before a question it ends there.
  */
-export function noRecordThenFindings(input: LaneInput, day: string): string {
+export function noRecordConsequence(input: LaneInput, day: string, findings: boolean): string {
   const since = input.analysis.temporal.some((t) => t.role === 'change_since');
   const consequence = since
     ? "so I can't say what changed since then"
     : 'so I have nothing earlier to compare with';
-  return `I have no record of a conversation on ${day}, ${consequence}; here is what I found now.`;
+  const tail = findings ? '; here is what I found now.' : '.';
+  return `I have no record of a conversation on ${day}, ${consequence}${tail}`;
 }
 
 export const TELL_ME_WHAT_YOU_ASKED =

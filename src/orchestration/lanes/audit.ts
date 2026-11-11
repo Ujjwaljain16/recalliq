@@ -19,7 +19,6 @@ import {
   NO_EARLIER_ANSWER_TO_COMPARE,
   NO_VERIFIED_EARLIER_ANSWER,
   noRecordSentence,
-  noRecordThenFindings,
   resolveEntities,
   resolveShortlist,
   resolveTemporal,
@@ -151,7 +150,7 @@ export const auditLane: LaneHandler = async (input, deps) => {
   if (noRecordDay !== null && !fromShortlist) {
     const subject = input.analysis.entities.length > 0 || input.analysis.queries.length > 0;
     if (subject) {
-      return researchTurn(input, deps, { noRecord: noRecordThenFindings(input, noRecordDay) });
+      return researchTurn(input, deps, { noRecordDay });
     }
     emitContext(input, base);
     return {

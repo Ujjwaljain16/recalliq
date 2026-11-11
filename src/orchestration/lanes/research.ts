@@ -9,6 +9,7 @@ import {
   emitContext,
   emitEntityCap,
   emptyContext,
+  noRecordConsequence,
   nothingToSearchOutcome,
   resolveEntities,
   resolveShortlist,
@@ -21,12 +22,12 @@ import type { LaneDeps, LaneHandler, LaneInput, LaneOutcome } from './types.js';
 
 export interface ResearchOptions {
   /**
-   * Set when the audit lane found nothing stored for the day the user pointed at and hands the turn over: the
-   * code-written sentence that says so and that what follows is current. It opens the answer (or the question,
-   * when nothing can be searched), the day is not recalled a second time, and the "no change can be
-   * established" sentence is not added, because this one already says it.
+   * Set when the audit lane found nothing stored for the day the user pointed at and hands the turn over: that
+   * day, in words. A code-written sentence naming it opens the answer (or the question, when nothing can be
+   * searched), the day is not recalled a second time, and the "no change can be established" sentence is not
+   * added, because the opening one already says it.
    */
-  noRecord?: string;
+  noRecordDay?: string;
 }
 
 /**
@@ -56,7 +57,7 @@ export async function researchTurn(
 
   // The day the user points at, recalled like the audit lane does. No record there changes nothing here.
   const recalled =
-    options.noRecord === undefined
+    options.noRecordDay === undefined
       ? recallDay(input, deps, base)
       : ({ kind: 'not_referenced' } as const);
   if (recalled.kind === 'clarify') return recalled.outcome;
@@ -126,8 +127,8 @@ export async function researchTurn(
     ) {
       if (asksAboutASet) {
         return unknownShortlistOutcome(input, deps, base, {
-          noRecordDay: null,
-          asked: options.noRecord === undefined ? [] : [options.noRecord],
+          noRecordDay: options.noRecordDay ?? null,
+          asked: [],
         });
       }
       emitContext(input, base);
@@ -182,19 +183,22 @@ export async function researchTurn(
           analysis: { ...input.analysis, entities: [...input.analysis.entities, ...unresolved] },
         }
       : input;
-  const noRecord = options.noRecord === undefined ? [] : [options.noRecord];
+  const noRecord = (findings: boolean): string[] =>
+    options.noRecordDay === undefined
+      ? []
+      : [noRecordConsequence(input, options.noRecordDay, findings)];
   // Only a category was given ("Postgres hosting"): nothing the planner can search for. Ask, saying why.
   if (deps.planner.plan(ctx, researchInput.analysis, input.now).specs.length === 0) {
-    return nothingToSearchOutcome(input, ctx, [...noRecord, ...lead]);
+    return nothingToSearchOutcome(input, ctx, [...noRecord(false), ...lead]);
   }
   emitContext(input, ctx);
   if (capped) emitEntityCap(input);
   const outcome = await runResearch(researchInput, deps, ctx, 'research');
   if (outcome.kind !== 'synthesize') return outcome;
   const unproven =
-    options.noRecord === undefined
+    options.noRecordDay === undefined
       ? changeNotEstablishedSentence(input, ctx, outcome.findings, hits)
       : null;
-  const opening = [...noRecord, ...lead, ...(unproven === null ? [] : [unproven])];
+  const opening = [...noRecord(true), ...lead, ...(unproven === null ? [] : [unproven])];
   return opening.length > 0 ? { ...outcome, lead: opening } : outcome;
 }
