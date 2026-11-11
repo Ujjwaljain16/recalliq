@@ -60,6 +60,9 @@ function loadRegistry(env: AppEnv): OfficialDomains {
     : OfficialDomains.fromFile(path.resolve(env.officialDomainsFile));
 }
 
+/** A call that would wait longer than this for the main model goes to the fallback model instead. */
+const DIVERT_WAIT_MS = 1_500;
+
 /** Checks everything the live set needs, before the database is opened. */
 export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFactory {
   const problems: string[] = [];
@@ -77,7 +80,11 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
 
   const doFetch = options.fetch ?? fetch;
   return (c) => {
-    const limiter = new ClientLimiter(env.geminiLimiter, { clock: c.clock, sleep: realSleep });
+    // Quotas are per model, so each model has its own budget.
+    const newLimiter = (): ClientLimiter =>
+      new ClientLimiter(env.geminiLimiter, { clock: c.clock, sleep: realSleep });
+    const limiter = newLimiter();
+    const fallbackLimiter = newLimiter();
     const primary = new GeminiLlm({
       config: geminiConfigFromApp(c.config),
       fetch: doFetch,
@@ -97,10 +104,11 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
               }),
               fetch: doFetch,
               clock: c.clock,
-              limiter,
+              limiter: fallbackLimiter,
             }),
             { primary: c.config.gemini.model ?? '', fallback: fallbackModel },
             (n) => c.logger.warn({ ...n }, 'model fallback'),
+            () => limiter.estimatedWaitMs() > DIVERT_WAIT_MS,
           );
     const search = liveSearchPort(env, doFetch, c.clock);
     return buildRealComponents(c, { kind: 'live', llm, search, origin: 'live', registry });

@@ -33,9 +33,23 @@ export class FallbackLlm implements LlmPort {
     private readonly fallback: LlmPort,
     private readonly names: { primary: string; fallback: string },
     private readonly onFallback: (n: FallbackNotice) => void,
+    /**
+     * True when the primary model would make this call wait (its own budget is used up). The call then goes to
+     * the fallback model at once, which has its own quota, instead of waiting past the turn deadline.
+     */
+    private readonly divert: () => boolean = () => false,
   ) {}
 
   async structured<T>(r: StructuredRequest<T>): Promise<StructuredResult<T>> {
+    if (this.divert() && !r.signal.aborted) {
+      this.onFallback({
+        role: r.role,
+        code: 'rate_limited',
+        primary: this.names.primary,
+        fallback: this.names.fallback,
+      });
+      return this.fallback.structured(r);
+    }
     try {
       return await this.primary.structured(r);
     } catch (e) {
@@ -47,6 +61,16 @@ export class FallbackLlm implements LlmPort {
 
   async *stream(r: StreamRequest): AsyncIterable<StreamEvent> {
     let yielded = false;
+    if (this.divert() && !r.signal.aborted) {
+      this.onFallback({
+        role: r.role,
+        code: 'rate_limited',
+        primary: this.names.primary,
+        fallback: this.names.fallback,
+      });
+      yield* this.fallback.stream(r);
+      return;
+    }
     try {
       for await (const ev of this.primary.stream(r)) {
         if (ev.type === 'delta') yielded = true;

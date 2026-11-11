@@ -153,3 +153,40 @@ describe('fallback model configuration', () => {
     ).toBeUndefined();
   });
 });
+
+describe('diversion when the primary budget is used up', () => {
+  it('goes straight to the fallback, for structured calls and streams, without calling the primary', async () => {
+    const primary = model('main');
+    const fb = model('lite');
+    const notices: FallbackNotice[] = [];
+    const llm = new FallbackLlm(
+      primary,
+      fb,
+      { primary: 'main', fallback: 'lite' },
+      (n) => notices.push(n),
+      () => true,
+    );
+    expect((await llm.structured(structuredRequest())).model).toBe('lite');
+    expect(await collect(llm.stream(streamRequest()))).toBe('lite says hi.');
+    expect(primary.calls).toBe(0);
+    expect(notices).toHaveLength(2);
+  });
+
+  it('does not divert when the caller has already given up, and uses the primary when no wait is expected', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const primary = model('main');
+    const fb = model('lite');
+    const mk = (divert: boolean) =>
+      new FallbackLlm(
+        primary,
+        fb,
+        { primary: 'main', fallback: 'lite' },
+        () => {},
+        () => divert,
+      );
+    await mk(true).structured(structuredRequest(ac.signal));
+    expect(fb.calls).toBe(0);
+    expect((await mk(false).structured(structuredRequest())).model).toBe('main');
+  });
+});

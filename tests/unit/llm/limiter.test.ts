@@ -113,3 +113,16 @@ describe('ClientLimiter rolling minute', () => {
     expect(sleeps).toEqual([]);
   });
 });
+
+describe('ClientLimiter wait estimate', () => {
+  it('is zero while the budget has room, and the time until the oldest start leaves the window once it is used up', async () => {
+    const { limiter, clock } = make({ maxConcurrent: 10, minSpacingMs: 0, maxPerMinute: 2 });
+    expect(limiter.estimatedWaitMs()).toBe(0);
+    (await limiter.acquire(live))();
+    (await limiter.acquire(live))();
+    clock.advance(20_000);
+    expect(limiter.estimatedWaitMs()).toBe(40_000);
+    clock.advance(40_000);
+    expect(limiter.estimatedWaitMs()).toBe(0);
+  });
+});

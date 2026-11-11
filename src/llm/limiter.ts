@@ -47,6 +47,22 @@ export class ClientLimiter {
     if (opts.maxConcurrent < 1) throw new RangeError('maxConcurrent must be at least 1');
   }
 
+  /**
+   * How long a request made now would wait for the rolling-minute budget and the spacing (not for a free
+   * concurrency slot). Reserves nothing: it lets a caller route to another model instead of waiting.
+   */
+  estimatedWaitMs(): number {
+    const now = this.deps.clock.now();
+    let startAt = Math.max(now, this.nextStart);
+    const max = this.opts.maxPerMinute;
+    if (max !== undefined) {
+      const live = this.starts.filter((t) => t > now - WINDOW_MS);
+      if (live.length >= max)
+        startAt = Math.max(startAt, (live[live.length - max] ?? now) + WINDOW_MS);
+    }
+    return Math.max(0, startAt - now);
+  }
+
   /** Resolves with a `release` function once the request may start. Always call release exactly once. */
   async acquire(signal: AbortSignal): Promise<() => void> {
     await this.takeSlot(signal);
