@@ -1,68 +1,129 @@
 # Test documentation
 
-How the tests map to the invariants they protect. Statuses below come from an actual run of the suite on
-2026-11-11 (`npx vitest run --reporter=json`); they are re-derived, not assumed. Re-run before relying on
-them.
+How the tests map to the invariants they protect. Statuses come from an actual run of the suite on 2026-11-11
+(`npx vitest run --reporter=json`). A throw-away script compared every count and status stated below with that run; it is not part of
+the repository, so re-run the suite before relying on these numbers.
 
-Run everything: `npm run check` (typecheck, lint, format check, tests). Tests only: `npm test`. All tests are
-offline and deterministic (in-memory SQLite, a fixed clock, no network).
+Run everything: `npm run check` (typecheck, lint, format check, tests). Tests only: `npm test`. Every test is offline and
+deterministic: in-memory SQLite or a temporary file, a fixed clock, no network, no live provider.
 
-## T-DB-01 … T-DB-10
+**Last run:** 13 files, 218 passed, 2 `todo`, 0 failed, 0 skipped (203 of them are the code tests of milestones 1 and 2; 15 are the documentation checks below).
 
-The documents name T-DB-02, 04, 08 and 09 and describe the rest without numbers; this enumeration is the one
-the tests use (Q-004). Test files are under `tests/integration/db/`. The test case is the test's full name
-with the group title first.
+Test IDs: those named in the contract documents are used as given. IDs the documents list without numbers were enumerated here
+(Q-004, Q-018). `T-TRN-*` and `T-ASR-*` are new IDs from Milestone 2 and do not exist in the contract documents.
 
-| ID | Invariant | Test file | Test cases | Status (last run) | Not proved by these tests |
-|---|---|---|---|---|---|
-| **T-DB-01** | An idempotency key is unique per user, not globally | `invariants.test.ts` | "the same key for two users is fine; the same key twice for one user is rejected" | passed | Behaviour of `TurnRepository.begin` on a duplicate (not implemented yet) |
-| **T-DB-02** | A message or turn cannot belong to a different user than its conversation | `invariants.test.ts` | "rejects a message whose user_id differs from its conversation owner"; "rejects a turn whose user_id differs from its conversation owner". Repository half: `repositories.test.ts` "refuses to write into a conversation the user does not own…" | passed | Ownership of evidence, findings, assertions, decisions: not enforced by the database (Q-007) |
-| **T-DB-03** | L1 snapshots, L2 evidence, assertion events and belief history reject UPDATE; DELETE stays possible | `invariants.test.ts` | "source_snapshots (L1)", "evidence_statements (L2)", "assertion_events", "belief_history", "DELETE stays possible, because privacy deletion and rebuilds need it" | passed | That nothing deletes these rows outside the deletion procedure (no repository for them exists yet) |
-| **T-DB-04** | Message content is immutable, and a message cannot be deleted and re-inserted through the repository | `invariants.test.ts` | "rejects UPDATE of every protected message column"; "cannot be re-parented to another user or conversation"; "the message repository exposes no way to update, delete or replace a message" | passed | Raw SQL `DELETE` + `INSERT` under the same id is possible for a caller with the connection |
-| **T-DB-05** | An assertion's `presented_at` is set once and nothing else about it changes; at most one `presented` and one `not_presented` event | `invariants.test.ts` | "allows presented_at to be set from NULL"; "rejects changing presented_at a second time"; "rejects clearing presented_at"; "rejects editing any other column, even together with presented_at"; "records at most one presented and one not_presented event per assertion" | passed | The acknowledgement logic that sets it (conversation-lifecycle milestone) |
-| **T-DB-06** | `rendered_through` never decreases | `invariants.test.ts` | "starts at -1 and can move forward or stay put"; "rejects a decrease"; "still allows last_ack_at to be written alongside an acknowledgement" | passed | Acknowledgement idempotency and delivery states (not implemented) |
-| **T-DB-07** | A real database rejects fixture users, non-live conversations and non-live snapshots | `invariants.test.ts` | "rejects fixture users, non-live conversations and non-live snapshots in real mode"; "accepts the same data in a demo database" | passed (**partial**); plus 1 `todo` for the open part | **Messages, entities, decisions, UPDATE paths and `db_mode` itself are not guarded.** Documented by `demo-isolation-gap.test.ts` (below). Isolation is **not** complete (Q-002) |
-| **T-DB-08** | Evidence an assertion in another conversation still cites survives conversation deletion | `privacy-deletion.test.ts` | "T-DB-08: keeps evidence an assertion in another conversation still cites, and what it needs" | passed | Belief rebuilding (see T-DB-09). The rebuilder in these tests is a recording fake |
-| **T-DB-09** | After deletion, beliefs and belief history equal a fresh rebuild from the remaining evidence | `invariants.test.ts` | "beliefs and belief_history after deleteConversation equal a rebuild from the remaining evidence" | **todo: not implemented, not tested** | Everything. Blocked on the belief resolver (Milestone 4). Deletion and rebuilding are **not** fully tested |
-| **T-DB-10** | The application refuses to open a database created in a different `APP_MODE` | `migrations.test.ts` | "T-DB-10: reopening a database in a different APP_MODE is refused" | passed | The same guard for the seed script (not written yet) |
+## Milestone 1 groups (database foundation)
 
-### Other deletion tests (no contract ID)
+Test files are under `tests/integration/db/`. The test case is the test's full name with the group title first.
 
-`privacy-deletion.test.ts`: removes the conversation and what hangs off it; garbage-collects unreferenced snapshots and entities;
-removes only the deleted conversation from the full-text index; hands the affected belief keys to the rebuilder once, inside the transaction;
-does not touch another user's data (including unreferenced rows of theirs); refuses another user's conversation; is all-or-nothing when the
-rebuilder throws; does not call the rebuilder when no keys were affected. All passed. These test deletion **mechanics** only.
+| ID | Invariant | File | Status | Not proved by these tests |
+|---|---|---|---|---|
+| **T-DB-01** | An idempotency key is unique per user, not globally | `invariants.test.ts` | passed | |
+| **T-DB-02** | A message or turn cannot belong to a different user than its conversation | `invariants.test.ts`; repository half in `repositories.test.ts` | passed | |
+| **T-DB-03** | L1 snapshots, L2 evidence, assertion events and belief history reject UPDATE; DELETE stays possible | `invariants.test.ts` | passed | That nothing deletes these rows outside the deletion procedure |
+| **T-DB-04** | Message content is immutable; the message repository has no update/delete/replace | `invariants.test.ts` | passed | Raw-SQL delete then insert under the same id is possible for a caller holding the connection |
+| **T-DB-05** | An assertion's `presented_at` is set once and nothing else changes; one `presented` and one `not_presented` event at most | `invariants.test.ts` | passed | |
+| **T-DB-06** | `rendered_through` never decreases | `invariants.test.ts` | passed | |
+| **T-DB-07** | A real database rejects non-live users, conversations, snapshots, messages, entities, decisions; relabelling; `db_mode` is immutable. Demo databases accept them | `invariants.test.ts` | passed (since migration 002) | Complete isolation is **not** claimed: `belief_history`, `search_cache` and some plain columns are unguarded (Q-002) |
+| **T-DB-08** | Evidence an assertion in another conversation still cites survives conversation deletion | `privacy-deletion.test.ts` | passed | Belief rebuilding |
+| **T-DB-09** | After deletion, beliefs and belief history equal a fresh rebuild | `invariants.test.ts` | **todo: not implemented, not tested** | Everything. Blocked on the belief resolver (Milestone 4). Deletion and rebuilding are **not** fully tested |
+| **T-DB-10** | The application refuses to open a database created in a different `APP_MODE` | `migrations.test.ts` | passed | The same guard for the seed script (not written yet) |
+| **T-MEM-08** | A deleted conversation cannot be recalled | `privacy-deletion.test.ts` | **todo** | Recall needs the memory milestone |
 
-**T-MEM-08** ("a deleted conversation cannot be recalled") is `todo`: its database half is covered above, its recall half needs
-the memory milestone.
+Other M1 tests: privacy deletion mechanics (with a recording fake rebuilder, so rebuild *correctness* is untested), repositories, config,
+contract parity of migration 001, and the migration runner. `migrations.test.ts` now also checks that migrations 001 to 005 load
+contiguously, that the installed triggers equal exactly those the migrations declare, that a version-1 database upgrades to the latest
+schema without losing data, and the Q-003 rules (connection PRAGMAs, no PRAGMA in a migration, each migration transactional).
 
-## Migrations and connection settings
+## Milestone 2 groups
 
-| Test (`migrations.test.ts`) | Protects |
+### T-TRN: turn lifecycle (`turn-lifecycle.test.ts`, `tests/unit/turn-state-machine.test.ts`)
+
+| ID | Invariant | Test cases | Status |
+|---|---|---|---|
+| **T-TRN-01** | The database enforces the state machine and agrees with the TypeScript table | "accepts exactly the 19 edges and rejects every other ordered pair (182 probes)"; "rejects a state value that is not part of the state machine". Unit: 19 edges, 196-pair agreement, no dead ends, all states reachable | passed |
+| **T-TRN-02** | Finished turns are final; turn identity is immutable; turn rows keep their shape; one running turn per conversation | the five tests of that group | passed |
+| **T-TRN-03** | `setState` validates every transition; final states only via `complete()`/`fail()`; owner scoping | the seven tests of that group (valid path, invalid jumps, two PERSISTING shortcuts, final states refused, finished turns refused, ownership, `fail`) | passed |
+| **T-TRN-04** | `begin`: creation, idempotent replay, key conflict, per-user keys, in-progress refusal (Q-006), retry validation, ownership, input validation | the eight tests of that group; plus "violatesOneRunningTurn recognises the real SQLite error, and only that one" | passed |
+| **T-TRN-05** | Recovery of running turns invents no answer, acknowledgement, presented claim or baseline; idempotent; survives a restart | the five tests of that group, including a file database reopened by a new connection | passed |
+
+### T-ASR: assertion persistence (`turn-completion.test.ts`)
+
+| ID | Invariant | Test cases | Status |
+|---|---|---|---|
+| **T-ASR-01** | Completion stores message, findings, assertions, links and events in one transaction; assertions are born unpresented; never-streamed claims get `not_presented` | the five tests of that group (full answer, interrupted answer with exact extent, outcome without an answer, state requirement, ownership) | passed |
+| **T-ASR-02** | Completion is atomic: a failure part-way writes nothing and the same completion can be retried | two fault-injection tests (temporary triggers) | passed |
+| **T-ASR-03** | Inconsistent or premature completions are refused before any write | 18 cases (the unmodified control, 14 inconsistencies, 3 malformed shapes) | passed |
+| **T-ASR-04** | Cross-user ownership violations are refused by the database and roll the completion back | other user's evidence; other user's entity; nonexistent entity | passed |
+| **T-ASR-05** | Only presented claims can be judged or used as a baseline | verdict on a presented claim in a later turn (recorded); on a streamed-but-unacknowledged claim (refused); finding baseline never presented (refused); other user's claim (refused, nothing written); verdict event on an unpresented claim refused by the database itself | passed |
+
+### T-DLV: delivery and acknowledgement (`delivery.test.ts`)
+
+| ID | Invariant | Test case | Status |
+|---|---|---|---|
+| **T-DLV-01** | A fully rendered answer presents every claim once | "presents all four claims with exactly one presented event each" | passed |
+| **T-DLV-02** | A partly rendered answer stays partly presented | "after acknowledging sentences 0-3 and then disconnecting, only claims in 0-3 are presented" | passed |
+| **T-DLV-03** | A streamed-but-never-rendered answer presents nothing; never-streamed claims are `not_streamed` and cannot be acknowledged | two tests | passed |
+| **T-DLV-04** | A repeated acknowledgement changes nothing (not even `last_ack_at`) | "reports the stored extent, presents nothing new, and does not even touch last_ack_at" | passed |
+| **T-DLV-05** | Acknowledgements are monotonic, so out-of-order ones are harmless | two tests (lower after higher; `-1`) | passed |
+| **T-DLV-06** | A reconnect that re-renders the stored answer completes the acknowledgement | "presents the rest later, without disturbing what was presented earlier" | passed |
+| **T-DLV-07** | Acknowledging a retry never touches the original turn's assertions | "the interrupted original stays unpresented while its retry is fully presented" | passed |
+| **T-DLV-08** | An interrupted turn keeps the exact acknowledged extent and cannot be acknowledged beyond what was streamed | "cannot be acknowledged beyond what was streamed, and its truncated claims stay not_presented" | passed |
+
+Also in `delivery.test.ts`, without an ID: acknowledgement before the answer is stored; ownership; malformed requests; atomicity (a temporary
+trigger makes the presented event fail, and extent plus `presented_at` roll back); and eight tests that issue raw SQL to show migration 005
+refuses each delivery violation on its own, whatever the application does. `tests/unit/turn-state-machine.test.ts` also covers
+`deliveryState` (including that impossible extents throw).
+
+### Q-007 ownership (`ownership.test.ts`)
+
+16 tests, run on a database stopped at migration 003 so each error comes from that migration alone: evidence (turn, snapshot, entity, missing turn),
+findings (other user's entity, missing entity, immutable references), assertions (turn, message, finding, finding from another turn),
+assertion evidence (other user's evidence, links immutable), plus a check that the latest schema still carries those triggers.
+
+### Concurrency (`concurrency.test.ts`)
+
+Real contention: each contender is a worker thread with its own SQLite connection to one file, released together at a barrier.
+
+| Test | Result |
 |---|---|
-| creates the schema, stamps `db_mode`; installs every contract trigger; creates the FTS5 index; is idempotent | the fresh-database path |
-| refuses a foreign non-empty database; refuses a newer schema; applies only pending migrations; rolls a failing migration back completely; rejects gaps and bad file names | the upgrade path |
-| `Q-003: openDatabase configures the connection before any migration runs` | `foreign_keys`, `busy_timeout`, WAL are set on the connection |
-| `Q-003: no shipped migration contains a PRAGMA statement` | PRAGMAs stay outside migration transactions |
-| `Q-003: each migration runs in its own transaction, together with its version stamp` | migrations stay transactional |
-| `contract-parity.test.ts` | `001_init.sql` equals contracts §1 apart from comments, whitespace and the PRAGMA lines |
+| same idempotency key from six connections | exactly one turn and one message created; five receive the existing turn |
+| six different keys in one conversation | one winner, five `TurnInProgressError`, one running turn, one message |
+| four conversations of one user | all four succeed |
+| same key, different text, two connections | one created, one `IdempotencyConflictError` |
+| eight racing acknowledgements | final extent 6; four claims presented, each exactly once; four presented events |
+| valid and impossible acknowledgements together | impossible ones rejected, valid ones land, nothing beyond the streamed extent presented |
 
-## Known-gap and proposal tests (Q-002)
+The concurrency file was repeated eight times in a row without a failure. That shows no flakiness in those runs; it is not a proof.
 
-| File | Default run | Meaning |
-|---|---|---|
-| `demo-isolation-gap.test.ts` | 6 passed | **Characterisation of today's behaviour.** Each asserts that the real database *accepts* something it should not. They are not guarantees; they start failing when the remediation lands and are then replaced |
-| `demo-isolation-proposal.test.ts` | 7 skipped | Validates the proposed remediation on a scratch database. Runs only with `RUN_PROPOSALS=1`. It does not test the shipped schema |
+## Documentation checks (`tests/integration/docs.test.ts`)
 
-## Other suites
+Added in the post-M2 documentation pass. They check the documents against each other and against the code; they do not test application behaviour.
 
-- `tests/unit/config.test.ts`: environment validation (defaults, modes, blank values, ranges, secrets not echoed).
-- `tests/integration/db/repositories.test.ts`: user scoping, sequence numbers, sentence JSON validation, clock use.
-- `tests/integration/db/invariants.test.ts` (no ID): one running turn per conversation; unique message order; every observation of a page is kept; FTS5 index follows insert, update and delete.
+| Group | What it enforces |
+|---|---|
+| ADRs (7 tests) | numbers contiguous from 01 and unique; each has a title, a valid status (Proposed, Accepted, Superseded) and implementation value, and every required section in order; a Superseded ADR names its replacement; an ADR marked "implemented" links at least one test; the search-provider and model ADRs stay Proposed; no ADR contains latency-percentile or millisecond figures; the index lists every ADR with the same title, status and implementation, and its counts are right |
+| Links (3 tests) | every relative link in the README, `docs/questions.md`, `docs/testing.md`, `docs/turn-lifecycle.md`, the proposals and the ADRs resolves to a file; every ADR or question referred to by number exists; Q-001, Q-007, Q-011, Q-015 and Q-016 stay in the question log, and every question keeps its row in the summary table |
+| ER diagram (5 tests) | `docs/diagrams/er.mmd` draws exactly the tables of the schema the migrations create (the FTS5 virtual table excluded), with every column, type, primary-key and foreign-key flag; every foreign key appears once as a solid relationship with its ON DELETE action; dotted relationships are only for columns with no foreign key; nothing planned is drawn |
 
-## Coverage the tests were checked against
+What these do **not** check: that an ADR's prose is true, that its status is right, or that "no unmeasured claims" holds beyond the narrow millisecond/percentile pattern.
+The Mermaid syntax of the diagram was validated once with the real Mermaid parser (11.x, in a scratch folder, not a project dependency): it parses as an `er` diagram, and a
+deliberately broken copy is rejected. That validation is not part of the test suite, because adding the parser would add a heavy dependency.
 
-The invariant, deletion and migration tests were also run against deliberately broken schema or code (mutation checks done by hand:
-disabled triggers, global idempotency key, missing user scoping on cleanup, swallowed rebuilder error, a PRAGMA in a migration,
-migrations run without a transaction). Each broken version made at least one test fail, and one initially missed mutation
-(unscoped entity cleanup) led to a stronger test. This is a manual spot check, not an automated mutation-testing run.
+## Mutation checks
+
+The M2 code and migrations were checked by hand against 21 deliberately broken versions (begin without `BEGIN IMMEDIATE`; ack without the monotonic
+shortcut, without the streamed-extent check, presenting every claim, without the `complete` check; recovery marking turns complete; `setState`
+without the edge check; no `not_presented` events; no baseline check; and 11 migration changes: a dropped transition edge, finished turns not final,
+mutable identity, presented without acknowledgement, render beyond streamed, `not_presented` for a streamed sentence, verdict on an unpresented claim,
+three ownership triggers, two isolation triggers). Every one made at least one test fail, and the sources were restored byte-identical. This is a manual
+spot check, not an automated mutation-testing run, and it does not show the tests are complete. The documentation checks were mutated the same way (16 breaks: a removed or added table or column,
+a wrong ON DELETE label, a bad status, a missing section, a broken link, an unknown ADR, a measurement decision marked Accepted, an unsupported "implemented" claim, an invented latency figure,
+a disagreeing or missing index row, a dropped open question or summary row); every one made a test fail and the documents were restored identical.
+
+## Known gaps in the tests
+
+- T-DB-09 and T-MEM-08 (above), and anything about belief correctness.
+- The bare `deliveryState` consistency check in `AssertionRepository.listForMessage` (a stored `presented_at` that disagrees with the derived state throws) has
+  no test, because the triggers make that state unreachable through SQL.
+- Findings, metrics and completion shapes are validated by zod; their full contents are exercised through one realistic finding, not exhaustively.

@@ -7,25 +7,52 @@ the code does meanwhile.
 Status values: **open** (needs a decision), **decided** (owner decision recorded, implementation pending),
 **applied** (implemented as described).
 
-The normative contracts (`stage-3-contracts.md`) are **not** modified during Milestone 1. Proposed contract
-edits are written here for review instead.
+The normative contracts (`stage-3-contracts.md`) have **not** been modified (Milestones 1 and 2, and the post-M2 documentation pass).
+Proposed contract edits are written here for review instead. Decisions are recorded in [adr/README.md](adr/README.md); this file keeps the
+questions, including resolved ones and their history.
 
-| ID | Topic | Status | Blocks |
-|---|---|---|---|
-| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **decided** (rule) / **open** (locale contract change) | Milestone 4 change detector |
-| Q-002 | Demo isolation covers only some tables | **open**, remediation proposed | Real-database isolation claim |
-| Q-003 | PRAGMAs outside migrations | **applied**, approved | — |
-| Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — |
-| Q-005 | Deletion and the belief rebuilder | **applied**, rebuild correctness untested until M4 | T-DB-09 |
-| Q-006 | `begin` while a different key is running | open | Conversation-lifecycle milestone |
-| Q-007 | `user_id` consistency beyond messages and turns | open | Evidence-pipeline milestone |
-| Q-008 | Declared-only contract functions | applied | — |
-| Q-009 | Type-identical lint edits | applied | — |
-| Q-010 | Small implementation choices | applied | — |
+| ID | Topic | Status | Blocks | ADR |
+|---|---|---|---|---|
+| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **decided** (rule) / **open** (locale contract change) | Milestone 4 change detector | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
+| Q-002 | Demo isolation covers only some tables | **applied** (migration 002, M2); complete isolation still not claimed | — | [ADR-28](adr/ADR-28.md) |
+| Q-003 | PRAGMAs outside migrations | **applied**, approved | — | [ADR-25](adr/ADR-25.md) |
+| Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — | — |
+| Q-005 | Deletion and the belief rebuilder | **applied**, rebuild correctness untested until M4 | T-DB-09 | [ADR-35](adr/ADR-35.md) |
+| Q-006 | `begin` while a different key is running | **applied** (M2) | — | [ADR-30](adr/ADR-30.md) |
+| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003, M2); search_requests, decisions, snapshots, beliefs open | Evidence-pipeline milestone | [ADR-27](adr/ADR-27.md) |
+| Q-008 | Declared-only contract functions | applied | — | — |
+| Q-009 | Type-identical lint edits | applied | — | — |
+| Q-010 | Small implementation choices | applied | — | — |
+| Q-011 | No failure edge from most states | open | Milestone 5 | [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md) |
+| Q-012 | Acknowledgement before the answer is stored | open | — | [ADR-23](adr/ADR-23.md) |
+| Q-013 | Meaning of `AckRequest.complete` | open | — | [ADR-31](adr/ADR-31.md) |
+| Q-014 | JSON columns only partly validated | open | Milestones 3, 5 | [ADR-32](adr/ADR-32.md), [ADR-05](adr/ADR-05.md) |
+| Q-015 | Which assertions may become baselines | open | Milestone 3 | [ADR-38](adr/ADR-38.md) |
+| Q-016 | `recoverRunning` assumes one process | open | — | [ADR-34](adr/ADR-34.md), [ADR-33](adr/ADR-33.md) |
+| Q-017 | Behaviour added beyond the contract | applied | — | [ADR-30](adr/ADR-30.md), [ADR-32](adr/ADR-32.md) |
+| Q-018 | Test IDs introduced in M2 | applied → [testing.md](testing.md) | — | — |
 
 ---
 
+## Owner review of Milestone 2 (2026-11-11)
+
+Milestone 2 was approved, with these qualifications. They are recorded here and in the ADRs; none of the questions below is closed by them.
+
+- **Q-011 (failure transitions), resolve before M5.** Define a failure transition from every non-terminal state with an explicit recovery policy, but do **not** add arbitrary
+  failure edges: decide which failures are recoverable, which are terminal, and how partial work is preserved. → [ADR-39](adr/ADR-39.md), Proposed.
+- **Q-007 (ownership), still open.** Evidence, findings and assertions are protected; `search_requests`, `decisions`, snapshots and beliefs are not. Ownership integrity must not be
+  described as fully enforced. Add the constraints and cross-user regression tests before those tables are used heavily. → [ADR-27](adr/ADR-27.md).
+- **Q-015 (historical baselines), resolve before M3.** Only presented assertions can become baselines: a presented assertion can be retrieved as previously communicated; a
+  streamed-but-unacknowledged one cannot; an unverified sentence cannot become a factual baseline merely because it was rendered; a baseline must retain its original evidence
+  references and verification status. → [ADR-38](adr/ADR-38.md), Proposed until the details (placeholder variants, qualifying sentence statuses) are finalised.
+- **Q-016 (recovery assumption), document explicitly.** One Node process per database file is acceptable, but startup must prevent accidental concurrent instances: SQLite
+  transactions alone do not establish the assumption. → [ADR-34](adr/ADR-34.md), Proposed; no mechanism chosen or implemented.
+- **Documentation debt.** The missing `docs/adr/` and `docs/diagrams/` directories were created in the post-M2 documentation pass: [docs/adr/README.md](adr/README.md), [docs/diagrams/er.mmd](diagrams/er.mmd).
+
 ## Q-001: temporal proof for `changed`, and the missing `locale` dimension
+
+**ADR:** [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md)  
+**History:** Raised in M1 (conflict between the kickoff and architecture §8) → owner decided the rule on 2026-11-11 → the locale contract change is still only proposed. **Open.**
 
 ### Owner decision (2026-11-11): the exact proof requirements
 
@@ -119,35 +146,34 @@ Status: **open**. The change detector will not be written until this is reviewed
 
 ---
 
-## Q-002: demo isolation covers only some tables
+## Q-002: demo isolation covers only some tables — **applied** (migration 002, Milestone 2)
 
-**Documented gap.** `*_no_fixture_in_real` triggers exist for exactly three tables. Coverage today:
+**ADR:** [ADR-28](adr/ADR-28.md)  
+**History:** Gap documented and a remediation proposed in M1 → applied as migration 002 in M2. Complete isolation is still not claimed.
 
-| Table | Has `origin` / `kind` | Rejected in a `real` database? |
-|---|---|---|
-| `users` | `kind` | **yes** (`fixture`) |
-| `conversations` | `origin` | **yes** (`recorded`, `synthetic`) |
-| `source_snapshots` | `origin` | **yes** |
-| `messages` | `origin` | **no** |
-| `entities` | `origin` | **no** |
-| `decisions` | `origin` | **no** |
-| every other table | none | not applicable; reachable only through the tables above, with the exceptions listed in the proposal |
+Resolved by `src/db/migrations/002_demo_isolation.sql`. A `real` database now rejects, at the database level:
+non-live messages, entities and decisions on insert; relabelling of users, conversations, entities and decisions;
+and any change to or deletion of `meta.db_mode`. The tests are the `T-DB-07` group in `invariants.test.ts`;
+the characterisation tests that documented the gap were removed because the gap no longer exists.
 
-So a `recorded` message inside a `live` conversation, or a `synthetic` entity or decision, is accepted by a
-real database today. **The database does not guarantee isolation of demo data.** The tests
-`KNOWN GAP Q-002` in `tests/integration/db/demo-isolation-gap.test.ts` assert this behaviour so the gap is
-visible and verifiable; they are expected to fail, and be replaced, when the remediation lands.
+The migration goes slightly beyond the three tables Q-002 named (relabelling and `db_mode` immutability): those
+were the extra findings in [proposals/q-002-demo-isolation.md](proposals/q-002-demo-isolation.md), and without them the three
+tables could still be bypassed.
 
-**Remediation proposed** (not applied; no schema change was made):
-[proposals/q-002-demo-isolation.md](proposals/q-002-demo-isolation.md), with the SQL
-(`proposals/q-002-demo-isolation.sql`) and regression tests
-(`tests/integration/db/demo-isolation-proposal.test.ts`, skipped unless `RUN_PROPOSALS=1`).
+**Still not claimed:** complete isolation. The proposal's residual list stands: `belief_history`, `search_cache`
+and a few plain columns (`evidence_statements.user_id`, `beliefs.user_id`, `search_requests.entity_id`) have no
+origin and no guarded parent. Raw SQL by a privileged caller can still do anything; the triggers protect the
+application's write paths and the startup check.
 
-Status: **open**; needs a decision to ship it as migration `002`.
+**Proposed contract edit (not made):** contracts §1 should list migrations 002 to 005. The contracts file is
+unchanged; the parity test still compares only migration 001 with it.
 
 ---
 
 ## Q-003: PRAGMAs outside migrations — applied, approved
+
+**ADR:** [ADR-25](adr/ADR-25.md)  
+**History:** Raised in M1 → approved by the owner → applied (WAL error on a file database reproduced on 2026-11-11).
 
 Owner decision: WAL and the other connection-level PRAGMAs are configured outside the migration
 transactions, and schema migrations stay transactional.
@@ -168,6 +194,8 @@ note that they are connection settings applied by `openDatabase()`.
 
 ## Q-004: test IDs T-DB-01..10 — applied
 
+**ADR:** —
+
 The documents name T-DB-02, 04, 08 and 09 and describe the rest without numbers. The enumeration used,
 with the invariant, test file and test case for each, is in [testing.md](testing.md). It also records
 what each test does **not** prove.
@@ -175,6 +203,9 @@ what each test does **not** prove.
 ---
 
 ## Q-005: privacy deletion and the belief rebuilder — applied; rebuild correctness untested
+
+**ADR:** [ADR-35](adr/ADR-35.md)  
+**History:** Applied in M1 with a recording fake rebuilder → T-DB-09 stays `todo` until M4. Not fully tested.
 
 - Deletion takes an **injected** `BeliefRebuilder`. There is no default implementation, so derived
   state cannot silently go stale.
@@ -192,20 +223,40 @@ what each test does **not** prove.
 
 ---
 
-## Q-006: `TurnRepository.begin` when a different key hits a running turn — open
+## Q-006: `TurnRepository.begin` when a different key hits a running turn — **applied** (Milestone 2)
 
-The contract's return type covers "same idempotency key" (`{ existing, status }`) but not "different key while a
-turn is running", which `turns_one_running` rejects. Proposed: throw a typed `TurnInProgressError(existingTurnId)`
-that the API maps to 409. Conversation-lifecycle milestone.
+**ADR:** [ADR-30](adr/ADR-30.md)  
+**History:** Raised in M1 → applied in M2 (the first backstop could never match; fixed and tested).
 
-## Q-007: `user_id` consistency is enforced only for messages and turns — open
+Enforced at the database level by the contract's partial unique index `turns_one_running`, inside a
+`BEGIN IMMEDIATE` transaction in `begin()`. The repository throws a typed `TurnInProgressError(existingTurnId)`
+(the API will map it to 409); a backstop converts the index violation to the same error. A real defect was found
+while testing this: SQLite reports a partial-unique-index violation as `UNIQUE constraint failed: turns.conversation_id`,
+not by index name, so the first version of the backstop could never match. It is fixed and pinned by a test against the
+real SQLite error.
 
-Only `messages` and `turns` have owner triggers. `evidence_statements`, `findings`, `assertions`,
-`search_requests`, `decisions` and `source_snapshots` carry a `user_id` that nothing in the database compares with
-the owning turn or conversation; the 3.1 review says repositories derive it. Those repositories do not exist yet.
-Smallest correction if wanted: owner triggers on the same pattern. Decide before the evidence-pipeline milestone.
+Verified with real concurrency (worker threads, one connection each): six racers with different keys give exactly
+one winner, five `TurnInProgressError`, one running turn, one stored message.
+
+## Q-007: `user_id` consistency beyond messages and turns — **partly applied** (migration 003, Milestone 2)
+
+**ADR:** [ADR-27](adr/ADR-27.md)  
+**History:** Raised in M1 → partly applied in M2 (migration 003). **Still open** for the tables listed there.
+
+Applied for evidence (turn, snapshot, entity), findings (entity), assertions (turn, message, finding-to-turn) and
+`assertion_evidence`. Still open, deliberately out of scope for Milestone 2:
+
+- `search_requests` and `decisions` (`user_id` vs their turn and conversation);
+- `source_snapshots`, which has no turn;
+- `beliefs` and `belief_history`.
+
+Two behaviours go beyond the contract and are stated here: a finding's `entity_id` (a plain column in the contract)
+must now reference an **existing** entity of the turn's user; and evidence rows may reference a turn only at insert
+time (the contract deliberately has no foreign key there, so evidence can outlive a deleted turn).
 
 ## Q-008: contract functions with no implementation yet — applied
+
+**ADR:** —
 
 `encodePriceKey`, `decodePriceKey`, `keyForEvidence`, `comparableKeys` and `deliveryState` are declared
 (`export declare function`) in the contracts. A declaration with no implementation type-checks but fails at
@@ -213,14 +264,115 @@ runtime on import, so they are left out of `src/shared` with a comment naming wh
 
 ## Q-009: lint-driven, type-identical edits to the contract types — applied
 
+**ADR:** —
+
 `CurrencyCode | 'unknown'` and ``CurrencyCode | `unknown@${string}` `` are the same type as `string`, and the
 `no-redundant-type-constituents` lint rule rejects them. They are written as `string` with the meaning in a
 comment. No lint rule is disabled anywhere.
 
 ## Q-010: smaller implementation choices, for the record — applied
 
+**ADR:** —
+
 - `MessageRepository.insert` also sets `conversations.updated_at`, so conversation lists sort by activity.
 - IDs read from storage are checked for their prefix (`parseId`) instead of cast.
 - `zod` appears in `src/shared/llm.ts` (`StructuredRequest.schema`), exactly as the contract has it.
 - Development tooling beyond the brief's list: `eslint`, `typescript-eslint`, `@eslint/js` and `prettier`, because
   linting and formatting were requested. TypeScript is `~6.0.3` because `typescript-eslint` 8 does not support 7.x yet.
+
+---
+
+## Questions raised by Milestone 2
+
+None of these blocks Milestone 3. Each says what the code does meanwhile.
+
+### Q-011: no failure edge from most states — open (before Milestone 5)
+
+**ADR:** [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md)  
+**History:** Raised in M2. **Open.** Owner review: see "Owner review of Milestone 2" above.
+
+The state machine in architecture §4 has failure edges only from ANALYZING and SYNTHESIZING (to PERSISTING) and from
+PERSISTING (to FAILED). It matches the diagram exactly, so an unexpected exception while SEARCHING, EXTRACTING, VERIFYING
+or RESOLVING_BELIEFS has no legal way to a final state: `setState(…, 'PERSISTING')` is refused. The architecture says the
+orchestrator never throws and degrades instead, which covers the expected failures, but it does not say what a bug does.
+
+**Behaviour meanwhile:** the turn stays `running` until `recoverRunning` interrupts it on the next start.
+**Smallest correction if wanted:** allow every non-final state to go to PERSISTING (an edge change in architecture §4 and
+migration 004). Decide before the orchestrator is written.
+
+### Q-012: an acknowledgement that arrives before the answer is stored is rejected — open
+
+**ADR:** [ADR-23](adr/ADR-23.md)  
+**History:** Raised in M2. **Open.**
+
+The answer is stored only when the turn completes, but the browser may send its `pagehide` beacon while the stream is
+still running (architecture R4, U18). `ack()` then has no message to attach to and throws `TurnNotFinishedError`; the
+browser's early beacon is lost.
+
+**Behaviour meanwhile:** the browser must re-acknowledge after it renders the stored answer (the architecture's "reconnect
+re-render ack", T-DLV-06). Until it does, nothing is presented, which fails safe: too little is told, never too much.
+**Alternative if wanted:** persist a pending acknowledgement on the turn and apply it at completion.
+
+### Q-013: meaning of `AckRequest.complete` — open
+
+**ADR:** [ADR-31](adr/ADR-31.md)  
+**History:** Raised in M2. **Open.**
+
+The contract defines the field without semantics. Implemented: `complete: true` claims the browser rendered everything the
+server streamed, so `renderedThrough` must equal the streamed extent exactly (otherwise `InvalidAckError`).
+
+### Q-014: JSON columns are only partly validated — open
+
+**ADR:** [ADR-32](adr/ADR-32.md), [ADR-05](adr/ADR-05.md)  
+**History:** Raised in M2. **Open.**
+
+`TurnCompletion.analysis`, `.context` and `.events` are checked as JSON-shaped envelopes only; their full schemas arrive
+with their producers (turn analysis and memory in Milestone 3, the SSE writer in Milestone 5). Fully validated now: sentences,
+findings, normalised values, metrics, assertions and baseline events. `complete()` **rejects** a completion with non-empty
+`enrichment` or `touchedBeliefKeys`, with an explicit error, until Milestones 3 and 4 can act on them; it never ignores them.
+
+### Q-015: which stored assertions may become baselines — open (Milestone 3)
+
+**ADR:** [ADR-38](adr/ADR-38.md)  
+**History:** Raised in M2. Direction given by the owner; details to be finalised at the start of M3. **Open.**
+
+The database records every assertion and its delivery state; it does not decide eligibility. When the baseline loader is
+written, it should take **presented** assertions only, and the following need a decision:
+
+- the `F<n>:baseline` and `F<n>:verdict` placeholder variants restate an earlier claim or a verdict, so they should
+  probably not themselves become baselines (only the `F<n>` current-value variant should);
+- whether an assertion in a sentence with status `unverified` or `unchecked` may be a baseline.
+
+### Q-016: `recoverRunning` assumes one application process per database file — open
+
+**ADR:** [ADR-34](adr/ADR-34.md), [ADR-33](adr/ADR-33.md)  
+**History:** Raised in M2. **Open.** Owner review: startup must prevent concurrent instances (ADR-34, Proposed).
+
+It interrupts every running turn, unscoped, at startup. A second process started against the same file would interrupt the
+first process's live turns. There is no lease or heartbeat. Acceptable for the single-process monolith in the architecture;
+noted so it is not forgotten if that ever changes.
+
+### Q-017: behaviour added beyond the contract — applied
+
+**ADR:** [ADR-30](adr/ADR-30.md), [ADR-32](adr/ADR-32.md)  
+**History:** Recorded in M2.
+
+- Reusing an idempotency key with a different conversation or text throws `IdempotencyConflictError` instead of silently
+  returning the first turn.
+- `complete()` requires every assertion to match a rendered placeholder of its sentence (same token, finding and rendered text),
+  and refuses duplicates, out-of-range sentences and inconsistent statuses.
+- A verdict event or a finding baseline may only target an assertion that was presented, to the same user, in an earlier turn.
+- Assertions are only stored for assistant messages of their own turn; the assistant message inherits its user message's
+  `tz` and `origin`.
+- `fail()` is an extra repository method (not in the `TurnRepository` contract) for the PERSISTING to FAILED edge.
+
+### Q-018: test IDs introduced in Milestone 2 — applied
+
+**ADR:** —  
+**History:** Recorded in M2.
+
+T-DLV-01..08 are mapped in [testing.md](testing.md): the architecture lists the intent (full render acked; partial render
+acked then disconnect; never rendered; duplicate and out-of-order acks; reconnect re-render; retry does not alter the
+original) without numbers, and only T-DLV-02 is cited by number elsewhere. The eighth (interrupted turns keep the exact
+extent) comes from the Milestone 2 requirements. `T-TRN-*` (turn lifecycle) and `T-ASR-*` (assertion persistence) are new
+IDs assigned in Milestone 2 and do not exist in the contract documents.
