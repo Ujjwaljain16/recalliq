@@ -2,13 +2,13 @@
 
 - **Status:** Accepted
 - **Implementation:** not implemented
-- **Decided:** Owner decision, 2026-11-12: locale is a required pricing-comparability dimension. The typed-key encoding below is the recorded proposal; the contract text is not yet edited
+- **Decided:** Owner decision, 2026-11-12: canonical BCP-47 locale in the key, `und` when unknown, different locales incomparable
 - **Recorded:** 2026-11-11, updated 2026-11-12
 - **Related:** [ADR-21](ADR-21.md), [ADR-36](ADR-36.md), [Q-001](../questions.md)
 
 ## Context
 
-The key has no locale. The same plan sold at different prices in different regions maps to one key, and the "comparable locale" condition of ADR-36 cannot be evaluated.
+The key had no locale. The same plan sold at different prices in different regions mapped to one key, and the "comparable locale" condition of ADR-36 could not be evaluated.
 
 ## Options considered
 
@@ -17,25 +17,26 @@ The key has no locale. The same plan sold at different prices in different regio
 
 ## Decision
 
-Locale is part of price comparability. The recorded change to the typed key:
+Locale is part of the key and of pricing comparability.
 
-- `PriceBeliefKey` gains `locale: string`, a lower-cased language or language-region tag, or `unspecified`;
-- it is derived by code from the URL (path segment, subdomain or query), never by the model;
-- the encoding gains `|loc=<locale>`;
-- `keyForEvidence` needs the source URL as well as the domain, so its second argument becomes `{ domain, urlNorm }`;
-- `comparableKeys` treats two keys that differ only in locale as `different`, and `unspecified` against a known locale as not comparable.
+- `PriceBeliefKey.locale` is a canonical BCP-47 tag as produced by `Intl.getCanonicalLocales` (for example `en-GB`), or `und` when it cannot be determined. Regional distinctions are preserved.
+- It is derived by code from the source URL (path segment, subdomain or query), never by the model, and never from currency.
+- The encoding gains `|loc=<locale>` after `cur=`; the key version stays 1 because no belief key has ever been stored.
+- `keyForEvidence` takes `{ domain, urlNorm }` instead of a domain.
+- `comparableKeys` returns `different` for different locales, including `und` against a known locale.
+- An `und` locale cannot independently establish a positive `changed` verdict (ADR-36).
 
 ## Consequences and trade-offs
 
-- A change to contracts §2 (the type, the encoding comment, the `keyForEvidence` signature) and to the belief-key tests. It is **not applied**: the contract text is unchanged, and the edit belongs with the first milestone that writes belief keys. No SQL change: the key is a TEXT column and its decoded JSON is a TEXT column.
-- No belief rows exist yet, and beliefs are derived and rebuildable ([ADR-35](ADR-35.md)), so no stored data needs converting. If keys had been stored, the encoding version would have to change.
-- Pages with no detectable locale all get `unspecified` and stay comparable with each other. The price is that "unspecified against known" gives `differs_timing_unknown` in the change proof, never `changed`.
-- Detecting a locale from a URL will miss locales set by cookies or IP address.
+- Applied to the shared type ([src/shared/belief.ts](../../src/shared/belief.ts)) and to contracts §2 on 2026-11-12. The encode, decode and comparison functions are not implemented.
+- No SQL change: the key is a TEXT column and its decoded JSON is a TEXT column. No stored data needs converting; beliefs are derived and rebuildable ([ADR-35](ADR-35.md)).
+- Pages with no detectable locale are keyed `und`: they are comparable with each other as keys, but can never support `changed` by bracketing.
+- Detecting a locale from a URL misses locales set by cookies or IP address.
 
 ## Evidence and implementation references
 
-- The proposal is written in Q-001. Nothing is implemented or tested. Whether the search provider's crawler location changes the prices it sees is undocumented and unmeasured (U17).
+- Nothing is implemented or tested. Whether the search provider's crawler location changes the prices it sees is undocumented and unmeasured (U17).
 
 ## Revisit when
 
-- Contracts §2 is next edited, before the belief key code is written (milestone 4), and after the U17 spot check.
+- The belief-key functions are written (milestone 4), and after the U17 spot check.

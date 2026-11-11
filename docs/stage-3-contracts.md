@@ -585,15 +585,19 @@ export interface PriceBeliefKey {
   unit: Unit; usageUnit: string | null;
   billingPeriod: BillingPeriod;
   currency: CurrencyCode | `unknown@${string}`;        // unknown scoped to registrable source domain
+  locale: string;                                      // canonical BCP-47 (Intl.getCanonicalLocales), 'und' if undetermined; derived by code from the URL, never by the model (ADR-37)
   valueKind: NormalizedValue['valueKind'];
 }
 export interface ReleaseKey { kind: 'release'; version: 1; entityId: EntityId; titleHash: string; }
 export declare function encodePriceKey(k: PriceBeliefKey): string;
-// "price:v1|e=<entityId>|p=<plan>|a=<arrangement>|c=<hash|->|u=<unit>|uu=<usageUnit|->|b=<billing>|cur=<currency>|vk=<valueKind>"
+// "price:v1|e=<entityId>|p=<plan>|a=<arrangement>|c=<hash|->|u=<unit>|uu=<usageUnit|->|b=<billing>|cur=<currency>|loc=<locale>|vk=<valueKind>"
+// (version stays 1: no belief key has ever been stored; beliefs are derived and rebuildable)
 export declare function decodePriceKey(s: string): PriceBeliefKey;          // throws on non-canonical input
-export declare function keyForEvidence(e: Omit<VerifiedEvidence, 'beliefKey'>, sourceDomain: string): string | null;
+export declare function keyForEvidence(e: Omit<VerifiedEvidence, 'beliefKey'>, source: { domain: string; urlNorm: string }): string | null;
 // modality current→list, conditional→conditional, promotional→promotional, planned→planned; historical/negated/other→null
 export declare function comparableKeys(a: PriceBeliefKey, b: PriceBeliefKey): 'equal' | 'comparable' | 'different';
+// Different locales are 'different', including 'und' against a known locale. Two keys that agree in every dimension, 'und' included, are 'equal';
+// but an 'und' locale can never be what establishes a positive `changed` verdict (architecture §8, ADR-36).
 
 // ── belief & change ──
 export type BeliefStatus = 'confirmed' | 'contested' | 'stale' | 'unknown';

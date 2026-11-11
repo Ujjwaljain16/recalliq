@@ -13,7 +13,7 @@ questions, including resolved ones and their history.
 
 | ID | Topic | Status | Blocks | ADR |
 |---|---|---|---|---|
-| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **decided** (rule, effective-date distinction, locale as a dimension); a, b, c, e are proposed defaults; contract §2 edit **not applied** | Milestone 4 change detector (unimplemented) | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
+| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **decided** (rule, definitions a–e, effective-date distinction); locale **applied to the contract and shared type** (2026-11-12); detector not implemented | Milestone 4 change detector (unimplemented) | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
 | Q-002 | Demo isolation covers only some tables | **applied** (migration 002, M2); complete isolation still not claimed | — | [ADR-28](adr/ADR-28.md) |
 | Q-003 | PRAGMAs outside migrations | **applied**, approved | — | [ADR-25](adr/ADR-25.md) |
 | Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — | — |
@@ -63,7 +63,7 @@ Milestone 2 was approved, with these qualifications. They are recorded here and 
 ## Q-001: temporal proof for `changed`, and the missing `locale` dimension
 
 **ADR:** [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md)  
-**History:** Raised in M1 (conflict between the kickoff and architecture §8) → owner decided the rule on 2026-11-11 → on 2026-11-12 the owner settled the effective-date question (d) and accepted locale as a comparability dimension; the contract §2 edit is recorded but **not applied**. The change detector is **unimplemented** and stays so until M4.
+**History:** Raised in M1 (conflict between the kickoff and architecture §8) → owner decided the rule on 2026-11-11 → on 2026-11-12 the owner settled the effective-date question (d), accepted locale (canonical BCP-47, `und` when unknown) and approved the definitions of observation, source identity and comparability. Contracts §2 and `src/shared/belief.ts` were updated. The change detector is **unimplemented** and stays so until M4.
 
 ### Owner decision (2026-11-11): the exact proof requirements
 
@@ -93,7 +93,7 @@ as 48 h *before* T0 followed by a later different observation. The decision abov
 
 ### Sub-questions the decision leaves open
 
-The following need an answer before `ChangeDetector` is written. Row d is decided (2026-11-12). Rows a, b, c and e are **proposed defaults, not owner-confirmed**: the code will follow them unless the owner says otherwise. Architecture §8 states a and b as the working definitions.
+The following need an answer before `ChangeDetector` is written. All rows are decided (d on 2026-11-12, then a, b, c and e as approved definitions on 2026-11-12): an observation is an immutable, timestamped snapshot with sufficient content and validated supporting evidence; source identity is `url_norm` (meaningful query parameters kept, only tracking parameters removed); comparable means `comparableKeys === 'equal'` including locale; the baseline's own fetch never counts; an unknown locale cannot independently establish `changed`. One reading is the orchestrator's and stricter: "sufficient content" is a successful fresh crawl.
 
 | # | Question | Proposed answer |
 |---|---|---|
@@ -151,7 +151,7 @@ regions, on the same domain, therefore maps to **one** key:
 6. Open point for the reviewer: two observations of the **same URL** with locale `unspecified` are
    comparable (same page), but `unspecified` against a known locale is not.
 
-Status: **decided as a dimension** (2026-11-12): locale is a required pricing-comparability dimension ([ADR-37](adr/ADR-37.md)). The edit above to contracts §2 is the recorded implementation and has **not** been applied; it lands with the first code that writes belief keys. Nothing is implemented, and the change detector will not be written before then. The point in item 6 is adopted: `unspecified` against a known locale is not comparable.
+Status: **applied to the contract** (2026-11-12): locale is a required pricing-comparability dimension ([ADR-37](adr/ADR-37.md)). The owner approved a different encoding from the proposal above: a canonical BCP-47 tag (`Intl.getCanonicalLocales`) with `und` for unknown, instead of a lower-cased tag with `unspecified`; contracts §2 and `src/shared/belief.ts` carry it. The key-encoding functions and the change detector are not implemented. Item 6 is superseded: different locales, `und` against a known locale included, are incomparable, and `und` cannot independently establish `changed`.
 
 ---
 

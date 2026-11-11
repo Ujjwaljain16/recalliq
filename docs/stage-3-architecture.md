@@ -134,12 +134,13 @@ These fields are kept separate. The full list is in the contracts §2 `TimeField
 | `usageUnit` | normalised (e.g. `gb-month`) for `usage`, otherwise `-` | |
 | `billingPeriod` | `monthly` · `annual` · `monthly_billed_annually` · `one_time` · `unspecified` | Monthly and annual are different prices, not a conflict |
 | `currency` | ISO 4217, or `unknown@<registrable domain>` | See R2 |
+| `locale` | canonical BCP-47 (for example `en-GB`), or `und` | The same plan costs different amounts in different regions; derived by code from the URL (ADR-37) |
 | `valueKind` | `exact` · `lower_bound` · `upper_bound` | "from $20" and "$20" are not compared |
 
 **Canonical encoding.** Field order is fixed, the format is versioned, and it is produced by a single function `encodePriceKey` in `belief/belief-key.ts`:
 
 ```
-price:v1|e=ent_7|p=professional|a=list|c=-|u=per_seat|uu=-|b=monthly_billed_annually|cur=USD|vk=exact
+price:v1|e=ent_7|p=professional|a=list|c=-|u=per_seat|uu=-|b=monthly_billed_annually|cur=USD|loc=en-US|vk=exact
 ```
 
 **Mapping a statement to a key:**
@@ -657,10 +658,10 @@ The two proofs:
 
 - **Prior-effect proof.** Some `pass` statement with value ≠ `vB` for `kB`, at a tier at least as high as `tier_B`, has either `effectiveFrom ≤ T0`, or `displayedAt ≤ T0` with a basis other than `unknown`.
 - **Post-baseline proof.** Either of these holds. *(Revised 2026-11-12 after the owner's decision in [Q-001](questions.md), [ADR-36](adr/ADR-36.md). The earlier text allowed "same-source bracketing" from an observation up to 48 h **before** T0; that tolerance is removed, and the old text is kept below as history.)*
-  - **Re-observation bracketing.** All of: (1) an observation of `vB` made **after** T0 (the baseline's own fetch precedes T0 and does not count); (2) a later observation of `C.value`; (3) both from the same source identity, the same `url_norm`; (4) the same belief key, which includes comparable locale, plan, billing arrangement and pricing context once locale is part of the key ([ADR-37](adr/ADR-37.md)). `changeWindow = {after: the vB observation, notAfter: C's observation of C.value}`.
+  - **Re-observation bracketing.** All of: (1) an observation of `vB` made **after** T0 (the baseline's own fetch precedes T0 and does not count); (2) a later observation of `C.value`; (3) both from the same source identity, the same `url_norm` (semantically meaningful query parameters are kept; only tracking parameters are removed); (4) `comparableKeys === 'equal'` for the two observations and the baseline, across every pricing dimension including locale ([ADR-37](adr/ADR-37.md)); (5) the locale is known, not `und`: an unknown locale cannot independently establish `changed`. `changeWindow = {after: the vB observation, notAfter: C's observation of C.value}`.
   - **Explicit effective date.** Some `pass` statement at tier A1 or A2 for `C.value` carries an `effectiveFrom` that the extraction explicitly associates with that price (a date stated in the text about that price, not the page's publication date or the fetch time) and `effectiveFrom > T0`. `changeWindow` is "from `effectiveFrom`". Only an explicitly associated, reliable effective date can establish timing; **publication dates and fetch dates alone never do** (a fresh fetch never sets `effectiveFrom`, T-BEL-22).
 
-  An observation here is a `pass` statement from a fresh, successfully crawled snapshot, timed by `observed_at`; provider-reported dates are hints and do not count. Neither route is implemented: the change detector is milestone 4.
+  An observation here is an immutable, timestamped source snapshot with sufficient content and a validated supporting pricing statement (`pass`), timed by `observed_at`. "Sufficient content" is read strictly: a snapshot from a successful fresh crawl (`fresh_fetch` and `crawl_status = ok`), because a provider-cached copy does not show what the page displayed at `observed_at`. The baseline's original fetch never counts as the independent post-answer observation. Provider-reported dates are hints and do not count. Neither route is implemented: the change detector is milestone 4.
 
   *Superseded text, kept as history:* "same-source bracketing: there is an observation of `vB` from C's winning `url_norm` with `displayedAt ≥ T0 − 48 h` (usually the baseline's own fresh fetch), and C's winning observation of `C.value` is later."
 

@@ -9,6 +9,7 @@ import type { EntityId, EvidenceId, Ms } from './ids.js';
 
 // Belief-key functions (encodePriceKey, decodePriceKey, keyForEvidence, comparableKeys) are part
 // of the contract but are implemented in src/belief/belief-key.ts in the evidence/belief milestone.
+// keyForEvidence takes the source as { domain, urlNorm }: locale is derived by code from the URL (ADR-37).
 
 export type Arrangement = 'list' | 'conditional' | 'promotional' | 'planned';
 
@@ -30,6 +31,12 @@ export interface PriceBeliefKey {
    * `string`.)
    */
   currency: CurrencyCode;
+  /**
+   * Canonical BCP-47 tag as produced by `Intl.getCanonicalLocales` (for example `en-GB`, `de-DE`), or the
+   * literal `und` when the locale cannot be determined. Derived by code from the source URL, never by the
+   * model. Regional distinctions are kept: `en-GB` and `en-US` are different keys (ADR-37).
+   */
+  locale: string;
   valueKind: NormalizedValue['valueKind'];
 }
 

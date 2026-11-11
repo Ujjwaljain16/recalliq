@@ -10,6 +10,7 @@ export * from './findings.js';
 export * from './memory.js';
 export * from './research.js';
 export * from './answer.js';
+export * from './pipeline.js';
 export * from './delivery.js';
 export * from './turn.js';
 export * from './turn-state-machine.js';

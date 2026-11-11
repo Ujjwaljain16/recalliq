@@ -1,6 +1,20 @@
 # Parallel execution plan: milestones 4 and 5
 
-Status: **proposed, not yet approved.** No worker has been started. Written 2026-11-12 against the repository as it actually is (checked, not taken from earlier reports).
+Status: **approved 2026-11-12, interfaces frozen.** Written against the repository as it actually is (checked, not taken from earlier reports).
+
+## 0. Approval record (2026-11-12)
+
+| Item | Decision |
+|---|---|
+| D1 locale | Approved: canonical BCP-47 in `PriceBeliefKey` and the encoded key, `und` for unknown, regional distinctions kept, different locales incomparable, an unknown locale cannot independently establish `changed`. Applied to ADR-37, contracts §2 and `src/shared/belief.ts`. |
+| D2 Q-001 | Approved: observation = immutable timestamped snapshot with sufficient content and validated supporting pricing evidence; source identity = `url_norm` keeping meaningful query parameters and removing only tracking ones; comparability = `comparableKeys === 'equal'` including locale; the baseline's own fetch never counts; effective dates may establish timing, publication and fetch dates may not. Applied to ADR-36, architecture §8 and Q-001. No weaker rule may be implemented. |
+| D3 benchmarks | Adapters and harnesses against recorded fixtures first. ADR-08 and ADR-14 stay Proposed until a benchmark has actually run. The owner configures credentials in an ignored `.env` and approves live spending separately. No credential is committed and no result is invented. |
+| D4 application surface | A separate **milestone 5.5**: HTTP server, SSE endpoint, acknowledgement endpoint, session handling, a minimal usable web client and `npm run dev`. Reviewers must be able to interact with the agent; this is not deferred into milestone 6. |
+| D5 sequencing | Done: M3 merged on `m3/integration`, full suite and fresh-database initialisation (schema version 6) verified before the M4/M5 worktrees were created. M3 is **not** merged into `main`. |
+| D6 agents | Four implementation agents plus the orchestrator. |
+| Correction | `ResearchService` turns provider, extraction and deadline failures into typed coverage outcomes. Database persistence failures and programmer errors propagate and are never reported as incomplete coverage. Written into `src/shared/pipeline.ts`. |
+
+The sections below were written before the approval; where they say "proposed" or list D1 to D6 as open, §0 supersedes them.
 
 ## 1. Verified starting point
 
@@ -44,7 +58,7 @@ All from one approved base commit (the M3 integration head once D5 is done):
 ### 4.1 Existing contracts (frozen as they are)
 `SearchPort`/`SearchRequest`/`SearchResponse`, `LlmPort` (`structured`, `stream`), `EvidenceExtractor`, `ExtractionBatcher`, `EvidenceVerifier`, `AuthorityClassifier`, `BeliefResolver`, `ChangeDetector`, `ResearchPlanner`, `ResearchExecutor`, `AnswerPipeline`, `TurnOrchestrator`, `TurnBudget`, `MemoryRetriever`, `BaselineLoader`, `FindingSet`/`Finding`, and the M2 delivery contracts (`AckRequest`, `deliveryState`, `TurnRepository.ack`). No second acknowledgement mechanism is introduced.
 
-### 4.2 Additions proposed (new file `src/shared/pipeline.ts`, orchestrator-owned)
+### 4.2 Additions (new file `src/shared/pipeline.ts`, orchestrator-owned, frozen; the code in that file is authoritative)
 
 ```ts
 /** What a research or audit turn needs. Baselines arrive inside ctx. */
@@ -70,7 +84,7 @@ export interface TurnAnalyzer {
 
 Everything else a worker needs already exists. Plan-time duties (which searches to run) stay with the coordinator through `ResearchPlanner`; execution of a plan is `ResearchExecutor`.
 
-### 4.3 Contract edits that need approval (D1)
+### 4.3 Contract edits for D1 (applied 2026-11-12)
 `PriceBeliefKey` gains `locale: string`; the encoding gains `|loc=<locale>`; `keyForEvidence` takes `{ domain, urlNorm }`; `comparableKeys` treats differing locales as `different`. Applied by the orchestrator in contracts §2 and `src/shared/belief.ts`, with ADR-37 and Q-001 updated, before Agent B starts.
 
 ## 5. Agents
@@ -122,3 +136,17 @@ Recorded fixtures labelled real or `[SYNTHETIC]`; scenario scripts for the three
 - Mock-based integration in step 4 does not prove end-to-end behaviour; step 5 does, on fixtures only.
 - Without D3, provider and model choices remain unmeasured.
 - Retrieval returns at most eight candidates, so a second conversation can be missed when one conversation fills all eight; the recall layer flags this as `truncated` but does not yet ask.
+
+## 10. Ownership check (frozen)
+
+Each path has exactly one owner. Everything not listed is orchestrator-owned and changed only at integration.
+
+| Path | Owner |
+|---|---|
+| `src/search/**`, `src/sources/**`, `src/research/executor.ts`, `src/db/migrations/007_*.sql`, `tests/**/search/**`, `tests/**/sources/**`, `tests/fixtures/search/**`, `scripts/bakeoff*`, `docs/provider-evaluation.md` | A |
+| `src/evidence/**`, `src/belief/**`, `src/research/service.ts`, `src/db/migrations/008_*.sql`, `tests/**/evidence/**`, `tests/**/belief/**`, `tests/fixtures/evidence/**` | B |
+| `src/orchestration/**`, `tests/**/orchestration/**` | C |
+| `src/llm/**`, `src/answer/**`, `tests/**/llm/**`, `tests/**/answer/**`, `tests/fixtures/llm/**`, `scripts/model-bench*`, `docs/model-evaluation.md` | D |
+| `src/shared/**`, `src/config/**`, `src/db/index.ts`, existing `src/db/**` and migrations 001 to 006, `package.json`, lockfile, `docs/**` (other than the two evaluation reports), `tests/helpers/**`, existing tests | Orchestrator |
+
+Rules that follow: repositories for new tables live inside their owner's module (not in `src/db/repositories`), so `src/db/index.ts` is never edited by a worker. Configuration is injected; a worker that needs a new setting proposes it. HTTP calls use Node's `fetch`; no worker adds a dependency. Test files go in per-module subfolders so names cannot collide. `tests/helpers/budget.ts` (`FakeBudget`) is shared and read-only. The one directory two workers share is `src/research/`, with separate files (`executor.ts` for A, `service.ts` for B).
