@@ -1,3 +1,4 @@
+import { DEFAULT_LIMITER } from '../../../src/llm/limiter.js';
 import { describe, expect, it } from 'vitest';
 import { LiveConfigurationError, liveFactory } from '../../../src/app/live.js';
 import { loadAppEnv } from '../../../src/app/env.js';
@@ -79,5 +80,16 @@ describe('live component selection', () => {
       expect(message).toContain('EXA_API_KEY');
       expect(message).toContain('Not falling back');
     }
+  });
+});
+
+describe('Gemini pacing', () => {
+  it('defaults to the free-tier-safe limiter and accepts overrides within range', () => {
+    expect(loadAppEnv({}).geminiLimiter).toEqual(DEFAULT_LIMITER);
+    expect(
+      loadAppEnv({ GEMINI_MAX_CONCURRENT: '4', GEMINI_MIN_SPACING_MS: '0' }).geminiLimiter,
+    ).toEqual({ maxConcurrent: 4, minSpacingMs: 0 });
+    expect(() => loadAppEnv({ GEMINI_MAX_CONCURRENT: '0' })).toThrow(/GEMINI_MAX_CONCURRENT/);
+    expect(() => loadAppEnv({ GEMINI_MIN_SPACING_MS: '-1' })).toThrow(/GEMINI_MIN_SPACING_MS/);
   });
 });

@@ -4,7 +4,7 @@ import { ReplaySearchAdapter } from '../search/replay.js';
 import { GeminiLlm } from '../llm/gemini/adapter.js';
 import { geminiConfigFromApp } from '../llm/gemini/config.js';
 import { realSleep } from '../llm/abort.js';
-import { ClientLimiter, DEFAULT_LIMITER } from '../llm/limiter.js';
+import { ClientLimiter } from '../llm/limiter.js';
 import type { Origin } from '../shared/ids.js';
 import type { ComponentFactory } from './components.js';
 import type { AppEnv } from './env.js';
@@ -73,7 +73,7 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
 
   const doFetch = options.fetch ?? fetch;
   return (c) => {
-    const limiter = new ClientLimiter(DEFAULT_LIMITER, { clock: c.clock, sleep: realSleep });
+    const limiter = new ClientLimiter(env.geminiLimiter, { clock: c.clock, sleep: realSleep });
     const llm = new GeminiLlm({
       config: geminiConfigFromApp(c.config),
       fetch: doFetch,
