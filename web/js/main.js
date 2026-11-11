@@ -341,7 +341,7 @@ function renderStored(messages) {
 // ---------------------------------------------------------------- conversations
 
 async function refreshList() {
-  let list = [];
+  let list;
   try {
     list = (await api.conversations()).conversations;
   } catch {
