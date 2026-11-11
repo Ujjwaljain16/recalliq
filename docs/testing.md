@@ -357,6 +357,10 @@ Mutation checks, each restored afterwards and each made at least one test fail: 
 
 `tests/integration/orchestration/scenario-lane-variance.test.ts` (18 tests): the same analysis for the first and third questions with hint research, audit and recall, and asksStillCorrect true and false, researches the same companies and opens with the same sentence about what was asked or written. Third question in the audit lane: Neon and Supabase from tags (opening, statement and findings in order, and recall before plan before research before answer), from stored entity rows (an unrelated stored entity is left out), with a competing Postgres question on the other candidate Tuesday, two matching conversations as a question with two options and no research or answer call, every finding `unable_to_verify` (lead still present), and the fixed reply when nothing is derivable. Mutation checks, restored afterwards: derivation switched off in the audit lane (8 failed); the recall-with-change_since routing rule removed (2 failed).
 
+### Change not established (added 2026-11-12)
+
+`tests/integration/orchestration/scenario-change-proof.test.ts` (8 tests): five tools, no baselines, the sentence once with the correct date after the lead; the audit lane keeps its one statement without repeating; the date from the since anchor when nothing was recalled; every finding `unable_to_verify` still gets it; one tool with a verdict leaves it out and the sentence names the other four; all with a verdict adds nothing; a plain price question has no such sentence; it is code-written (not in the answer model's input, numbered before the model's sentences in the stream and in storage). Mutation checks, restored afterwards: omitted in the research lane (8 failed); emitted despite a verdict (2); date taken from the wrong part of the recalled time (7); anchor candidate order reversed (1).
+
 ## Documentation checks (`tests/integration/docs.test.ts`)
 
 Added in the post-M2 documentation pass. They check the documents against each other and against the code; they do not test application behaviour.

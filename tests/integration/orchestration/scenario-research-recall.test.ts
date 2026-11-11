@@ -73,6 +73,8 @@ const liveS3 = (topicTerms: string[] = ['Postgres', 'hosting']) =>
 
 const ASKED = `On 2026-11-10 at 10:00 you asked: "${HOSTING_TEXT}"`;
 const TOOK = 'I took the companies from that earlier message: Neon and Supabase.';
+const NOT_ESTABLISHED = (day: string): string =>
+  `I have no earlier prices of my own on record from before ${day}, so I cannot establish whether anything changed since then; what follows is what I could find now.`;
 
 describe('research lane: the first question as captured now (role reference_conversation)', () => {
   it('recalls the Monday message, opens with what was written, and researches the five shortlisted tools', async () => {
@@ -89,7 +91,7 @@ describe('research lane: the first question as captured now (role reference_conv
     expect(ctx.decisionIds).toEqual([decision]);
     expect(w.research.calls[0]?.ctx.entities.map((e) => e.name)).toEqual(CRM);
     expect(reply).toBe(
-      `On 2026-11-09 at 09:00 you wrote: "${LIVE_MONDAY_TEXT}" Here is what I can verify now.`,
+      `On 2026-11-09 at 09:00 you wrote: "${LIVE_MONDAY_TEXT}" ${NOT_ESTABLISHED('2026-11-09')} Here is what I can verify now.`,
     );
     // written in code: the answer pipeline got no lead text and the stored sentences are numbered in order
     expect(w.answer.calls).toHaveLength(1);
@@ -112,7 +114,9 @@ describe('research lane: the third question as captured now (nothing named, noth
     const call = w.research.calls[0];
     expect(call?.ctx.entities).toEqual([]);
     expect(call?.analysis.entities.map((e) => e.text)).toEqual(['Neon', 'Supabase']);
-    expect(reply).toBe(`${ASKED} ${TOOK} Here is what I can verify now.`);
+    expect(reply).toBe(
+      `${ASKED} ${TOOK} ${NOT_ESTABLISHED('2026-11-10')} Here is what I can verify now.`,
+    );
     expect(reply).not.toContain('Postgres hosting pricing');
   });
 
@@ -124,7 +128,9 @@ describe('research lane: the third question as captured now (nothing named, noth
     const { reply } = await w.ask(S3_MESSAGE);
     expect(w.research.calls[0]?.ctx.entities.map((e) => e.name)).toEqual(['Neon', 'Supabase']);
     expect(w.research.calls[0]?.analysis.entities).toEqual([]);
-    expect(reply).toBe(`${ASKED} ${TOOK} Here is what I can verify now.`);
+    expect(reply).toBe(
+      `${ASKED} ${TOOK} ${NOT_ESTABLISHED('2026-11-10')} Here is what I can verify now.`,
+    );
   });
 
   it('claims nothing the message does not contain: a stored entity that it never names is left out', async () => {

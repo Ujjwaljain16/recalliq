@@ -7,6 +7,7 @@ import type { UnverifiedClaim } from '../ports.js';
 import {
   ambiguousEntityOutcome,
   askedSentences,
+  changeNotEstablishedSentence,
   candidateAsHit,
   emitContext,
   emitEntityCap,
@@ -199,6 +200,11 @@ export const auditLane: LaneHandler = async (input, deps) => {
     eligible.length > 0
       ? []
       : [unverified.length > 0 ? NO_VERIFIED_EARLIER_ANSWER : NO_EARLIER_ANSWER_TO_COMPARE];
-  const lead = [...asked, ...took, ...noBaseline];
+  // The no-baseline statement already says no change can be established; the sentence below covers the rest.
+  const unproven =
+    noBaseline.length > 0
+      ? null
+      : changeNotEstablishedSentence(input, ctx, outcome.findings, recalledHits);
+  const lead = [...asked, ...took, ...noBaseline, ...(unproven === null ? [] : [unproven])];
   return { ...outcome, recall, ...(lead.length > 0 ? { lead } : {}) };
 };

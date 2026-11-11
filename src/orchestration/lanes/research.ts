@@ -4,6 +4,7 @@ import { TURN_LIMITS } from '../config.js';
 import {
   ambiguousEntityOutcome,
   askedSentences,
+  changeNotEstablishedSentence,
   clarifyOutcome,
   emitContext,
   emitEntityCap,
@@ -157,5 +158,8 @@ export const researchLane: LaneHandler = async (input, deps) => {
         }
       : input;
   const outcome = await runResearch(researchInput, deps, ctx, 'research');
-  return outcome.kind === 'synthesize' && lead.length > 0 ? { ...outcome, lead } : outcome;
+  if (outcome.kind !== 'synthesize') return outcome;
+  const unproven = changeNotEstablishedSentence(input, ctx, outcome.findings, hits);
+  const opening = unproven === null ? lead : [...lead, unproven];
+  return opening.length > 0 ? { ...outcome, lead: opening } : outcome;
 };
