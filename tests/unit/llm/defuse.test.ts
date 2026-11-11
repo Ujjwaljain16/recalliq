@@ -10,8 +10,11 @@ const ch = (...codes: number[]): string => String.fromCharCode(...codes);
 /** Text that, once defused, must hold no fence tag and no placeholder opener. */
 const safe = (s: string): void => {
   const d = defuse(s);
-  expect(d).not.toMatch(/<\s*\/?\s*(?:data|source|excerpt|history)\b/i);
-  expect(d).not.toContain('[[');
+  // checked on the compatibility-folded form too: a model reads full-width look-alikes as the real characters
+  for (const form of [d, d.normalize('NFKC')]) {
+    expect(form).not.toMatch(/<\s*\/?\s*(?:data|source|excerpt|history)\b/i);
+    expect(form).not.toContain('[[');
+  }
   expect(defuse(d)).toBe(d); // idempotent
 };
 
