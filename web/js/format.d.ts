@@ -19,3 +19,6 @@ export function outcomeNote(
 export function conversationLabel(c: { title: string | null; preview: string | null }): string;
 export function leadingBreak(text: string): { newParagraph: boolean; text: string };
 export function paragraphStarts(content: string, texts: string[]): boolean[];
+export function sentenceGap(newParagraph: boolean, paragraphHasText: boolean): string;
+export function paragraphTexts(chunks: string[]): string[];
+export function storedParagraphTexts(content: string, texts: string[]): string[];

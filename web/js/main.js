@@ -8,6 +8,7 @@ import {
   leadingBreak,
   outcomeNote,
   paragraphStarts,
+  sentenceGap,
   safeHref,
   sentenceMarker,
   splitCitations,
@@ -216,6 +217,9 @@ function sentenceSpan(msg, index, newParagraph = false) {
       msg.paragraph = el('p', 'para');
       msg.body.append(msg.paragraph);
     }
+    // sentences of one paragraph are separated by one space (the sentence text itself carries none)
+    const gap = sentenceGap(false, msg.paragraph.childNodes.length > 0);
+    if (gap) msg.paragraph.append(document.createTextNode(gap));
     span = el('span', 'sentence');
     span.dataset.index = String(index);
     msg.sentences.set(index, span);

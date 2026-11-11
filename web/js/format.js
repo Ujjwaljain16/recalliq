@@ -170,3 +170,51 @@ export function paragraphStarts(content, texts) {
     return i > 0 && gap.includes('\n');
   });
 }
+
+/**
+ * The text between two sentences of one paragraph: a single space. A sentence that opens a paragraph, or the
+ * first sentence of the answer, has none. The streamed text and the stored text both rely on this, because the
+ * leading whitespace of a sentence is not shown as such (see `leadingBreak`).
+ *
+ * @param {boolean} newParagraph
+ * @param {boolean} paragraphHasText
+ */
+export function sentenceGap(newParagraph, paragraphHasText) {
+  return !newParagraph && paragraphHasText ? ' ' : '';
+}
+
+/**
+ * The paragraphs the page shows for the streamed sentence chunks (each with its leading whitespace), as plain
+ * text: sentences of one paragraph are joined with one space, paragraphs are separate entries.
+ *
+ * @param {string[]} chunks
+ * @returns {string[]}
+ */
+export function paragraphTexts(chunks) {
+  const out = [];
+  for (const chunk of chunks) {
+    const { newParagraph, text } = leadingBreak(chunk);
+    const last = out.length - 1;
+    if (last < 0 || newParagraph) out.push(text);
+    else out[last] += sentenceGap(false, true) + text;
+  }
+  return out;
+}
+
+/**
+ * The paragraphs the page shows for stored sentences, as plain text, in the same shape as `paragraphTexts`.
+ *
+ * @param {string} content  the stored message text
+ * @param {string[]} texts  the sentences in order
+ * @returns {string[]}
+ */
+export function storedParagraphTexts(content, texts) {
+  const starts = paragraphStarts(content, texts);
+  const out = [];
+  texts.forEach((t, i) => {
+    const last = out.length - 1;
+    if (last < 0 || starts[i]) out.push(t);
+    else out[last] += sentenceGap(false, true) + t;
+  });
+  return out;
+}
