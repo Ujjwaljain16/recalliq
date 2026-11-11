@@ -22,7 +22,7 @@ during implementation, and open decisions raised since; they were never in the o
 | not implemented | A design or a decision only |
 
 Counts: 39 ADRs. Accepted 35, Proposed 4, Superseded 0.
-Implemented 9, partly 15, not implemented 15.
+Implemented 11, partly 14, not implemented 14.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
 latency, accuracy or cost has been measured. The weighted scores behind ADR-01 are the author's judgements. Numeric limits in ADR-09, ADR-10, ADR-15 and ADR-24 are
@@ -38,7 +38,7 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-04](ADR-04.md) | SQLite via better-sqlite3 (pinned), WAL, FTS5 | Accepted | implemented | A local SQLite file through better-sqlite3 13.0.3, with write-ahead logging and FTS5 for text search. | [ADR-05](ADR-05.md), [ADR-25](ADR-25.md), [ADR-26](ADR-26.md) |
 | [ADR-05](ADR-05.md) | Retrieval: SQL, FTS5 and write-time enrichment; no embeddings | Accepted | partly implemented | Date-interval SQL first, then FTS5 bm25 within the interval, with entities and topic tags stored when each turn is saved. | [ADR-04](ADR-04.md), [ADR-07](ADR-07.md) |
 | [ADR-06](ADR-06.md) | Four-layer claim model with derived belief | Accepted | partly implemented | Source snapshot, evidence statement, assertion, and a belief that is derived by code and never authored by an LLM. | [ADR-13](ADR-13.md), [ADR-21](ADR-21.md), [ADR-22](ADR-22.md), [ADR-26](ADR-26.md), [ADR-32](ADR-32.md) |
-| [ADR-07](ADR-07.md) | Temporal resolution in code; ask when several candidates remain | Accepted | not implemented | The model extracts a structured date expression; code resolves local-day intervals; exactly one matching candidate is used, several lead to a question. | [ADR-05](ADR-05.md), [ADR-22](ADR-22.md), [ADR-36](ADR-36.md) |
+| [ADR-07](ADR-07.md) | Temporal resolution in code; ask when several candidates remain | Accepted | implemented | The model extracts a structured date expression; code resolves local-day intervals; exactly one matching candidate is used, several lead to a question. | [ADR-05](ADR-05.md), [ADR-22](ADR-22.md), [ADR-36](ADR-36.md) |
 | [ADR-08](ADR-08.md) | Search provider: Exa (provisional) behind a port | Proposed | not implemented | Exa is the working choice; a measured comparison with Tavily and Perplexity must confirm or replace it. | [ADR-09](ADR-09.md), [ADR-14](ADR-14.md) |
 | [ADR-09](ADR-09.md) | Research planning: templates, bounded fan-out, one fallback round | Accepted | not implemented | Query plans come from per-intent templates run with bounded concurrency; one fallback round only for keys with no usable evidence. | [ADR-08](ADR-08.md), [ADR-24](ADR-24.md) |
 | [ADR-10](ADR-10.md) | Evidence extraction: adaptive batches | Accepted | not implemented | Pack snapshots into batches of at most about 9,000 tokens and 3 entities, retry once, then split per entity. | [ADR-11](ADR-11.md), [ADR-14](ADR-14.md) |
@@ -69,7 +69,7 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-35](ADR-35.md) | Privacy deletion with an injected belief rebuilder | Accepted | partly implemented | Deleting a conversation is an explicit procedure; derived beliefs are rebuilt by a dependency passed in, with no default. | [ADR-06](ADR-06.md), [ADR-13](ADR-13.md), [Q-005](../questions.md) |
 | [ADR-36](ADR-36.md) | Stricter proof for a post-baseline change | Accepted | not implemented | `changed` needs the old value re-observed after the previous answer then the new value observed later, same source and comparable context, or an explicitly associated reliable effective date; publication and fetch dates alone never; otherwise `differs_timing_unknown`. | [ADR-22](ADR-22.md), [ADR-37](ADR-37.md), [Q-001](../questions.md) |
 | [ADR-37](ADR-37.md) | Locale as a dimension of the belief key | Accepted | not implemented | Locale is a required comparability dimension; the typed-key change (code-derived `locale`, `|loc=` encoding) is recorded but not yet applied to the contract. | [ADR-21](ADR-21.md), [ADR-36](ADR-36.md), [Q-001](../questions.md) |
-| [ADR-38](ADR-38.md) | Which assertions may become historical baselines | Accepted | partly implemented | Recall needs presentation; baseline eligibility also needs the current-value placeholder, a verified sentence and passing evidence links. Only presentation gating exists in code. | [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md) |
+| [ADR-38](ADR-38.md) | Which assertions may become historical baselines | Accepted | implemented | Recall needs presentation; baseline eligibility also needs the current-value placeholder, a verified sentence and passing evidence links. Only presentation gating exists in code. | [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md) |
 | [ADR-39](ADR-39.md) | Failure transitions from intermediate states | Proposed | not implemented | Decide which failures are recoverable, which are terminal, and how partial work is preserved, before the orchestrator is written. | [ADR-29](ADR-29.md), [ADR-33](ADR-33.md), [Q-011](../questions.md) |
 
 ## How these relate to other documents

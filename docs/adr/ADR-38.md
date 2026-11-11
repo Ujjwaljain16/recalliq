@@ -1,7 +1,7 @@
 # ADR-38: Which assertions may become historical baselines
 
 - **Status:** Accepted
-- **Implementation:** partly implemented
+- **Implementation:** implemented
 - **Decided:** Owner decision, 2026-11-12: separate historical recall from baseline eligibility. The exact rules below were derived from the placeholder grammar, the persisted sentence statuses and the schema, and are recorded for the owner's review (Q-015)
 - **Recorded:** 2026-11-11, updated 2026-11-12
 - **Related:** [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md)
@@ -40,7 +40,8 @@ A baseline keeps its original evidence links and the sentence status it had when
 
 ## Evidence and implementation references
 
-- Enforced and tested: a verdict event or a finding's baseline may only target an assertion presented to the same user in an earlier turn; delivery state is derived (T-ASR-05 in [tests/integration/db/turn-completion.test.ts](../../tests/integration/db/turn-completion.test.ts), ADR-31). **Not implemented:** rules 2 to 5 and the loader. The rules are decided (Accepted); the implementation is partial for that reason.
+- The loader: [src/db/repositories/baseline-loader.ts](../../src/db/repositories/baseline-loader.ts). `loadBaselines` returns the eligible claims; `recallUnverified` returns presented claims that are not eligible, labelled unverified with the reasons. Tested rule by rule, each broken in isolation next to a valid claim, plus cross-user isolation, by [tests/integration/db/baseline-loader.test.ts](../../tests/integration/db/baseline-loader.test.ts). Presentation is also enforced by the database (T-ASR-05 in [tests/integration/db/turn-completion.test.ts](../../tests/integration/db/turn-completion.test.ts), ADR-31).
+- **No caller yet:** the audit lane that uses it is milestone 5. Claims from the audit's own turn are excluded from both methods (an implementation choice, not stated in the rules above).
 
 ## Revisit when
 

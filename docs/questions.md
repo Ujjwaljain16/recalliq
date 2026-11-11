@@ -19,7 +19,7 @@ questions, including resolved ones and their history.
 | Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — | — |
 | Q-005 | Deletion and the belief rebuilder | **applied**, rebuild correctness untested until M4 | T-DB-09 | [ADR-35](adr/ADR-35.md) |
 | Q-006 | `begin` while a different key is running | **applied** (M2) | — | [ADR-30](adr/ADR-30.md) |
-| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003, M2); table-by-table plan recorded (2026-11-12), remaining tables **not yet enforced** | Each table, before its first use in M3 or M4 | [ADR-27](adr/ADR-27.md) |
+| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003 in M2, 006 in M3 for `decisions`); plan recorded (2026-11-12); `search_requests`, `search_results`, snapshots, `beliefs`, `belief_history` **not yet enforced** | Each table, before its first use in M4 | [ADR-27](adr/ADR-27.md) |
 | Q-008 | Declared-only contract functions | applied | — | — |
 | Q-009 | Type-identical lint edits | applied | — | — |
 | Q-010 | Small implementation choices | applied | — | — |
@@ -27,7 +27,7 @@ questions, including resolved ones and their history.
 | Q-012 | Acknowledgement before the answer is stored | open | — | [ADR-23](adr/ADR-23.md) |
 | Q-013 | Meaning of `AckRequest.complete` | open | — | [ADR-31](adr/ADR-31.md) |
 | Q-014 | JSON columns only partly validated | open | Milestones 3, 5 | [ADR-32](adr/ADR-32.md), [ADR-05](adr/ADR-05.md) |
-| Q-015 | Which assertions may become baselines | **decided** (rules, ADR-38); loader not implemented | Milestone 3 | [ADR-38](adr/ADR-38.md) |
+| Q-015 | Which assertions may become baselines | **applied** (rules and loader, M3); no caller until M5 | — | [ADR-38](adr/ADR-38.md) |
 | Q-016 | `recoverRunning` assumes one process | open | — | [ADR-34](adr/ADR-34.md), [ADR-33](adr/ADR-33.md) |
 | Q-017 | Behaviour added beyond the contract | applied | — | [ADR-30](adr/ADR-30.md), [ADR-32](adr/ADR-32.md) |
 | Q-018 | Test IDs introduced in M2 | applied → [testing.md](testing.md) | — | — |
@@ -253,9 +253,9 @@ one winner, five `TurnInProgressError`, one running turn, one stored message.
 **History:** Raised in M1 → partly applied in M2 (migration 003). **Still open** for the tables listed there.
 
 Applied for evidence (turn, snapshot, entity), findings (entity), assertions (turn, message, finding-to-turn) and
-`assertion_evidence`. Still open, deliberately out of scope for Milestone 2:
+`assertion_evidence` (migration 003), and for `decisions` and `decision_entities` (migration 006, milestone 3, 8 triggers, 24 tests). Still open:
 
-- `search_requests` and `decisions` (`user_id` vs their turn and conversation);
+- `search_requests` (`user_id` vs its turn);
 - `source_snapshots`, which has no turn;
 - `beliefs` and `belief_history`.
 
@@ -267,8 +267,8 @@ Rule for timing: a table's ownership trigger and its cross-user tests land in th
 
 | Table | What is unchecked now | Planned enforcement | Enforce before first use by |
 |---|---|---|---|
-| `decisions` | `user_id` may differ from its conversation's or message's owner; `message_id` may belong to another conversation; `supersedes_id` may point at another user's decision | Insert trigger: `user_id` equals the conversation's and the message's; the message belongs to the conversation; `supersedes_id` is the same user's. Update trigger: identity columns immutable | Whichever milestone first writes decisions (M3 if the enricher or recall lane does) |
-| `decision_entities` | The decision and the entity may belong to different users | Insert trigger: both rows have the same `user_id` | Same change as `decisions` |
+| `decisions` (**applied, migration 006**) | `user_id` may differ from its conversation's or message's owner; `message_id` may belong to another conversation; `supersedes_id` may point at another user's decision | Insert trigger: `user_id` equals the conversation's and the message's; the message belongs to the conversation; `supersedes_id` is the same user's. Update trigger: identity columns immutable | Whichever milestone first writes decisions (M3 if the enricher or recall lane does) |
+| `decision_entities` (**applied, migration 006**) | The decision and the entity may belong to different users | Insert trigger: both rows have the same `user_id` | Same change as `decisions` |
 | `search_requests` | `user_id` may differ from its turn's; `entity_id` is unchecked | Insert trigger: `user_id` equals the turn's; `entity_id`, if set, is the same user's. Identity columns immutable | M4, before the first search adapter persists a request |
 | `search_results` | A request and a snapshot of different users can be linked | Insert trigger: request and snapshot have the same `user_id` | M4, with `search_requests` |
 | `source_snapshots` | It has no turn: a snapshot cannot be tied to the turn that fetched it. `user_id` is bound only by the writer | Cannot be checked against a turn. Ownership is enforced at its links (evidence, already covered; `search_results`, above) and by making the identity columns immutable | M4, with `search_results` |
@@ -355,10 +355,9 @@ server streamed, so `renderedThrough` must equal the streamed extent exactly (ot
 
 `TurnCompletion.analysis`, `.context` and `.events` are checked as JSON-shaped envelopes only; their full schemas arrive
 with their producers (turn analysis and memory in Milestone 3, the SSE writer in Milestone 5). Fully validated now: sentences,
-findings, normalised values, metrics, assertions and baseline events. `complete()` **rejects** a completion with non-empty
-`enrichment` or `touchedBeliefKeys`, with an explicit error, until Milestones 3 and 4 can act on them; it never ignores them.
+findings, normalised values, metrics, assertions and baseline events. `complete()` now **accepts and validates** `enrichment` (milestone 3: tags, entity mentions and decisions, with limits, in the same transaction; invalid input rejects the whole completion). It still **rejects** non-empty `touchedBeliefKeys` until milestone 4; it never ignores them. Still envelope-only: `analysis`, `context`, `events`.
 
-### Q-015: which stored assertions may become baselines — decided (rules); loader not implemented (Milestone 3)
+### Q-015: which stored assertions may become baselines — applied (Milestone 3)
 
 **ADR:** [ADR-38](adr/ADR-38.md)  
 **History:** Raised in M2. Direction given by the owner; on 2026-11-12 the owner adopted the recall / baseline-eligibility distinction and the rules were written from the actual placeholder grammar and schema. **Decided**; nothing in code applies them yet.
@@ -368,7 +367,7 @@ The database records every assertion and its delivery state; it does not decide 
 - `F<n>:baseline`, `F<n>:verdict` and `F<n>:derived:<k>` are **not** baselines; only `F<n>` is;
 - an assertion in a sentence with status `unverified`, `unchecked` or `truncated` is recallable but **not** a baseline.
 
-Still open: the baseline loader that applies rules 2 to 5 (M3), and its tests.
+Applied in milestone 3: `BaselineLoader` ([ADR-38](adr/ADR-38.md)) implements rules 1 to 5 and a separate `recallUnverified`; 20 tests. It has no caller until the audit lane (milestone 5).
 
 ### Q-016: `recoverRunning` assumes one application process per database file — open
 

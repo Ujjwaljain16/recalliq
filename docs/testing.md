@@ -7,7 +7,7 @@ the repository, so re-run the suite before relying on these numbers.
 Run everything: `npm run check` (typecheck, lint, format check, tests). Tests only: `npm test`. Every test is offline and
 deterministic: in-memory SQLite or a temporary file, a fixed clock, no network, no live provider.
 
-**Last run:** 13 files, 220 passed, 2 `todo`, 0 failed, 0 skipped (203 of them are the code tests of milestones 1 and 2; 17 are the documentation checks below).
+**Last run** (on the milestone 3 integration branch, `m3/integration`, before merging to `main`): 20 files, 411 passed, 1 `todo`, 0 failed, 0 skipped (377 code tests across milestones 1 to 3, 17 documentation checks, and the new milestone 3 groups below). The milestone 2 counts further down describe the state at the end of milestone 2.
 
 Test IDs: those named in the contract documents are used as given. IDs the documents list without numbers were enumerated here
 (Q-004, Q-018). `T-TRN-*` and `T-ASR-*` are new IDs from Milestone 2 and do not exist in the contract documents.
@@ -28,10 +28,10 @@ Test files are under `tests/integration/db/`. The test case is the test's full n
 | **T-DB-08** | Evidence an assertion in another conversation still cites survives conversation deletion | `privacy-deletion.test.ts` | passed | Belief rebuilding |
 | **T-DB-09** | After deletion, beliefs and belief history equal a fresh rebuild | `invariants.test.ts` | **todo: not implemented, not tested** | Everything. Blocked on the belief resolver (Milestone 4). Deletion and rebuilding are **not** fully tested |
 | **T-DB-10** | The application refuses to open a database created in a different `APP_MODE` | `migrations.test.ts` | passed | The same guard for the seed script (not written yet) |
-| **T-MEM-08** | A deleted conversation cannot be recalled | `privacy-deletion.test.ts` | **todo** | Recall needs the memory milestone |
+| **T-MEM-08** | A deleted conversation cannot be recalled | `m3-integration.test.ts` | passed (milestone 3) | Recalled by date, topic and tag on the real write path |
 
 Other M1 tests: privacy deletion mechanics (with a recording fake rebuilder, so rebuild *correctness* is untested), repositories, config,
-contract parity of migration 001, and the migration runner. `migrations.test.ts` now also checks that migrations 001 to 005 load
+contract parity of migration 001, and the migration runner. `migrations.test.ts` now also checks that migrations 001 to 006 load
 contiguously, that the installed triggers equal exactly those the migrations declare, that a version-1 database upgrades to the latest
 schema without losing data, and the Q-003 rules (connection PRAGMAs, no PRAGMA in a migration, each migration transactional).
 
@@ -96,6 +96,25 @@ Real contention: each contender is a worker thread with its own SQLite connectio
 
 The concurrency file was repeated eight times in a row without a failure. That shows no flakiness in those runs; it is not a proof.
 
+## Milestone 3 groups (memory and recall)
+
+Written by three parallel workers and an integration pass; the worker mutation results below are their reports, and the
+orchestrator re-ran only the full suite after merging.
+
+| Group | Test file | Tests | What it covers |
+|---|---|---|---|
+| T-TEMP-01..12 | `tests/unit/temporal.test.ts` | 81 | Today, yesterday, `days_ago`; `last <weekday>` gives two candidates; every weekday x modifier across a full week; calendar dates and impossible dates; `last_week` and `since`; untrusted values; zone boundaries (half-hour and 45-minute zones); DST days of 23, 25, 23.5 and 24.5 hours; skipped midnight (Beirut, Havana, Asuncion); a skipped day (Samoa, 2011); year and leap-day boundaries; local date of "now" |
+| Retriever | `tests/integration/db/memory-retriever.test.ts` | 26 | Cross-user isolation, half-open intervals, DST-length days, the 8-candidate cap, ordering and ties, no-terms listing, inert hostile FTS input, deleted conversation |
+| Enrichment | `tests/integration/db/enrichment.test.ts` | 25 | Atomic persistence in `complete()`, FTS consistency, decisions and corrections, 15 invalid inputs write nothing, rollback |
+| Baseline loader (ADR-38) | `tests/integration/db/baseline-loader.test.ts` | 20 | One test per eligibility rule, recall of unverified claims, same-turn exclusion, cross-user isolation |
+| Migration 006 | `tests/integration/db/decision-ownership.test.ts` | 24 | Cross-user rejection per trigger, identity immutability, upgrade of a version-5 database |
+| Recall lane | `tests/integration/db/recall.test.ts` | 12 | Answer, clarify (two days, several conversations, unresolved date) or none, over the real resolver and retriever |
+| M3 on the real write path | `tests/integration/db/m3-integration.test.ts` | 4 | Recall by body, tag and date after `complete()` with enrichment; T-MEM-08 |
+
+Mutation spot checks reported by the workers, each restored afterwards: resolver 11 breaks (10 caught; one was an equivalent change); retriever 8 breaks (7 caught; unquoting FTS tokens
+survives because `sanitizeTerms` already strips everything but letters and digits); baseline loader and enrichment 6 breaks plus the 8 migration-006 triggers dropped one at a time and the
+quote check, all caught; recall layer 5 breaks, all caught. Limits: a conversation that fills all eight retrieved messages can hide a second matching conversation (`truncated` is reported, no question is asked yet); the loader and the recall layer have no caller until milestone 5.
+
 ## Documentation checks (`tests/integration/docs.test.ts`)
 
 Added in the post-M2 documentation pass. They check the documents against each other and against the code; they do not test application behaviour.
@@ -123,7 +142,7 @@ a disagreeing or missing index row, a dropped open question or summary row); eve
 
 ## Known gaps in the tests
 
-- T-DB-09 and T-MEM-08 (above), and anything about belief correctness.
+- T-DB-09 (above), and anything about belief correctness.
 - The bare `deliveryState` consistency check in `AssertionRepository.listForMessage` (a stored `presented_at` that disagrees with the derived state throws) has
   no test, because the triggers make that state unreachable through SQL.
 - Findings, metrics and completion shapes are validated by zod; their full contents are exercised through one realistic finding, not exhaustively.

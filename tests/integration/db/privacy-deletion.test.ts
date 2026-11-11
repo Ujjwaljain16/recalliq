@@ -308,6 +308,5 @@ describe('deleteConversation', () => {
     expect(rebuilder.calls).toEqual([]);
   });
 
-  // Full recall needs the memory milestone; at the database level this is covered by the tests above.
-  it.todo('T-MEM-08: a deleted conversation cannot be recalled (needs MemoryRetriever)');
+  // T-MEM-08 (recall after deletion) runs on the real recall path in m3-integration.test.ts.
 });

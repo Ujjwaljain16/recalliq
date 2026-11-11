@@ -119,5 +119,5 @@ An interrupted answer streamed through sentence 2 of 5, with claims in 1, 3 and 
 
 See [questions.md](questions.md) Q-011 to Q-018. The ones that matter most: an acknowledgement sent before the
 answer is stored is rejected (the browser must re-acknowledge after rendering the stored answer); `recoverRunning`
-assumes one application process per database file; enrichment and belief recomputation in `complete()` are rejected
-until milestones 3 and 4.
+assumes one application process per database file; write-time enrichment is accepted since milestone 3, but belief recomputation (`touchedBeliefKeys`) in `complete()` is rejected
+until milestone 4.

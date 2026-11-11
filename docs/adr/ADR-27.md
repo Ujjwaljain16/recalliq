@@ -17,7 +17,7 @@ Every user-owned row carries `user_id`, but nothing in the schema stops a row fr
 
 ## Decision
 
-Triggers, applied incrementally. Migration 001 covers messages and turns; migration 003 adds evidence (turn, snapshot, entity), findings (entity), assertions (turn, message, finding-to-turn) and the assertion-evidence link.
+Triggers, applied incrementally. Migration 001 covers messages and turns; migration 003 adds evidence (turn, snapshot, entity), findings (entity), assertions (turn, message, finding-to-turn) and the assertion-evidence link; migration 006 adds `decisions` and `decision_entities`.
 
 ## Consequences and trade-offs
 
@@ -27,7 +27,8 @@ Triggers, applied incrementally. Migration 001 covers messages and turns; migrat
 ## Evidence and implementation references
 
 - [src/db/migrations/003_ownership_consistency.sql](../../src/db/migrations/003_ownership_consistency.sql); [tests/integration/db/ownership.test.ts](../../tests/integration/db/ownership.test.ts) (16 tests on a database stopped at migration 3) and T-ASR-04 in [tests/integration/db/turn-completion.test.ts](../../tests/integration/db/turn-completion.test.ts).
-- **Not covered, so ownership integrity must not be described as fully enforced:** `search_requests`, `decisions`, source snapshots (no turn), `beliefs` and `belief_history`.
+- Migration 006: [src/db/migrations/006_decision_ownership.sql](../../src/db/migrations/006_decision_ownership.sql), 8 triggers, tested by [tests/integration/db/decision-ownership.test.ts](../../tests/integration/db/decision-ownership.test.ts).
+- **Not covered, so ownership integrity must not be described as fully enforced:** `search_requests`, `search_results`, source snapshots (no turn), `beliefs` and `belief_history`.
 
 ## Revisit when
 
