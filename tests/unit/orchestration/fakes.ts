@@ -266,7 +266,7 @@ export class FakeTurnStore implements TurnStore {
     this.completions.push(c);
     this.state = 'COMPLETED';
     this.status = c.status;
-    if (c.assistant) this.assistantMessageId = `msg_a1` as MessageId;
+    if (c.assistant) this.assistantMessageId = `msg_a1`;
   }
   fail(_u: UserId, _t: TurnId, code: string) {
     if (this.state !== 'PERSISTING') throw new Error(`fail() in ${this.state}`);

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LlmError } from '../../../src/shared/llm.js';
-import { newId, type ConversationId, type TurnId } from '../../../src/shared/ids.js';
+import { newId } from '../../../src/shared/ids.js';
+import type { TemporalResolver } from '../../../src/shared/temporal.js';
+import { DefaultTemporalResolver } from '../../../src/temporal/resolver.js';
 import type { SseEvent } from '../../../src/shared/sse.js';
 import type { TurnRequest, TurnState } from '../../../src/shared/turn.js';
 import type { TemporalMention } from '../../../src/shared/understanding.js';
@@ -107,10 +109,7 @@ function build(s: Setup = {}) {
 }
 
 /** Same, with the real temporal resolver (the recall and audit paths need it). */
-async function withResolver<T>(
-  f: (resolver: import('../../../src/shared/temporal.js').TemporalResolver) => T,
-) {
-  const { DefaultTemporalResolver } = await import('../../../src/temporal/resolver.js');
+function withResolver<T>(f: (resolver: TemporalResolver) => T): T {
   return f(new DefaultTemporalResolver());
 }
 
@@ -223,7 +222,7 @@ describe('chat lane through the coordinator', () => {
 
 describe('one absolute deadline, propagated', () => {
   it('creates one budget with deadline = start + 60 s and hands the same object to every stage', async () => {
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(
         analysis({ laneHint: 'research', intents: ['pricing'], entities: [mention('HubSpot')] }),
       ),
@@ -240,7 +239,7 @@ describe('one absolute deadline, propagated', () => {
   });
 
   it('disposes the budget even when the turn throws', async () => {
-    const t = build({ analyzer: new FakeAnalyzer(new TypeError('bug') as never) });
+    const t = build({ analyzer: new FakeAnalyzer(new TypeError('bug')) });
     await expect(t.run()).rejects.toBeInstanceOf(TypeError);
     expect(t.budgets[0]?.disposed).toBe(1);
   });
@@ -266,7 +265,7 @@ describe('recall lane through the coordinator', () => {
 
   it('answers from stored records via synthesis', async () => {
     const hit = messageHit(Date.UTC(2026, 10, 10, 12), CONV, 'What does Notion cost?');
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(analysis({ laneHint: 'recall', temporal: [yesterday] })),
       memory: new SpyMemory({ messages: [hit] }),
     });
@@ -278,7 +277,7 @@ describe('recall lane through the coordinator', () => {
   });
 
   it('never claims a conversation occurred when recall found no record', async () => {
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(analysis({ laneHint: 'recall', temporal: [yesterday] })),
       memory: new SpyMemory({ messages: [] }),
     });
@@ -307,7 +306,7 @@ describe('recall lane through the coordinator', () => {
       expr: { kind: 'weekday', weekday: 2, modifier: 'last' },
       role: 'reference_conversation',
     };
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(analysis({ laneHint: 'recall', temporal: [lastTuesday] })),
       memory: new SpyMemory({
         messages: [
@@ -348,7 +347,7 @@ describe('research and audit through the coordinator', () => {
       ...findingSet(r.turnId, [finding(1)]),
       sources: { src_a: {} as never },
     }));
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(researching),
       memory: new SpyMemory({ entities: [hubspot] }),
       research,
@@ -373,7 +372,7 @@ describe('research and audit through the coordinator', () => {
 
   it('a failed provider is never reported as a successful search: the turn is partial and says so', async () => {
     const research = new FakeResearch((r) => findingSet(r.turnId, [finding(1), unableFinding(2)]));
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(researching),
       memory: new SpyMemory({ entities: [hubspot] }),
       research,
@@ -392,7 +391,7 @@ describe('research and audit through the coordinator', () => {
     const research = new FakeResearch((r) =>
       findingSet(r.turnId, [unableFinding(1, 'quota_exhausted')]),
     );
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(researching),
       memory: new SpyMemory({ entities: [hubspot] }),
       research,
@@ -410,7 +409,7 @@ describe('research and audit through the coordinator', () => {
         sentence(1, 'Entity2 could not be checked.', { status: 'verified' }),
       ]),
     );
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(researching),
       memory: new SpyMemory({ entities: [hubspot] }),
       research,
@@ -434,7 +433,7 @@ describe('research and audit through the coordinator', () => {
       findingSet(r.turnId, [finding(1, { verdict: 'unchanged_confirmed' })]),
     );
     const answer = new FakeAnswer(() => answerOf([sentence(0, 'Nothing changed.')]));
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(researching),
       memory: new SpyMemory({ entities: [hubspot] }),
       research,
@@ -451,17 +450,13 @@ describe('research and audit through the coordinator', () => {
       expr: { kind: 'yesterday' },
       role: 'reference_conversation',
     };
-    const hit = messageHit(
-      Date.UTC(2026, 10, 10, 12),
-      'cnv_old' as ConversationId,
-      'HubSpot price?',
-    );
+    const hit = messageHit(Date.UTC(2026, 10, 10, 12), 'cnv_old', 'HubSpot price?');
     const baseline = {
       assertionId: newId('asr'),
       entityId: hubspot.id,
       presentedAt: Date.UTC(2026, 10, 10, 12),
     };
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(
         analysis({
           laneHint: 'recall',
@@ -484,7 +479,7 @@ describe('research and audit through the coordinator', () => {
     const boom = Object.assign(new Error('trigger rejected write'), {
       code: 'SQLITE_CONSTRAINT_TRIGGER',
     });
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(researching),
       memory: new SpyMemory({ entities: [hubspot] }),
       research: new FakeResearch(() => boom),
@@ -500,7 +495,7 @@ describe('research and audit through the coordinator', () => {
     const lie = finding(1, {
       coverage: { ...finding(1).coverage, failure: 'search_timeout' },
     });
-    const t = await buildWithResolver({
+    const t = buildWithResolver({
       analyzer: new FakeAnalyzer(researching),
       memory: new SpyMemory({ entities: [hubspot] }),
       research: new FakeResearch((r) => findingSet(r.turnId, [lie])),
@@ -659,8 +654,8 @@ describe('persistence', () => {
 describe('idempotent begin', () => {
   it('returns the stored outcome of a finished turn without running anything', async () => {
     const store = new FakeTurnStore();
-    store.existing = { existing: 'trn_old' as TurnId, status: 'partial' };
-    store.assistantMessageId = 'msg_old' as never;
+    store.existing = { existing: 'trn_old', status: 'partial' };
+    store.assistantMessageId = 'msg_old';
     const t = build({ store });
     const result = await t.run();
     expect(result).toMatchObject({
@@ -677,7 +672,7 @@ describe('idempotent begin', () => {
 
   it('refuses to run a second time while the same key is still running', async () => {
     const store = new FakeTurnStore();
-    store.existing = { existing: 'trn_busy' as TurnId, status: 'running' };
+    store.existing = { existing: 'trn_busy', status: 'running' };
     const t = build({ store });
     await expect(t.run()).rejects.toBeInstanceOf(TurnStillRunningError);
     expect(t.analyzer.calls).toBe(0);

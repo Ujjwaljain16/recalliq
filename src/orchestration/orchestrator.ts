@@ -116,7 +116,7 @@ interface Ending {
  * Errors: a provider failure inside the analyzer or the answer pipeline becomes a fixed reply with status
  * `failed`. A persistence failure or a programmer error is never turned into an answer: it propagates. Only a
  * failure of `complete()` itself, with the turn in PERSISTING, goes through `fail()`; an unexpected error in an
- * earlier state leaves the turn running for `recoverRunning` (Q-011 is open: no failure edge is invented).
+ * earlier state leaves the turn running for `recoverRunning` (no failure edge is invented).
  */
 export class DefaultTurnOrchestrator implements TurnOrchestrator {
   private readonly laneDeps: LaneDeps;

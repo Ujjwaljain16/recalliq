@@ -20,7 +20,7 @@ import {
 import { DeadlineExceededError } from '../../../src/orchestration/turn-budget.js';
 import { InvalidTransitionError } from '../../../src/db/errors.js';
 import type { Finding, PriceVerdict, ReleaseVerdict } from '../../../src/shared/findings.js';
-import { newId, type SnapshotId } from '../../../src/shared/ids.js';
+import { newId } from '../../../src/shared/ids.js';
 import { LlmError } from '../../../src/shared/llm.js';
 import { SearchError } from '../../../src/shared/search.js';
 import { coverage, finding, findingSet, sentence, TURN, unableFinding, analysis } from './fakes.js';
@@ -312,8 +312,8 @@ describe('response preparation', () => {
   });
 
   it('collects citations from source placeholders and from rendered findings', () => {
-    const a = newId('src') as SnapshotId;
-    const b = newId('src') as SnapshotId;
+    const a = newId('src');
+    const b = newId('src');
     const f = finding(1, {
       current: {
         value: null,

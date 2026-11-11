@@ -42,7 +42,7 @@ const PERSISTENCE_ERRORS = [
 
 function sqliteCode(error: unknown): string | null {
   if (typeof error === 'object' && error !== null && 'code' in error) {
-    const code = (error).code;
+    const code = error.code;
     if (typeof code === 'string' && code.startsWith('SQLITE_')) return code;
   }
   return null;

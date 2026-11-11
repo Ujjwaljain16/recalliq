@@ -5,12 +5,7 @@ import { clarifyLane } from '../../../src/orchestration/lanes/clarify.js';
 import { recallLane } from '../../../src/orchestration/lanes/recall.js';
 import { researchLane } from '../../../src/orchestration/lanes/research.js';
 import { ContractViolationError } from '../../../src/orchestration/errors.js';
-import {
-  newId,
-  type ConversationId,
-  type EntityId,
-  type MessageId,
-} from '../../../src/shared/ids.js';
+import { newId, type ConversationId, type EntityId } from '../../../src/shared/ids.js';
 import type { Baseline, DecisionRecord } from '../../../src/shared/memory.js';
 import type { TemporalMention } from '../../../src/shared/understanding.js';
 import {
@@ -88,11 +83,7 @@ describe('recall lane', () => {
     const memory = new SpyMemory({
       messages: [
         messageHit(Date.UTC(2026, 10, 3, 12), CONV, 'Tuesday 3rd question'),
-        messageHit(
-          Date.UTC(2026, 10, 10, 12),
-          'cnv_other' as ConversationId,
-          'Tuesday 10th question',
-        ),
+        messageHit(Date.UTC(2026, 10, 10, 12), 'cnv_other', 'Tuesday 10th question'),
       ],
     });
     const { input, events } = laneInput(analysis({ laneHint: 'recall', temporal: [lastTuesday] }));
@@ -109,7 +100,7 @@ describe('recall lane', () => {
     const memory = new SpyMemory({
       messages: [
         messageHit(YESTERDAY_NOON, CONV, 'hosting question one'),
-        messageHit(YESTERDAY_NOON + HOUR, 'cnv_two' as ConversationId, 'hosting question two'),
+        messageHit(YESTERDAY_NOON + HOUR, 'cnv_two', 'hosting question two'),
       ],
     });
     const { input } = laneInput(
@@ -329,7 +320,7 @@ describe('audit lane', () => {
   });
 
   it('presents ineligible claims as unverified history, never as baselines', async () => {
-    const msg = newId('msg') as MessageId;
+    const msg = newId('msg');
     const baselines = new SpyBaselines(
       [],
       [
@@ -372,7 +363,7 @@ describe('audit lane', () => {
 
   it('with a date, audits the conversation the recall found; no record means no audit', async () => {
     const day = Date.UTC(2026, 10, 3, 12);
-    const found = messageHit(day, 'cnv_nov3' as ConversationId, 'what does Notion cost');
+    const found = messageHit(day, 'cnv_nov3', 'what does Notion cost');
     const withDate = analysis({
       laneHint: 'audit',
       intents: ['pricing'],

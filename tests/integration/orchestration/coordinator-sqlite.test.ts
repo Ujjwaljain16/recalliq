@@ -437,7 +437,7 @@ describe('failure handling against SQLite', () => {
   });
 
   it('a programmer error mid-turn propagates and leaves the turn running for recoverRunning', async () => {
-    const h = harness({ analyzer: new FakeAnalyzer(new TypeError('bug') as never) });
+    const h = harness({ analyzer: new FakeAnalyzer(new TypeError('bug')) });
     await expect(h.run()).rejects.toBeInstanceOf(TypeError);
     const row = h.t.db.prepare('SELECT state, status FROM turns WHERE user_id = ?').get(h.userId);
     expect(row).toEqual({ state: 'ANALYZING', status: 'running' });

@@ -22,7 +22,7 @@ function uniqueNames(input: LaneInput, deps: LaneDeps, ctx: ResolvedContext): st
  *
  * The coordinator does not see the service's inner stages, so the extraction and verification states are
  * entered after the service returns, and only when it returned sources. That keeps every transition on one of
- * the 19 existing edges (Q-011 is not decided here: no failure edge is invented).
+ * the 19 existing edges (no failure edge is invented: what a mid-pipeline failure should do is an open design question).
  *
  * `ResearchService.run` does not throw for provider, extraction or deadline failure (those arrive as
  * `unable_to_verify` findings). Anything it does throw is therefore a persistence failure or a defect, and
