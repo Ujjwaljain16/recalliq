@@ -1,7 +1,7 @@
 # Architecture decision records
 
 One page per decision, recorded 2026-11-11 after milestones 1 and 2. ADR-01 to ADR-24 are the original register from
-[architecture.md](../architecture.md), restated against what is actually implemented. ADR-25 to ADR-40 record decisions made
+[architecture.md](../architecture.md), restated against what is actually implemented. ADR-25 to ADR-41 record decisions made
 during implementation, and open decisions raised since; they were never in the original register.
 
 **Provenance.** ADR-01 to ADR-24 were reconstructed on 2026-11-11 from the architecture §20 register (one summary row each) and the Stage 3 / 3.1 design documents. They are **not** recovered original ADR text; no earlier pages existed, and each page says so. Where a page cites a rationale, it comes from those documents. **Status** records whether the decision was made; **Implementation** records, separately, what the code and tests do today. ADR-25 to ADR-39 record decisions made
@@ -21,7 +21,7 @@ during implementation, and open decisions raised since; they were never in the o
 | partly implemented | Some of it exists; the page says exactly what |
 | not implemented | A design or a decision only |
 
-Counts: 40 ADRs. Accepted 36, Proposed 3, Superseded 1.
+Counts: 41 ADRs. Accepted 37, Proposed 3, Superseded 1.
 Implemented 14, partly 14, not implemented 12.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
@@ -72,6 +72,7 @@ unmeasured defaults. Ownership (ADR-27) and demo isolation (ADR-28) are enforced
 | [ADR-38](ADR-38.md) | Which assertions may become historical baselines | Accepted | implemented | Recall needs presentation; baseline eligibility also needs the current-value placeholder, a verified sentence and passing evidence links. Only presentation gating exists in code. | [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md) |
 | [ADR-39](ADR-39.md) | Failure transitions from intermediate states | Accepted | implemented | Every non-final state may move to PERSISTING; an unexpected error or replay miss finalises the turn as failed with an error code and no answer. | [ADR-29](ADR-29.md), [ADR-33](ADR-33.md), [Q-011](../questions.md) |
 | [ADR-40](ADR-40.md) | Factual sentences are released only after validation | Accepted | not implemented | Received, validated and presented are separate states: only validated sentences are sent, one at a time; a sentence that fails a check is withheld, never shown and later downgraded. | [ADR-16](ADR-16.md), [ADR-23](ADR-23.md), [ADR-38](ADR-38.md) |
+| [ADR-41](ADR-41.md) | Registered domain ownership as subject-binding evidence | Accepted | implemented | A domain the owner's registry explicitly maps to an entity binds the subject of a plan-tied price on a page that presents pricing, unless a comparison, integration, partner, testimonial, embedded or other-entity blocker fires; the result says the basis was ownership. | [ADR-11](ADR-11.md), [ADR-21](ADR-21.md) |
 
 ## How these relate to other documents
 

@@ -148,6 +148,33 @@ Growth and Scale plans (their gold claim is `monthly_billed_annually`, which the
 `close-plans-and-billing.json` were changed for those three and for nothing else. Regression tests:
 `tests/unit/evidence/billing-binding.test.ts`.
 
+### The oracle with a registry of owned domains
+
+[ADR-41](adr/ADR-41.md) lets a domain the owner's registry maps to an entity bind the subject of a plan-tied price on a page that presents pricing, unless a blocker fires. The evaluation takes an optional registry (`--registry <file>`, a JSON object of entity name to domains, the format of `OFFICIAL_DOMAINS_FILE`; default none), and `runOracle` takes the same. **The registry used for the numbers below is a measurement aid, not an owner registry:** each gold page's own vendor is mapped to the domain of the page's URL, derived by `registryFromGoldPages` from the data. It answers what the ceiling would be if the owner had registered these vendors. No registry is committed as a default and none of any real vendor ships.
+
+| | Without a registry | With the measurement-aid registry |
+|---|---|---|
+| Pass | 15 | 40 |
+| Weak | 38 | 13 |
+| Fail | 27 | 27 |
+
+The without-registry numbers are asserted equal to the ones above (`T-EV-OWN-60`). With the registry, 25 claims move from weak to pass and nothing else moves; no failing claim changes. Each of the 25 was held back only by `subject_binding: weak` (asserted in `T-EV-OWN-61`), so the new outcome is the labelled one:
+
+- Pipedrive: `lite-annual-total`, `ultimate-annual-total`
+- Salesforce: `starter-usd`, `starter-eur`, `starter-aud`, `pro-usd`, `core-usd`, `advanced-usd`, `max-usd`
+- HubSpot: `free`
+- Supabase: `free-from`, `pro-from`, `team-from`, `micro-compute`, `pro-disk-overage`, `pro-egress-overage`
+- Render: `postgres-free`, `postgres-1c-2g`
+- Railway: `hobby`, `pro`, `egress-container`
+- Notion: `plus`, `business`, `free`
+- Slack: `free`
+
+Twenty claims keep a weak subject with the registry: 10 sit under an integration cue (typically an "Integrations" menu above the price list), 3 under a comparison cue, and 7 where the plan binding does not pass (so ownership is not used). The pins in the gold files are the no-registry baseline and were not changed.
+
+**Traps.** Every labelled trap (56) was turned into the statement it forbids, from the closest gold claim with the trap's amount, unit, period, currency, plan and modality, or from the page line for traps that are defined by a quote. None passes, with or without the registry (`T-EV-OWN-64`); no trap moved. This is an adversarial check of the verifier on the labelled traps, not a measurement of a model.
+
+Two things the ownership rule does not do, and one it was made to do. It does not change the billing period or unit checks, so the annual-as-monthly defect is not fixed by accident: `$35/month (annual)` claimed as monthly still fails `billing_period` while the subject passes. It does not add the vendor to the quote. And a claim whose unit or period could be contradicted by a cue on another line of the quote (for example a "Billed yearly" line under a price) is not bound by ownership: without that guard the Linear trap "monthly price billed yearly" would have turned from weak into pass.
+
 ## The evaluation
 
 `scripts/extraction-eval.ts run` runs the real extractor path (`LlmEvidenceExtractor`: prompt, message, ref mapping,
