@@ -90,7 +90,7 @@ A: CORRECT
 B: INCORRECT
 C: NOT_ATTEMPTED
 
-Just return the letters "A", "B", or "C", with no text in between.
+Just return the letters "A", "B", or "C", with no text around it.
 `.trim();
 
 export function simpleQaPrompt(question: string, target: string, predicted: string): string {
