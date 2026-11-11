@@ -2,6 +2,7 @@ import type { EvidenceVerifier } from '../../shared/evidence.js';
 import type { Ms } from '../../shared/ids.js';
 import { failingChecks, goldClaimToRaw, pageOf } from './build.js';
 import type { CalibrationSet } from './gold.js';
+import type { EntityRegistry } from './registry.js';
 
 export type Status = 'pass' | 'weak' | 'fail';
 
@@ -29,10 +30,15 @@ export interface OracleReport {
  * should be extractable but does not pass shows that the extraction contract (what the model must quote and
  * which fields it must set) cannot be met for that page, or that the label is wrong.
  */
-export function runOracle(set: CalibrationSet, verifier: EvidenceVerifier, now: Ms): OracleReport {
+export function runOracle(
+  set: CalibrationSet,
+  verifier: EvidenceVerifier,
+  now: Ms,
+  registry?: EntityRegistry,
+): OracleReport {
   const claims: OracleClaimResult[] = [];
   for (const p of set.pages) {
-    const { snapshot, entity } = pageOf(p);
+    const { snapshot, entity } = pageOf(p, registry);
     for (const c of p.gold.claims) {
       const ev = verifier.verify(goldClaimToRaw(p.id, c), snapshot, entity, 'A1', now);
       claims.push({

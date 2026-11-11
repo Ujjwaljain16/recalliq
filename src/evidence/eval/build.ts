@@ -8,6 +8,7 @@ import type {
 } from '../../shared/evidence.js';
 import type { EntityId, SnapshotId } from '../../shared/ids.js';
 import type { CalibrationPage, GoldClaim, GoldFile, PageFile } from './gold.js';
+import { ownedDomainsFor, type EntityRegistry } from './registry.js';
 
 /** Stable ids for the single entity and single snapshot of a calibration page. */
 export const entityIdOf = (pageId: string): EntityId => `ent_${pageId}`;
@@ -35,13 +36,19 @@ export function snapshotOf(pageId: string, page: PageFile): SourceSnapshot {
   };
 }
 
-export function entityContextOf(pageId: string, gold: GoldFile): EntityContext {
+export function entityContextOf(
+  pageId: string,
+  gold: GoldFile,
+  registry?: EntityRegistry,
+): EntityContext {
+  const owned = ownedDomainsFor(registry, [gold.entity.name, ...gold.entity.aliases]);
   return {
     id: entityIdOf(pageId),
     aliases: [...gold.entity.aliases],
     plans: [...gold.entity.knownPlans],
     officialDomains: [...gold.entity.officialDomains],
     otherEntityAliases: [...gold.entity.otherEntityAliases],
+    ...(owned.length > 0 ? { ownedDomains: owned } : {}),
   };
 }
 
@@ -76,6 +83,9 @@ export function failingChecks(ev: VerifiedEvidence): string[] {
     .map((c) => `${c.check}: ${c.outcome}${c.detail ? ` (${c.detail})` : ''}`);
 }
 
-export function pageOf(p: CalibrationPage): { snapshot: SourceSnapshot; entity: EntityContext } {
-  return { snapshot: snapshotOf(p.id, p.page), entity: entityContextOf(p.id, p.gold) };
+export function pageOf(
+  p: CalibrationPage,
+  registry?: EntityRegistry,
+): { snapshot: SourceSnapshot; entity: EntityContext } {
+  return { snapshot: snapshotOf(p.id, p.page), entity: entityContextOf(p.id, p.gold, registry) };
 }
