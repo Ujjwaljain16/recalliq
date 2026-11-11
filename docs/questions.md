@@ -31,6 +31,7 @@ questions, including resolved ones and their history.
 | Q-016 | `recoverRunning` assumes one process | open | — | [ADR-34](adr/ADR-34.md), [ADR-33](adr/ADR-33.md) |
 | Q-017 | Behaviour added beyond the contract | applied | — | [ADR-30](adr/ADR-30.md), [ADR-32](adr/ADR-32.md) |
 | Q-018 | Test IDs introduced in M2 | applied → [testing.md](testing.md) | — | — |
+| Q-019 | Provider cache age or capture time is not in the contract | open | Milestone 4 change detector | [ADR-36](adr/ADR-36.md) |
 
 ---
 
@@ -93,7 +94,7 @@ as 48 h *before* T0 followed by a later different observation. The decision abov
 
 ### Sub-questions the decision leaves open
 
-The following need an answer before `ChangeDetector` is written. All rows are decided (d on 2026-11-12, then a, b, c and e as approved definitions on 2026-11-12): an observation is an immutable, timestamped snapshot with sufficient content and validated supporting evidence; source identity is `url_norm` (meaningful query parameters kept, only tracking parameters removed); comparable means `comparableKeys === 'equal'` including locale; the baseline's own fetch never counts; an unknown locale cannot independently establish `changed`. One reading is the orchestrator's and stricter: "sufficient content" is a successful fresh crawl.
+The following need an answer before `ChangeDetector` is written. All rows are decided (d on 2026-11-12, then a, b, c and e as approved definitions on 2026-11-12): an observation is an immutable, timestamped snapshot with sufficient content and validated supporting evidence; source identity is `url_norm` (meaningful query parameters kept, only tracking parameters removed); comparable means `comparableKeys === 'equal'` including locale; the baseline's own fetch never counts; an unknown locale cannot independently establish `changed`. The first reading of "sufficient content" as a successful fresh crawl was **relaxed by the owner on 2026-11-12**: a provider-cached copy can be an observation if it was retrieved after the relevant event, its retrieval time is recorded separately, its cache metadata is kept, and its content supports the claim; it needs an established content as-of time to support a positive `changed` (see ADR-36).
 
 | # | Question | Proposed answer |
 |---|---|---|
@@ -402,3 +403,10 @@ acked then disconnect; never rendered; duplicate and out-of-order acks; reconnec
 original) without numbers, and only T-DLV-02 is cited by number elsewhere. The eighth (interrupted turns keep the exact
 extent) comes from the Milestone 2 requirements. `T-TRN-*` (turn lifecycle) and `T-ASR-*` (assertion persistence) are new
 IDs assigned in Milestone 2 and do not exist in the contract documents.
+
+### Q-019: provider cache age or capture time is not in the contract — open
+
+**ADR:** [ADR-36](adr/ADR-36.md)
+**History:** Raised 2026-11-12 when the observation definition was relaxed to allow provider-cached copies. **Open.**
+
+ADR-36 needs a content as-of time for a cached observation, and asks that cache metadata and age be preserved when the provider reports them. `SearchHit` and `SourceSnapshot` have only `observedAt`, `providerPublishedAt`, `providerLastUpdatedAt`, `freshFetch` and `crawlStatus`, and the schema has no column for a capture time or cache age. Until this is settled the change detector derives the as-of time from the fields that exist: `observedAt` for a live crawl, otherwise `providerLastUpdatedAt`, otherwise unknown (which cannot support `changed`). Proposed resolution, once the search adapter shows what the provider actually returns: a nullable `contentAsOf` on `SearchHit`, `SourceSnapshot` and the evidence time fields, with an additive migration. Not applied: it changes shared contracts and the schema.
