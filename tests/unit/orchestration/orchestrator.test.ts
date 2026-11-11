@@ -164,6 +164,18 @@ const CHAT_STATES: TurnState[] = [
   'PERSISTING',
 ];
 
+describe('time zone reaches the answer pipeline', () => {
+  it("passes the user's validated time zone, and UTC when it is unknown", async () => {
+    const ok = build({ req: { tz: 'Asia/Kolkata' } });
+    await ok.run();
+    expect(ok.answer.calls[0]?.tz).toBe('Asia/Kolkata');
+
+    const bad = build({ req: { tz: 'Mars/Olympus' } });
+    await bad.run();
+    expect(bad.answer.calls[0]?.tz).toBe('UTC');
+  });
+});
+
 describe('chat lane through the coordinator', () => {
   it('walks the chat edges, completes, and touches nothing but the analyzer and the answer pipeline', async () => {
     const t = build();

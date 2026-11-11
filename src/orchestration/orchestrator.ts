@@ -397,6 +397,7 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
               ctx: outcome.ctx,
               userMessage: c.req.text,
               window: c.window,
+              tz: c.tz,
             },
             c.budget,
             c.emit,
