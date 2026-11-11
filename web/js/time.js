@@ -40,9 +40,10 @@ export function listStamp(ms, now, timeZone) {
   return p.year === parts(now, timeZone, { year: 'numeric' }).year ? `${p.weekday} ${date}` : date;
 }
 
-/** "23 s", "1 min 5 s", "2 min". */
+/** "under 1 s", "23 s", "1 min 5 s", "2 min". */
 export function duration(ms) {
-  const s = Math.max(0, Math.round(ms / 1000));
+  if (ms < 1000) return 'under 1 s';
+  const s = Math.round(ms / 1000);
   if (s < 60) return `${s} s`;
   const min = Math.floor(s / 60);
   const rest = s % 60;

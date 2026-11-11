@@ -39,6 +39,7 @@ export function createTrail(startedAt) {
     domains: [],
     sourceCount: 0,
     memoryHits: [],
+    userMessageId: null,
   };
 }
 
@@ -58,8 +59,7 @@ function readLabel(state) {
   return n === 0 ? 'Reading the sources' : `Reading ${n} source${n === 1 ? '' : 's'}`;
 }
 
-function contextStep(data) {
-  const hits = data.memoryHits;
+function contextStep(data, hits) {
   if (hits.length > 0) {
     const days = new Set(hits.map((h) => h.localTime.slice(0, 10)));
     const label =
@@ -106,7 +106,11 @@ export function reduceTrail(state, { event, data }, now) {
   if (!state.running) return state;
   switch (event) {
     case 'turn.started':
-      return { ...state, steps: enter(state.steps, 'understand', STEP_LABEL.understand) };
+      return {
+        ...state,
+        userMessageId: data.userMessageId,
+        steps: enter(state.steps, 'understand', STEP_LABEL.understand),
+      };
     case 'progress': {
       const key = STAGE_STEP[data.stage];
       if (!key) return state;
@@ -115,8 +119,10 @@ export function reduceTrail(state, { event, data }, now) {
       return { ...state, steps: enter(state.steps, key, label) };
     }
     case 'context': {
-      const step = contextStep(data);
-      const next = { ...state, memoryHits: data.memoryHits };
+      // the question being answered is itself a stored message: never "remember" it
+      const hits = data.memoryHits.filter((h) => h.messageId !== state.userMessageId);
+      const step = contextStep(data, hits);
+      const next = { ...state, memoryHits: hits };
       if (!step || state.steps.some((s) => s.key === 'recall')) return next;
       // shown right after "Understanding your question", without ending whatever is running
       return { ...next, steps: [...state.steps, step] };

@@ -21,6 +21,7 @@ export interface TrailState {
   domains: string[];
   sourceCount: number;
   memoryHits: EventData<'context'>['memoryHits'];
+  userMessageId: string | null;
 }
 
 export function createTrail(startedAt: number): TrailState;

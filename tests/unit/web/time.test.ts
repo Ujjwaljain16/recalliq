@@ -27,7 +27,7 @@ describe('time formatting', () => {
   });
 
   it('writes durations in seconds and minutes', () => {
-    expect(duration(400)).toBe('0 s');
+    expect(duration(400)).toBe('under 1 s');
     expect(duration(23_400)).toBe('23 s');
     expect(duration(65_000)).toBe('1 min 5 s');
     expect(duration(120_000)).toBe('2 min');

@@ -101,6 +101,15 @@ describe('activity trail', () => {
     ]);
     expect(none.steps[0]?.label).toBe('No earlier conversation on Tuesday 3 November');
     expect(run([context({ lane: 'research' })]).steps).toEqual([]);
+    const self = run([
+      { event: 'turn.started', data: { turnId: 'trn_1', userMessageId: 'msg_1' } },
+      context({
+        lane: 'research',
+        memoryHits: [{ messageId: 'msg_1', localTime: '2026-11-12 10:00', excerpt: 'this one' }],
+      }),
+    ]);
+    expect(self.memoryHits).toEqual([]);
+    expect(self.steps.map((x) => x.key)).toEqual(['understand']);
   });
 
   it('summarises turns that searched nothing', () => {
@@ -115,7 +124,7 @@ describe('activity trail', () => {
         plannedSearches: null,
         sources: 0,
         recalled: 0,
-        elapsedMs: 900,
+        elapsedMs: 1200,
         status: 'failed',
       }),
     ).toBe('Stopped · 1 s');
