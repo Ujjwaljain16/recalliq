@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RecallIQ</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#message-input">Skip to the message box</a>
+    <div id="banner" class="banner" role="status" hidden></div>
+    <div class="app">
+      <aside class="sidebar" aria-label="Conversations">
+        <button id="new-conversation" type="button" class="button button--primary">
+          New conversation
+        </button>
+        <ul id="conversation-list" class="conversation-list"></ul>
+      </aside>
+
+      <main class="chat">
+        <header class="chat-header">
+          <h1>RecallIQ</h1>
+          <button id="delete-conversation" type="button" class="button button--quiet" hidden>
+            Delete conversation
+          </button>
+        </header>
+
+        <div
+          id="log"
+          class="log"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          tabindex="0"
+          aria-label="Conversation"
+        >
+          <div id="empty" class="empty">
+            <p>Ask a question, or ask what you asked earlier.</p>
+            <div id="suggestions" class="suggestions" hidden></div>
+          </div>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+
+        <form id="composer" class="composer" autocomplete="off">
+          <label for="message-input" class="visually-hidden">Your message</label>
+          <textarea
+            id="message-input"
+            name="message"
+            rows="2"
+            maxlength="4000"
+            placeholder="Type a message. Enter sends, Shift+Enter adds a line."
+            required
+          ></textarea>
+          <button id="send" type="submit" class="button button--primary">Send</button>
+        </form>
+      </main>
+    </div>
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
