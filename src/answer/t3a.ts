@@ -1,4 +1,5 @@
 import type { PlaceholderRef, SentenceIssue } from '../shared/answer.js';
+import { words } from './duplicate.js';
 import type { Finding } from '../shared/findings.js';
 
 /**
@@ -105,7 +106,10 @@ export type ChangeKind =
   | 'wrong'
   | 'launch'
   | 'removal'
-  | 'releaseNoun';
+  | 'releaseNoun'
+  | 'releaseHeading'
+  | 'releaseNone'
+  | 'releasePos';
 
 interface WordRule {
   kind: ChangeKind;
@@ -127,6 +131,10 @@ export const CORE_WORDS: WordRule[] = [
   { kind: 'unchanged', re: /\b(?:unchanged|same price|no change)\b/gi },
   { kind: 'nosign', re: new RegExp(NOSIGN.source, 'gi') },
   { kind: 'differs', re: /\b(?:different now|differs|differ)\b/gi },
+  {
+    kind: 'releaseNone',
+    re: /\bnothing (?:was |has been |got )?(?:released|launched|shipped|introduced)\b/gi,
+  },
   { kind: 'launch', re: /\b(?:launched|launches|released|shipped|introduced)\b/gi },
   { kind: 'removal', re: /\b(?:discontinued|removed|retired|sunset)\b/gi },
   { kind: 'wrong', re: /\b(?:was wrong|out of date|outdated|incorrect)\b/gi },
@@ -167,7 +175,7 @@ export const EXTRA_WORDS: WordRule[] = [
     kind: 'removal',
     re: /\b(?:deprecat(?:e|es|ed|ing)|discontinu(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|retir(?:e|es|ed|ing)|sunset(?:s|ted|ting)?|phas(?:e|es|ed|ing) out|end(?:ed)? of life)\b/gi,
   },
-  { kind: 'releaseNoun', re: /\breleases?\b/gi },
+  { kind: 'releaseNoun', re: /\breleases?(?: notes)?\b/gi },
   {
     kind: 'launch',
     re: /\b(?:launch(?:es|ed|ing)?|releas(?:ed|ing)|ship(?:s|ped|ping)|introduc(?:e|es|ed|ing)|unveil(?:s|ed|ing)?|announc(?:e|es|ed|ing)|roll(?:s|ed|ing)? out|new (?:plan|tier|feature|version))\b/gi,
@@ -201,7 +209,12 @@ const PRICE_KINDS: ReadonlySet<ChangeKind> = new Set<ChangeKind>([
  * need releases_found with a compatible item: none_found never authorises them.
  */
 const COMPATIBLE: Record<ChangeKind, Predicate> = {
-  releaseNoun: (f) => f.intent === 'releases',
+  // The pattern kind is classified at match time (heading, negative claim, positive claim): see `classifyNoun`.
+  releaseNoun: () => false,
+  releaseHeading: (f) => f.intent === 'releases',
+  releaseNone: (f) => f.intent === 'releases' && f.verdict === 'none_found',
+  releasePos: (f) =>
+    f.intent === 'releases' && f.verdict === 'releases_found' && (f.releases ?? []).length > 0,
   up: (f) => f.verdict === 'changed' && f.direction === 'up' && f.currentStatus === 'confirmed',
   down: (f) => f.verdict === 'changed' && f.direction === 'down' && f.currentStatus === 'confirmed',
   more: (f) => f.verdict === 'changed' && f.direction === 'up' && f.currentStatus === 'confirmed',
@@ -236,6 +249,75 @@ interface Marked {
   pos: number;
   ord: number;
   anchoring: boolean;
+}
+
+/** Words that make a use of "release(s)" a claim, so it can never be read as a neutral heading. */
+const CLAIM_WORDS =
+  /\b(?:no|not|nothing|none|never|without|zero|any|some|several|many|few|new|latest|recent|a|an|the|had|has|have|are|is|was|were|there)\b/;
+/** A negative use of the noun: "no releases", "no new releases", "has no releases", "without releases". */
+const NEGATIVE_NOUN = /\b(?:no|zero|none|never|without|not any|nothing)\b(?:\s+\w+){0,2}\s*$/;
+const HEADING_TAIL = new RegExp(`^\\s*:\\s*${MARK_OPEN}k+${MARK_CLOSE}`);
+
+/**
+ * Classifies one use of the noun "release(s)" / "release notes":
+ * - heading: the neutral construction "[entity and up to 3 other words] releases: [[F..]]" at the start of its
+ *   clause, with no claim word before it, the colon right after it and a placeholder right after the colon. It is
+ *   presentation only, so any verdict of a releases finding justifies it;
+ * - negative claim: preceded by no / without / zero / none (up to two words earlier); needs none_found;
+ * - anything else is a positive existence claim (several releases, a release, the latest release); needs
+ *   releases_found with an item.
+ */
+function classifyNoun(
+  variant: string,
+  index: number,
+  length: number,
+  bounds: readonly number[],
+): ChangeKind {
+  const clauseStart = bounds.filter((b) => b < index).pop();
+  const before = variant.slice(clauseStart === undefined ? 0 : clauseStart + 1, index);
+  const after = variant.slice(index + length);
+  const lead = before.replace(/^[\s\-*]+/, '');
+  const leadWords = lead.split(/\s+/).filter((w) => w !== '');
+  if (leadWords.length <= 4 && !CLAIM_WORDS.test(lead) && HEADING_TAIL.test(after)) {
+    return 'releaseHeading';
+  }
+  if (NEGATIVE_NOUN.test(before) || NEGATIVE_AFTER.test(after)) return 'releaseNone';
+  return 'releasePos';
+}
+
+/** "latest release", "newest release", "most recent release": the claim is about one specific item. */
+const LATEST_BEFORE = /\b(?:latest|newest|most recent)\b(?:\s+\w+)?\s*$/;
+/** After the noun a free-text negative ("releases: none, [[F2]]") makes the use a negative claim. */
+const NEGATIVE_AFTER = /^\s*[:\-,]?\s*(?:none|nothing|zero|no)\b/;
+/** Words that do not name an item: pronouns, articles, generic nouns, filler. */
+const GENERIC_OBJECT = new Set(
+  'it them this that these those something anything things thing new a an the some feature features plan plans tier tiers version versions update updates product products is are was were be been by in on at for of to and with also now below above listed shown available one'.split(
+    ' ',
+  ),
+);
+
+/**
+ * A claim that names an item ("launched Smart Docs", "the latest release is Smart Docs") is true only if that
+ * item is one of the finding's items of a fitting kind. The words after the verb or noun, up to the end of the
+ * clause, are compared with the item titles: every content word must occur in the title of a single item. When
+ * the claim names nothing specific ("launched it", "shipped something") there is nothing to match and the
+ * finding's verdict decides. Returns true when a named item does not match.
+ */
+function namedItemMismatch(
+  variant: string,
+  end: number,
+  f: Finding,
+  kinds: ReadonlyArray<'launch' | 'change' | 'removal'>,
+): boolean {
+  const rest =
+    variant.slice(end).split(new RegExp(`[:,;.]|\\band\\b|\\bbut\\b|${MARK_OPEN}`))[0] ?? '';
+  const object = words(rest).filter((w) => !GENERIC_OBJECT.has(w));
+  if (object.length === 0) return false;
+  const items = (f.releases ?? []).filter((r) => kinds.includes(r.kind));
+  return !items.some((r) => {
+    const title = new Set(words(r.title));
+    return object.every((w) => title.has(w));
+  });
 }
 
 /**
@@ -295,11 +377,27 @@ function languageRefused(
         continue; // between findings: the judge decides, and it authorises nothing else
       } else return true; // ambiguous, or nothing to attach to
       const f = byOrd.get(ord);
-      // The release noun is anchored by any placeholder of the finding; every other kind needs :verdict/:baseline.
-      const anchored = pool.some((k) => k.ord === ord && (kind === 'releaseNoun' || k.anchoring));
+      const effective =
+        kind === 'releaseNoun' ? classifyNoun(variant, m.index, m[0].length, bounds) : kind;
+      // Release wording is about what the finding says, so any placeholder of the finding anchors it; every other
+      // kind needs :verdict or :baseline.
+      const anyPlaceholder = effective.startsWith('release') && effective !== 'releaseNoun';
+      const anchored = pool.some((k) => k.ord === ord && (anyPlaceholder || k.anchoring));
       if (!f || !anchored) return true;
-      if (PRICE_KINDS.has(kind) && f.intent === 'releases') return true;
-      if (!COMPATIBLE[kind](f)) return true;
+      if (PRICE_KINDS.has(effective) && f.intent === 'releases') return true;
+      if (!COMPATIBLE[effective](f)) return true;
+      // A claim about a named item needs that item among the finding's items.
+      const end = m.index + m[0].length;
+      if (effective === 'launch' && namedItemMismatch(variant, end, f, ['launch', 'change']))
+        return true;
+      if (effective === 'removal' && namedItemMismatch(variant, end, f, ['removal'])) return true;
+      if (
+        effective === 'releasePos' &&
+        LATEST_BEFORE.test(variant.slice(0, m.index)) &&
+        namedItemMismatch(variant, end, f, ['launch', 'change', 'removal'])
+      ) {
+        return true;
+      }
     }
   }
   return false;
