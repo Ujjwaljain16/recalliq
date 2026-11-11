@@ -17,3 +17,5 @@ export function outcomeNote(
   context: { hasAnswer: boolean },
 ): { kind: 'warning' | 'error'; text: string } | null;
 export function conversationLabel(c: { title: string | null; preview: string | null }): string;
+export function leadingBreak(text: string): { newParagraph: boolean; text: string };
+export function paragraphStarts(content: string, texts: string[]): boolean[];

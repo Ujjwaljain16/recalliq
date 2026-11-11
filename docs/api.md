@@ -75,13 +75,17 @@ Without a cookie: an empty list, and no user is created.
 ### `GET /api/conversations/:id/messages`
 
 `{ conversationId, messages: [...] }` in conversation order. A message has `id, role, content, status,
-createdAt, turnId, streamedThrough, renderedThrough, sentences, sources, clarification, turn`.
+createdAt, turnId, streamedThrough, renderedThrough, sentences, sources, clarification, findings, memoryHits,
+activity, turn`.
 
 - Each assistant sentence is `{ index, text, status, issues, delivery }`. `delivery` is derived from the stored
   extents by `deliveryState`: `presented` (acknowledged), `streamed_unacknowledged`, `not_streamed`.
 - `sources` come from the turn's stored `source` events, numbered from 1 in event order. An `[n]` marker in
   the text refers to source `n`.
 - `clarification` is the stored question and options of a clarify turn.
+- `findings` (the turn's stored `finding` events), `memoryHits` (from its `context` event) and `activity`
+  (`{ plannedSearches, elapsedMs }`, null for a turn with no stored events) let a reloaded answer show the
+  same findings card, recalled messages and activity summary as the live stream. Empty for user messages.
 - `turn` is `{ status, lane, errorCode }`, so a user message whose turn stored no answer can be shown as
   interrupted or failed.
 
