@@ -17,6 +17,7 @@ import { declarationFitsSymbol, declaredCurrency, findAmounts, markerFor } from 
 import type { AmountToken, MarkerResult } from './currency.js';
 import { hasEffectiveCue, parseDates } from './dates.js';
 import { isOfficialHost } from './authority.js';
+import { ownedDomainOf, ownershipBlocker, pageLooksLikePricing } from './ownership.js';
 import { bindPrice, type PriceBinding } from './binding.js';
 import {
   findPhrase,
@@ -64,6 +65,12 @@ const CONDITIONAL =
   /\b(?:if|when|for\s+teams\s+of|with\s+(?:an?\s+)?annual\s+commitment|minimum)\b/i;
 const PROMOTIONAL =
   /\b(?:promo(?:tion(?:al)?)?|discount(?:ed)?|first\s+year|limited[- ]time)\b|\d\s?%\s?off\b/i;
+const CUE_ANYWHERE = new RegExp(
+  [MONTHLY, ANNUAL, ONE_TIME, SEAT, FLAT, METERED].map((r) => r.source).join('|') +
+    '|' +
+    BILLED_ANNUALLY.source,
+  'i',
+);
 const PLANNED_WORDS = /\b(?:will|coming\s+soon)\b/i;
 
 interface Occurrence {
@@ -91,6 +98,8 @@ interface Work {
   scope: string;
   /** Cues bound to the claimed amount when the segment holds several prices; null for a single price. */
   bind: PriceBinding | null;
+  /** Up to 1,500 characters of the page above the quote (for the ownership blockers). */
+  above: string;
 }
 
 export interface VerifierOptions {
@@ -213,7 +222,8 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
       );
     }
 
-    const w = this.prepare(raw, s, e, now, qn, headerUsable ? (cn ?? '') : '', headerUsable);
+    const above = text.slice(Math.max(0, qLoc.start - HEADER_MAX_DISTANCE), qLoc.start);
+    const w = this.prepare(raw, s, e, now, qn, headerUsable ? (cn ?? '') : '', headerUsable, above);
     const priceLike = raw.kind === 'price';
     if (priceLike) {
       checks.push(...this.priceChecks(w));
@@ -244,6 +254,7 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
     qn: string,
     header: string,
     headerUsable: boolean,
+    above: string,
   ): Work {
     const H = headerUsable ? header.length + 1 : 0;
     const W = headerUsable ? `${header}\n${qn}` : qn;
@@ -274,7 +285,23 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
     const scope = (seg ? W.slice(seg.start, seg.end) : qn) + (headerUsable ? `\n${header}` : '');
     const bind =
       occ && seg ? bindPrice(W.slice(seg.start, seg.end), occ.token.start + H - seg.start) : null;
-    return { raw, s, e, now, qn, cn: header, W, H, headerUsable, segs, occ, seg, scope, bind };
+    return {
+      raw,
+      s,
+      e,
+      now,
+      qn,
+      cn: header,
+      W,
+      H,
+      headerUsable,
+      segs,
+      occ,
+      seg,
+      scope,
+      bind,
+      above,
+    };
   }
 
   // ── price: value, currency, unit, billing period ──
@@ -508,11 +535,14 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
       );
     } else competitor = res('competitor_attribution', 'pass');
 
+    const planChecks = this.planChecks(w, anchorStart, anchorEnd);
     const selfInScope = scoped.some((h) => h.kind === 'self');
     let subject: CheckResult;
+    const owned = !closestOther && !selfInScope ? this.registeredOwner(w, planChecks) : null;
     if (closestOther)
       subject = res('subject_binding', 'fail', 'the value belongs to another entity');
     else if (selfInScope) subject = res('subject_binding', 'pass');
+    else if (owned !== null) subject = owned;
     else {
       const headerNamed = w.raw.contextQuote
         ? w.e.aliases.some((a) => findPhrase(normalizeText(w.raw.contextQuote ?? ''), a).length > 0)
@@ -533,8 +563,44 @@ export class RuleEvidenceVerifier implements EvidenceVerifier {
       else subject = res('subject_binding', 'weak', 'no alias of the entity near the statement');
     }
 
-    const planChecks = this.planChecks(w, anchorStart, anchorEnd);
     return [subject, competitor, ...planChecks];
+  }
+
+  /**
+   * Subject binding by registered domain ownership (ADR-41): the page is on a domain the owner's registry maps to
+   * this entity, it presents pricing, the price is tied to one of the entity's plans (plan binding passed), and no
+   * blocker fires on the quote, its context or the page above it. Otherwise null and the binding stays as it is.
+   */
+  private registeredOwner(w: Work, planChecks: CheckResult[]): CheckResult | null {
+    const domain = ownedDomainOf(w.s.url || w.s.domain, w.e.ownedDomains);
+    if (domain === null) return null;
+    const plan = w.raw.fields.planNorm ?? w.raw.fields.plan;
+    const bound = planChecks.find((c) => c.check === 'plan_binding');
+    if (!plan || bound?.outcome !== 'pass') return null;
+    if (!pageLooksLikePricing(w.s.url, w.s.urlNorm, w.s.title, w.s.text)) return null;
+    // A unit or period cue on ANOTHER line of the quote ("Billed yearly" under the price) must not be able to
+    // contradict a claim that ownership lets through: judge such a claim against the whole quote as well.
+    const outside = w.seg ? w.W.slice(0, w.seg.start) + ' ' + w.W.slice(w.seg.end) : '';
+    if (CUE_ANYWHERE.test(outside)) {
+      const whole = { ...w, bind: null, scope: w.W };
+      for (const c of [this.unitCheck(whole), this.periodCheck(whole)])
+        if (c.outcome === 'fail' || c.outcome === 'weak') return null;
+    }
+    const blocked = ownershipBlocker({
+      title: w.s.title,
+      above: w.above,
+      contextQuote: w.raw.contextQuote,
+      quote: w.raw.quote,
+      selfAliases: w.e.aliases,
+      otherAliases: w.e.otherEntityAliases,
+      plans: w.e.plans,
+    });
+    if (blocked !== null) return null;
+    return res(
+      'subject_binding',
+      'pass',
+      `subject bound by registered domain ownership, not by the quote: page published by the registered owner of ${domain}; price tied to plan ${plan}`,
+    );
   }
 
   private planChecks(w: Work, vp: number, vEnd: number): CheckResult[] {

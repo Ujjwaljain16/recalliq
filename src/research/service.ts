@@ -277,6 +277,7 @@ export class PipelineResearchService implements ResearchService {
       aliases: [...new Set([e.name, ...e.aliases].map(norm).filter((x) => x.length > 0))],
       plans: e.plans,
       officialDomains: e.officialDomains,
+      ...(e.ownedDomains ? { ownedDomains: e.ownedDomains } : {}),
       otherEntityAliases: [
         ...new Set(
           all

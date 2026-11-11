@@ -7,6 +7,7 @@ import { estimateTokens, MAX_SNAPSHOT_CHARS } from '../batcher.js';
 import { ExtractionFailure, LlmEvidenceExtractor } from '../extractor.js';
 import type { ExtractionPrompt } from '../prompts/extraction.js';
 import { RuleEvidenceVerifier } from '../verifier.js';
+import type { EntityRegistry } from './registry.js';
 import { entityContextOf, entityIdOf, snapshotIdOf, snapshotOf } from './build.js';
 import type { CalibrationPage, CalibrationSet } from './gold.js';
 import { scorePage, type PageScore } from './scoring.js';
@@ -64,6 +65,8 @@ export interface RunOptions {
   prompt?: ExtractionPrompt;
   /** The verifier clock: only the planned-price cue reads it. */
   now: Ms;
+  /** An optional owner registry (entity name to owned domains); default none. */
+  registry?: EntityRegistry;
   /** Only these pages (by id); default all. */
   pageIds?: readonly string[];
   /** Time allowance per page call. Default 60 s. */
@@ -92,7 +95,7 @@ export async function runExtraction(set: CalibrationSet, opts: RunOptions): Prom
 
 async function runPage(p: CalibrationPage, opts: RunOptions): Promise<PageRun> {
   const snapshot = snapshotOf(p.id, p.page);
-  const entity = entityContextOf(p.id, p.gold);
+  const entity = entityContextOf(p.id, p.gold, opts.registry);
   const tier = classifier.classify(snapshot, entity.officialDomains);
   const extractor = new LlmEvidenceExtractor({
     llm: opts.llm,

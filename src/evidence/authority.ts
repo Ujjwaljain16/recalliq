@@ -53,9 +53,9 @@ export function isOfficialHost(host: string, officialDomains: readonly string[])
   });
 }
 
-const PRICING_PATH =
+export const PRICING_PATH =
   /(?:^|\/)(?:pricing|plans?|prices?|plans-and-pricing|pricing-plans|buy|compare-plans)(?:\/|$|[-_.])/i;
-const PRICING_HOST_LABEL = /^(?:pricing|plans|store|buy)\./i;
+export const PRICING_HOST_LABEL = /^(?:pricing|plans|store|buy)\./i;
 
 export interface AuthorityOptions {
   /** Curated reputable secondary sources (tier B). Injected; the default is deliberately short. */

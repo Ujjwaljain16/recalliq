@@ -10,6 +10,9 @@
  *   npx tsx scripts/extraction-eval.ts run --adapter gemini --prompt extract-v1 --max-calls 40 --confirm-live-calls --out before.json
  *   npx tsx scripts/extraction-eval.ts run --adapter gemini --prompt extract-v2 --max-calls 40 --confirm-live-calls --out after.json
  *
+ *   # with an owner registry (JSON entity name -> domains, the OFFICIAL_DOMAINS_FILE format; default none)
+ *   npx tsx scripts/extraction-eval.ts run --adapter oracle --registry ./registry.json
+ *
  *   # re-score recorded replies without calling the model again
  *   npx tsx scripts/extraction-eval.ts run --adapter gemini ... --record-to replies-v2.json
  *   npx tsx scripts/extraction-eval.ts run --adapter replay --replay replies-v2.json --prompt extract-v2
@@ -42,6 +45,7 @@ import { captureRequest, pageFromHit } from '../src/evidence/eval/capture.js';
 import { loadCalibrationSet } from '../src/evidence/eval/gold.js';
 import { EmptyLlm, MeteredLlm, OracleLlm } from '../src/evidence/eval/llm.js';
 import { buildReport, formatTable, type RunMeta } from '../src/evidence/eval/report.js';
+import { loadRegistryFile } from '../src/evidence/eval/registry.js';
 import { runExtraction, scoreRuns } from '../src/evidence/eval/runner.js';
 
 const DEFAULT_DATASET = 'tests/fixtures/calibration';
@@ -174,12 +178,28 @@ async function runCommand(args: Map<string, string | true>): Promise<void> {
     );
   }
 
+  const registryFile = args.get('registry');
+  if (registryFile === true) fail('--registry needs a file');
+  let registry: ReturnType<typeof loadRegistryFile> | undefined;
+  if (typeof registryFile === 'string') {
+    try {
+      registry = loadRegistryFile(resolve(registryFile));
+    } catch (e) {
+      fail(e instanceof Error ? e.message : String(e));
+    }
+  }
+  if (registry)
+    notes.push(
+      `an owner registry was supplied (${registryFile}): owned domains can bind a subject (ADR-41)`,
+    );
+
   const llm = new MeteredLlm(inner, maxOutputTokens);
   const startedAt = new Date().toISOString();
   const runs = await runExtraction(set, {
     llm,
     prompt,
     now: Date.now(),
+    ...(registry ? { registry } : {}),
     ...(pageIds ? { pageIds } : {}),
     onPage: (r, i, n) =>
       process.stderr.write(
