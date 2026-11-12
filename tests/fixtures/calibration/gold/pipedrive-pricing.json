@@ -1,0 +1,249 @@
+{
+  "pageId": "pipedrive-pricing",
+  "vendor": "Pipedrive",
+  "categories": ["per_seat", "tiered_billing"],
+  "entity": {
+    "name": "Pipedrive",
+    "aliases": ["Pipedrive"],
+    "knownPlans": ["lite", "growth", "premium", "ultimate"],
+    "officialDomains": ["pipedrive.com"],
+    "otherEntityAliases": ["PandaDoc", "CloudTalk", "Surfe"]
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "lite-monthly-billed-annually",
+      "plan": "Lite",
+      "planNorm": "lite",
+      "value": {
+        "amount": 14,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "US$14\n\nOne payment of US$ 168 per seat/year\n\nPer seat per month, billed annually",
+      "contextQuote": "Lite",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "high",
+      "note": "The unit and the billing note are on lines below the amount; the amount line has neither."
+    },
+    {
+      "id": "lite-annual-total",
+      "plan": "Lite",
+      "planNorm": "lite",
+      "value": {
+        "amount": 168,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "annual",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "One payment of US$ 168 per seat/year",
+      "contextQuote": "Lite",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "growth-monthly-billed-annually",
+      "plan": "Growth",
+      "planNorm": "growth",
+      "value": {
+        "amount": 39,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "US$39\n\nOne payment of US$ 468 per seat/year\n\nPer seat per month, billed annually",
+      "contextQuote": "Growth",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "high",
+      "note": "The unit and the billing note are on lines below the amount; the amount line has neither."
+    },
+    {
+      "id": "growth-annual-total",
+      "plan": "Growth",
+      "planNorm": "growth",
+      "value": {
+        "amount": 468,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "annual",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "One payment of US$ 468 per seat/year",
+      "contextQuote": "Growth",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "premium-monthly-billed-annually",
+      "plan": "Premium",
+      "planNorm": "premium",
+      "value": {
+        "amount": 59,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "US$59\n\nOne payment of US$ 708 per seat/year\n\nPer seat per month, billed annually",
+      "contextQuote": "Premium",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "high",
+      "note": "The unit and the billing note are on lines below the amount; the amount line has neither."
+    },
+    {
+      "id": "premium-annual-total",
+      "plan": "Premium",
+      "planNorm": "premium",
+      "value": {
+        "amount": 708,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "annual",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "One payment of US$ 708 per seat/year",
+      "contextQuote": "Premium",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "ultimate-monthly-billed-annually",
+      "plan": "Ultimate",
+      "planNorm": "ultimate",
+      "value": {
+        "amount": 79,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "US$79\n\nOne payment of US$ 948 per seat/year\n\nPer seat per month, billed annually",
+      "contextQuote": "Ultimate",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "high",
+      "note": "The unit and the billing note are on lines below the amount; the amount line has neither."
+    },
+    {
+      "id": "ultimate-annual-total",
+      "plan": "Ultimate",
+      "planNorm": "ultimate",
+      "value": {
+        "amount": 948,
+        "currency": "USD",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "annual",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "One payment of US$ 948 per seat/year",
+      "contextQuote": "Ultimate",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high"
+    }
+  ],
+  "traps": [
+    {
+      "id": "save-up-to-42",
+      "kind": "other",
+      "description": "\"Save up to 42%\" is a discount percentage, not a price.",
+      "match": {
+        "amount": 42
+      }
+    },
+    {
+      "id": "partner-discounts",
+      "kind": "other",
+      "description": "Partner discounts (20% on PandaDoc and CloudTalk, 15% on Surfe) are other vendors’ products.",
+      "match": {
+        "quoteContains": ["PandaDoc"]
+      }
+    },
+    {
+      "id": "annual-total-as-monthly",
+      "kind": "annual_shown_per_month",
+      "description": "The annual total (e.g. US$ 168) must not be presented as a monthly price.",
+      "match": {
+        "amount": 168,
+        "billingPeriod": ["monthly", "monthly_billed_annually"]
+      }
+    },
+    {
+      "id": "lite-price-on-growth",
+      "kind": "other_plan",
+      "description": "US$14 belongs to Lite, not Growth.",
+      "match": {
+        "amount": 14,
+        "planNorm": "growth"
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "other-addons",
+      "description": "Other add-ons (\"Starting from $16\" etc.) are true but not enumerated.",
+      "match": {
+        "quoteContains": ["add-on"]
+      }
+    }
+  ],
+  "notes": "Card layout: each price, its unit and its billing note sit on separate lines, and the plan name is a plain line (not a heading). Prices are written US$ (explicit USD). The headline monthly figure (\"US$14\") is monthly-billed-annually; the verifiable annual total sits on its own line (\"One payment of US$ 168 per seat/year\")."
+}

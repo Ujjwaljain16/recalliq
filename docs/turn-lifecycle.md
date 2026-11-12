@@ -1,7 +1,7 @@
 # Turn lifecycle, delivery and migrations (Milestone 2)
 
 What the persistence layer guarantees about turns, acknowledgements and assertions, and where each guarantee is
-enforced. The normative contracts ([stage-3-contracts.md](stage-3-contracts.md)) were **not** modified; the
+enforced. The normative contracts ([contracts.md](contracts.md)) were **not** modified; the
 migrations below add to them.
 
 ## Migrations
@@ -11,34 +11,51 @@ migrations below add to them.
 | 001 | `001_init.sql` | The contract schema, unchanged except that the two PRAGMAs are connection settings | (Q-003) |
 | 002 | `002_demo_isolation.sql` | A real database rejects non-live data: messages, entities and decisions on insert, relabelling of users, conversations, entities and decisions, and `db_mode` itself (immutable) | Q-002 |
 | 003 | `003_ownership_consistency.sql` | Evidence, findings and assertions only reference rows owned by the same user as their turn; links cannot be edited | Q-007 (evidence, findings, assertions) |
-| 004 | `004_turn_lifecycle.sql` | The turn state machine, finality of finished turns, immutable turn identity, state/status coupling | Q-006 (with the contract's `turns_one_running` index) |
+| 004 | `004_turn_lifecycle.sql` | The turn state machine (19 edges; its transition trigger is replaced by 010), finality of finished turns, immutable turn identity, state/status coupling | Q-006 (with the contract's `turns_one_running` index) |
 | 005 | `005_delivery_acknowledgement.sql` | Streamed vs rendered extents, "presented only if acknowledged", the rules for `presented` / `not_presented` / verdict events | Delivery boundary (architecture R4) |
+| 010 | `010_turn_failure_edges.sql` | Drops and recreates the transition trigger with 26 edges: a failure edge to PERSISTING from every non-final state that lacked one. Every other lifecycle trigger of 004 is untouched | ADR-39 |
 
 Migration 002 went slightly beyond the three tables Q-002 named (relabelling and `db_mode` immutability); that
-was the validated proposal in [proposals/q-002-demo-isolation.md](proposals/q-002-demo-isolation.md), and it is
+was the validated proposal in [proposals/demo-isolation.md](proposals/demo-isolation.md), and it is
 reported as such. Migration 003 does not cover `search_requests`, `decisions`, `beliefs` or snapshot-to-turn links:
 Q-007 stays partly open.
 
 ## State machine
 
-19 edges. The table is in `src/shared/turn-state-machine.ts` and again in migration 004's trigger; a test probes
-all 182 ordered pairs against the database and compares with the TypeScript table.
+26 edges: the 19 of architecture section 4 plus 7 failure edges (ADR-39). The table is in `src/shared/turn-state-machine.ts` and again in migration 010's
+trigger (which replaced the one of migration 004); a test probes all 182 ordered pairs against the database and compares with the TypeScript table.
 
 | From | To |
 |---|---|
-| RECEIVED | ANALYZING |
-| ANALYZING | RESOLVING_CONTEXT, PERSISTING (LLM outage) |
-| RESOLVING_CONTEXT | CLARIFYING, SYNTHESIZING (chat, recall), PLANNING (research, audit) |
+| RECEIVED | ANALYZING, **PERSISTING** (failure) |
+| ANALYZING | RESOLVING_CONTEXT, PERSISTING (LLM outage, or failure) |
+| RESOLVING_CONTEXT | CLARIFYING, SYNTHESIZING (chat, recall), PLANNING (research, audit), **PERSISTING** (failure) |
 | CLARIFYING | PERSISTING |
-| PLANNING | SEARCHING |
-| SEARCHING | EXTRACTING, RESOLVING_BELIEFS (no snapshots) |
-| EXTRACTING | VERIFYING |
-| VERIFYING | SEARCHING (fallback round), RESOLVING_BELIEFS |
-| RESOLVING_BELIEFS | SYNTHESIZING |
-| SYNTHESIZING | POST_VERIFYING, PERSISTING (stream failure, deadline) |
+| PLANNING | SEARCHING, **PERSISTING** (failure) |
+| SEARCHING | EXTRACTING, RESOLVING_BELIEFS (no snapshots), **PERSISTING** (failure) |
+| EXTRACTING | VERIFYING, **PERSISTING** (failure) |
+| VERIFYING | SEARCHING (fallback round), RESOLVING_BELIEFS, **PERSISTING** (failure) |
+| RESOLVING_BELIEFS | SYNTHESIZING, **PERSISTING** (failure) |
+| SYNTHESIZING | POST_VERIFYING, PERSISTING (stream failure, deadline, or failure) |
 | POST_VERIFYING | PERSISTING |
 | PERSISTING | COMPLETED, FAILED |
 | COMPLETED, FAILED | nothing (final) |
+
+The bold edges are the 7 added by migration 010. Every non-final state now has an edge to PERSISTING; COMPLETED and FAILED are still reached only from
+PERSISTING, and only through `complete()` and `fail()`.
+
+### Failure policy (ADR-39)
+
+| Situation | What happens | Stored |
+|---|---|---|
+| A typed, expected outcome (clarification, unverifiable findings, a deadline or shutdown during the answer, a provider outage in the analyzer or the answer pipeline) | Unchanged: the normal path to PERSISTING | status `clarify`, `partial`, `interrupted`, or `failed` with a fixed reply and its code (`analysis_degraded`, `synthesis_*`) |
+| An unexpected error before persistence: a replay fixture miss, a programmer error, a broken contract, a database failure outside the final write, an illegal transition, a provider error that surfaced from a lane | The coordinator moves the turn from whatever state it is in to PERSISTING and calls `complete()` with status `failed`. It sends one SSE `error` event, logs the error and rethrows the original error | status `failed`, `error_code` = `replay_miss`, `internal_error`, `contract_violation`, `persistence:<code>`, `external_error`, `deadline` or `cancelled`; no assistant message, no findings, no assertions, no enrichment; the events sent so far plus the error event |
+| The finalising `complete()` fails | `fail()` (PERSISTING to FAILED) with a code derived from that error; the original error is still the one reported | status `failed`, state FAILED |
+| The turn cannot be moved to PERSISTING, or `fail()` is refused too | Nothing more can be written; the turn stays running until `recoverRunning` | status `interrupted` after the next start, error code `recovered_after_restart` |
+
+An unexpected failure never produces an answer and never produces status `complete`. The one-running-turn rule is satisfied as soon as the turn is finalised, so the conversation
+accepts its next turn at once. Partial work that other modules stored while the turn ran (search results, snapshots, evidence statements) stays; the failure path adds nothing to it and does not
+clean it up. A client that had already received streamed text keeps seeing it, but that text is not stored.
 
 `state` is where the pipeline is; `status` is the outcome (`running`, `complete`, `partial`, `clarify`,
 `interrupted`, `failed`).
@@ -48,7 +65,7 @@ all 182 ordered pairs against the database and compares with the TypeScript tabl
   persistence itself failed).
 - A running turn can never be in a final state, and a finished turn always has `finished_at`.
 - A finished turn is final: its status, state and result columns cannot change.
-- A turn recovered after a crash keeps the state it had reached and gets status `interrupted`.
+- A turn recovered after a crash keeps the state it had reached and gets status `interrupted`. Recovery is now the fallback for what the failure path could not finalise.
 
 ## Repository operations
 
@@ -56,8 +73,8 @@ all 182 ordered pairs against the database and compares with the TypeScript tabl
 |---|---|
 | `begin` | One `BEGIN IMMEDIATE` transaction. Same idempotency key for the same user returns `{ existing, status }`; the same key with different text or conversation throws `IdempotencyConflictError`. Otherwise a running turn in RECEIVED is created with its user message, unless the conversation already has a running turn (`TurnInProgressError`). `retryOfTurnId` must name a turn of the same user and conversation |
 | `setState` | Validates the edge, then updates only if the state still matches (`InvalidTransitionError` otherwise) |
-| `complete` | Needs a running turn in PERSISTING. In one transaction: assistant message, findings, assertions (unpresented), evidence links, `not_presented` events for never-streamed claims, verdict events on earlier presented claims, final turn row |
-| `fail` | PERSISTING to FAILED |
+| `complete` | Needs a running turn in PERSISTING. Also used for an unexpected failure, with status `failed` and no assistant message, findings or assertions. In one transaction: assistant message, findings, assertions (unpresented), evidence links, `not_presented` events for never-streamed claims, verdict events on earlier presented claims, final turn row |
+| `fail` | PERSISTING to FAILED. The coordinator calls it only when the finalising `complete()` failed |
 | `ack` | See below |
 | `recoverRunning` | Every running turn becomes `interrupted` (error code `recovered_after_restart`), state unchanged. Creates no message, acknowledgement, presented claim or baseline |
 | `deleteConversation` | The privacy-deletion procedure (contracts §1.1) with an injected belief rebuilder |
@@ -119,5 +136,5 @@ An interrupted answer streamed through sentence 2 of 5, with claims in 1, 3 and 
 
 See [questions.md](questions.md) Q-011 to Q-018. The ones that matter most: an acknowledgement sent before the
 answer is stored is rejected (the browser must re-acknowledge after rendering the stored answer); `recoverRunning`
-assumes one application process per database file; enrichment and belief recomputation in `complete()` are rejected
-until milestones 3 and 4.
+assumes one application process per database file; write-time enrichment is accepted since milestone 3, but belief recomputation (`touchedBeliefKeys`) in `complete()` is rejected
+until milestone 4.

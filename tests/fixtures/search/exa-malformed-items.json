@@ -1,0 +1,22 @@
+{
+  "requestId": "[SYNTHETIC]-req-0002",
+  "results": [
+    {
+      "url": "https://acmecrm.example/pricing",
+      "title": "[SYNTHETIC] ok",
+      "text": "Pro $90 per user per month"
+    },
+    { "title": "[SYNTHETIC] no url", "text": "dropped" },
+    { "url": 42, "text": "dropped" },
+    "not an object",
+    null,
+    { "url": "ftp://acmecrm.example/file", "text": "dropped: not http" },
+    { "url": "https://acmecrm.example/empty", "text": "   " },
+    { "url": "https://acmecrm.example/no-text", "title": "[SYNTHETIC] no text" },
+    {
+      "url": "https://acmecrm.example/bad-date",
+      "text": "kept, date unusable",
+      "publishedDate": "not a date"
+    }
+  ]
+}

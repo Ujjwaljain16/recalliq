@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig } from '../../src/config/env.js';
+import { ConfigError, DEFAULT_GEMINI_MODEL, loadConfig } from '../../src/config/env.js';
 
 describe('loadConfig', () => {
   it('uses safe defaults when nothing is set', () => {
@@ -11,9 +11,20 @@ describe('loadConfig', () => {
     expect(config.models).toEqual({ fast: 'claude-haiku-5-5', main: 'claude-sonnet-5-5' });
     expect(config.secrets).toEqual({
       anthropicApiKey: undefined,
+      geminiApiKey: undefined,
       exaApiKey: undefined,
       sessionSecret: undefined,
     });
+  });
+
+  it('reads the Gemini key and model, and treats blanks as unset', () => {
+    const set = loadConfig({ GEMINI_API_KEY: 'g-key', GEMINI_MODEL: 'some-free-model' });
+    expect(set.secrets.geminiApiKey).toBe('g-key');
+    expect(set.gemini.model).toBe('some-free-model');
+    const blank = loadConfig({ GEMINI_API_KEY: '', GEMINI_MODEL: '' });
+    expect(blank.secrets.geminiApiKey).toBeUndefined();
+    // A blank model falls back to the default, so only keys are required.
+    expect(blank.gemini.model).toBe(DEFAULT_GEMINI_MODEL);
   });
 
   it('demo mode defaults to a different database file than real mode', () => {
@@ -44,6 +55,14 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ PORT: '0' })).toThrow(/PORT/);
     expect(() => loadConfig({ PORT: '70000' })).toThrow(/PORT/);
     expect(() => loadConfig({ PORT: 'abc' })).toThrow(/PORT/);
+  });
+
+  it('leaves ALLOWED_ORIGIN unset by default, so no cross-origin access is allowed', () => {
+    expect(loadConfig({}).allowedOrigin).toBeUndefined();
+    expect(loadConfig({ ALLOWED_ORIGIN: '' }).allowedOrigin).toBeUndefined();
+    expect(loadConfig({ ALLOWED_ORIGIN: 'https://app.example' }).allowedOrigin).toBe(
+      'https://app.example',
+    );
   });
 
   it('rejects a malformed ALLOWED_ORIGIN', () => {

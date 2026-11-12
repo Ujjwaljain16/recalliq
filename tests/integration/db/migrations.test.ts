@@ -13,7 +13,8 @@ import {
   type Migration,
 } from '../../../src/db/index.js';
 import { FixedClock } from '../../../src/temporal/clock.js';
-import { T0 } from '../../helpers/db.js';
+import { openTestDb, T0 } from '../../helpers/db.js';
+import { advance, startTurn } from '../../helpers/turns.js';
 
 const clock = new FixedClock(T0);
 
@@ -45,8 +46,22 @@ function installedTriggers(db: ReturnType<typeof openDatabase>): string[] {
   ).map((r) => r.name);
 }
 
-function declaredTriggers(sql: string): string[] {
-  return [...sql.matchAll(/CREATE TRIGGER (\w+)/g)].map((m) => m[1] as string);
+/**
+ * The triggers the migrations leave installed, in order: a CREATE adds a name, a DROP removes it. A name that is
+ * created twice without a DROP in between is a duplicate.
+ */
+function declaredTriggers(migrations: Migration[]): { installed: string[]; duplicates: string[] } {
+  const installed = new Set<string>();
+  const duplicates: string[] = [];
+  for (const m of migrations) {
+    for (const match of m.sql.matchAll(/(CREATE|DROP) TRIGGER (?:IF EXISTS )?(\w+)/g)) {
+      const name = match[2] as string;
+      if (match[1] === 'DROP') installed.delete(name);
+      else if (installed.has(name)) duplicates.push(name);
+      else installed.add(name);
+    }
+  }
+  return { installed: [...installed].sort(), duplicates };
 }
 
 describe('migrations: fresh database', () => {
@@ -59,13 +74,18 @@ describe('migrations: fresh database', () => {
     expect(getMeta(db, 'created_at')).toBe(String(T0));
   });
 
-  it('ships migrations 001 to 005, numbered contiguously', () => {
+  it('ships migrations 001 to 010, numbered contiguously', () => {
     expect(loadMigrations().map((m) => `${m.version}_${m.name}`)).toEqual([
       '1_init',
       '2_demo_isolation',
       '3_ownership_consistency',
       '4_turn_lifecycle',
       '5_delivery_acknowledgement',
+      '6_decision_ownership',
+      '7_search_ownership',
+      '8_belief_ownership',
+      '9_snapshot_crawl_basis',
+      '10_turn_failure_edges',
     ]);
   });
 
@@ -78,9 +98,55 @@ describe('migrations: fresh database', () => {
   it('installs exactly the triggers the shipped migrations declare', () => {
     const db = openDatabase(IN_MEMORY);
     initializeDatabase(db, { mode: 'real', clock });
-    const declared = loadMigrations().flatMap((m) => declaredTriggers(m.sql));
-    expect(new Set(declared).size).toBe(declared.length); // no duplicate names
-    expect(installedTriggers(db)).toEqual([...declared].sort());
+    const { installed, duplicates } = declaredTriggers(loadMigrations());
+    expect(duplicates).toEqual([]); // a trigger is only re-created after an explicit DROP
+    expect(installedTriggers(db)).toEqual(installed);
+  });
+
+  it('migration 010 replaces only the transition trigger of migration 004', () => {
+    const all = loadMigrations();
+    const ten = all.find((m) => m.version === 10) as Migration;
+    expect([...ten.sql.matchAll(/DROP TRIGGER (\w+)/g)].map((m) => m[1])).toEqual([
+      'turns_state_transition',
+    ]);
+    expect([...ten.sql.matchAll(/CREATE TRIGGER (\w+)/g)].map((m) => m[1])).toEqual([
+      'turns_state_transition',
+    ]);
+    const db = openDatabase(IN_MEMORY);
+    initializeDatabase(db, { mode: 'real', clock });
+    const fourDeclared = [...(all[3] as Migration).sql.matchAll(/CREATE TRIGGER (\w+)/g)].map(
+      (m) => m[1] as string,
+    );
+    expect(installedTriggers(db)).toEqual(expect.arrayContaining(fourDeclared));
+  });
+
+  it('upgrades a populated version-8 database: rows kept, the new failure edges apply to a turn already in flight', () => {
+    const t = openTestDb('real', 8);
+    const { db } = t;
+    const user = t.users.create();
+    const conversation = t.conversations.create({ userId: user });
+    const { turnId } = startTurn(t, user, conversation.id);
+    advance(t, user, turnId, ['ANALYZING', 'RESOLVING_CONTEXT', 'PLANNING', 'SEARCHING']);
+    // before the upgrade a mid-pipeline turn has no way to PERSISTING
+    expect(() => t.turns.setState(user, turnId, 'PERSISTING')).toThrow(/invalid turn state/i);
+    expect(getMeta(db, 'schema_version')).toBe('8');
+
+    expect(initializeDatabase(db, { mode: 'real', clock })).toEqual({
+      schemaVersion: LATEST,
+      created: false,
+    });
+    expect(db.prepare('SELECT state, status FROM turns WHERE id = ?').get(turnId)).toEqual({
+      state: 'SEARCHING',
+      status: 'running',
+    });
+    t.turns.setState(user, turnId, 'PERSISTING');
+    expect(db.prepare('SELECT state FROM turns WHERE id = ?').get(turnId)).toEqual({
+      state: 'PERSISTING',
+    });
+    // finality and identity triggers of migration 004 survive the replacement
+    expect(() =>
+      db.prepare("UPDATE turns SET state = 'COMPLETED' WHERE id = ?").run(turnId),
+    ).toThrow(/running turn cannot be in a final state|already finished|invalid turn state/i);
   });
 
   it('upgrades a version-1 database to the latest schema without losing its data', () => {
@@ -146,8 +212,8 @@ describe('migrations: guards', () => {
     db.close();
   });
 
-  // Q-003 (approved): connection-level PRAGMAs live in openDatabase(), outside migration transactions.
-  it('Q-003: openDatabase configures the connection before any migration runs', () => {
+  // Connection-level PRAGMAs live in openDatabase(), outside migration transactions.
+  it('pragmas: openDatabase configures the connection before any migration runs', () => {
     const memory = openDatabase(IN_MEMORY);
     expect(memory.pragma('foreign_keys', { simple: true })).toBe(1);
     expect(memory.pragma('busy_timeout', { simple: true })).toBe(5000);
@@ -160,7 +226,7 @@ describe('migrations: guards', () => {
     file.close();
   });
 
-  it('Q-003: no shipped migration contains a PRAGMA statement', () => {
+  it('pragmas: no shipped migration contains a PRAGMA statement', () => {
     for (const migration of loadMigrations()) {
       expect(migration.sql, `migration ${migration.version}_${migration.name}`).not.toMatch(
         /^\s*PRAGMA\b/im,
@@ -168,7 +234,7 @@ describe('migrations: guards', () => {
     }
   });
 
-  it('Q-003: each migration runs in its own transaction, together with its version stamp', () => {
+  it('pragmas: each migration runs in its own transaction, together with its version stamp', () => {
     const v1 = loadMigrations()[0] as Migration;
     const probe: Migration = {
       version: 2,

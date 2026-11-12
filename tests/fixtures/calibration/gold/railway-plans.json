@@ -1,0 +1,177 @@
+{
+  "pageId": "railway-plans",
+  "vendor": "Railway",
+  "categories": ["usage_based", "tiered_billing"],
+  "entity": {
+    "name": "Railway",
+    "aliases": ["Railway"],
+    "knownPlans": ["free", "hobby", "pro", "enterprise", "trial"],
+    "officialDomains": ["railway.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "hobby",
+      "plan": "Hobby",
+      "planNorm": "hobby",
+      "value": {
+        "amount": 5,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| Hobby | $5 / month |",
+      "contextQuote": "| Plan | Price |",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "note": "Subscription fee; goes towards usage.",
+      "bestAchievable": {
+        "quote": "| Hobby | $5 / month |",
+        "contextQuote": "Railway offers four plans in addition to a Trial:",
+        "status": "pass"
+      }
+    },
+    {
+      "id": "pro",
+      "plan": "Pro",
+      "planNorm": "pro",
+      "value": {
+        "amount": 20,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| Pro | $20 / month |",
+      "contextQuote": "| Plan | Price |",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "note": "Subscription fee; goes towards usage.",
+      "bestAchievable": {
+        "quote": "| Pro | $20 / month |",
+        "contextQuote": "Railway offers four plans in addition to a Trial:",
+        "status": "pass"
+      }
+    },
+    {
+      "id": "ram-container",
+      "plan": "RAM",
+      "planNorm": "ram",
+      "value": {
+        "amount": 10,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "gb-month",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| RAM | $10 / GB / month ($ 0.000231 / GB / minute) |",
+      "contextQuote": "| Resource | Resource Price |",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (the usage unit does not appear in the text)"
+      },
+      "confidence": "medium",
+      "note": "Container rate. A second RAM row under \"VM pricing\" is $50."
+    },
+    {
+      "id": "egress-container",
+      "plan": "Network Egress",
+      "planNorm": "network egress",
+      "value": {
+        "amount": 0.05,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "gb",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| Network Egress | $0.05 / GB ($ 0.000000047683716 / KB) |",
+      "contextQuote": "| Resource | Resource Price |",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "medium",
+      "bestAchievable": {
+        "quote": "| Network Egress | $0.05 / GB ($ 0.000000047683716 / KB) |",
+        "contextQuote": "Service builds are free. Railway does not charge for build CPU, memory, base-image downloads, image exports, or image storage.",
+        "status": "pass"
+      }
+    }
+  ],
+  "traps": [
+    {
+      "id": "vm-ram-as-container",
+      "kind": "other_plan",
+      "description": "The VM RAM rate ($50) must not be reported as the container RAM rate.",
+      "match": {
+        "amount": 50,
+        "planNorm": "ram",
+        "billingPeriod": ["monthly"]
+      }
+    },
+    {
+      "id": "included-usage",
+      "kind": "other",
+      "description": "\"The Hobby plan includes $5 of resource usage\" is an allowance, not a second $5 price.",
+      "match": {
+        "quoteContains": ["includes $5 of resource usage"]
+      }
+    },
+    {
+      "id": "free-credit",
+      "kind": "promotional",
+      "description": "\"$1 of free credit per month\" is a Free plan allowance, not a price.",
+      "match": {
+        "amount": 1
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "per-minute-rates",
+      "description": "Per-minute equivalents of the monthly rates.",
+      "match": {
+        "quoteContains": ["/ minute"]
+      }
+    },
+    {
+      "id": "cpu-volume-rows",
+      "description": "CPU and volume rows.",
+      "match": {
+        "quoteContains": ["vCPU"]
+      }
+    },
+    {
+      "id": "free-plan",
+      "description": "Free plan $0.",
+      "match": {
+        "amount": 0
+      }
+    }
+  ],
+  "notes": "Documentation page: subscription table (\"| Hobby | $5 / month |\") plus resource usage prices written \"$10 / GB / month ($ 0.000231 / GB / minute)\". The plan \"includes $5 of resource usage\": an allowance, not a price. VM rates are a second, higher price list."
+}

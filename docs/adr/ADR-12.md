@@ -20,6 +20,8 @@ A model that never types a price cannot misstate one.
 
 Placeholders (`[[F3]]`, `[[F3:baseline]]`, `[[F3:verdict]]`, `[[F3:derived:0]]`, `[[M:…]]`, `[[S:…]]`).
 
+Only `:verdict` and `:baseline` placeholders can support language about a change; a plain value placeholder never does. The rule and its limits are in [ADR-40](ADR-40.md), section "Change language".
+
 ## Consequences and trade-offs
 
 - Prose is constrained.

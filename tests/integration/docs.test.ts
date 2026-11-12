@@ -111,10 +111,9 @@ describe('architecture decision records', () => {
     expect(status(14)).toBe('Proposed'); // models
   });
 
-  it('decisions whose mechanism is not chosen stay Proposed (single-instance guard, failure transitions)', () => {
+  it('a decision whose mechanism is not chosen stays Proposed (single-instance guard)', () => {
     const status = (n: number) => adrs.find((a) => a.number === n)?.status;
     expect(status(34)).toBe('Proposed');
-    expect(status(39)).toBe('Proposed');
   });
 
   it('ADR-01 to ADR-24 say they were reconstructed, not recovered, and the index says so too', () => {

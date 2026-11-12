@@ -1,6 +1,19 @@
 import path from 'node:path';
 import { z } from 'zod';
 
+/**
+ * The model used when GEMINI_MODEL is unset, so a reviewer only has to supply keys. It was chosen because a
+ * larger model (gemini-3.5-flash) failed most live turns on a free-tier key (503 and 429); compare models with the
+ * benchmark harness before changing it.
+ */
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
+
+/**
+ * The model asked once when the main model is rate limited, overloaded or too slow (GEMINI_FALLBACK_MODEL;
+ * "none" turns it off). A sibling lite model, because free-tier limits are per model.
+ */
+export const DEFAULT_GEMINI_FALLBACK_MODEL = 'gemini-3.1-flash-lite';
+
 export type AppMode = 'real' | 'demo';
 
 export interface AppConfig {
@@ -8,14 +21,18 @@ export interface AppConfig {
   /** Absolute path of the SQLite file for this mode. */
   dbPath: string;
   port: number;
-  allowedOrigin: string;
+  /** ALLOWED_ORIGIN: the one cross-origin origin allowed to call the API. Unset by default: no CORS at all. */
+  allowedOrigin: string | undefined;
   models: { fast: string; main: string };
+  /** Gemini model id for the Gemini adapter (GEMINI_MODEL); DEFAULT_GEMINI_MODEL when unset. */
+  gemini: { model: string | undefined; fallbackModel: string | undefined };
   /**
-   * Secrets are optional at this layer: the milestone-1 database tooling needs none of them.
+   * Secrets are optional at this layer: the database tooling needs none of them.
    * The composition root of the research pipeline asserts the ones it uses are present.
    */
   secrets: {
     anthropicApiKey: string | undefined;
+    geminiApiKey: string | undefined;
     exaApiKey: string | undefined;
     sessionSecret: string | undefined;
   };
@@ -37,10 +54,13 @@ const envSchema = z.object({
   APP_MODE: z.preprocess(blankToUndefined, z.enum(['real', 'demo']).default('real')),
   DB_PATH: optionalString,
   PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65535).default(3001)),
-  ALLOWED_ORIGIN: z.preprocess(blankToUndefined, z.url().default('http://localhost:5173')),
+  ALLOWED_ORIGIN: z.preprocess(blankToUndefined, z.url().optional()),
   MODEL_FAST: z.preprocess(blankToUndefined, z.string().min(1).default('claude-haiku-5-5')),
   MODEL_MAIN: z.preprocess(blankToUndefined, z.string().min(1).default('claude-sonnet-5-5')),
   ANTHROPIC_API_KEY: optionalString,
+  GEMINI_API_KEY: optionalString,
+  GEMINI_MODEL: optionalString,
+  GEMINI_FALLBACK_MODEL: optionalString,
   EXA_API_KEY: optionalString,
   // Signs the anonymous user cookie, so a short value is a security defect rather than a typo.
   SESSION_SECRET: z.preprocess(blankToUndefined, z.string().min(32).optional()),
@@ -71,10 +91,24 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
     port: e.PORT,
     allowedOrigin: e.ALLOWED_ORIGIN,
     models: { fast: e.MODEL_FAST, main: e.MODEL_MAIN },
+    gemini: {
+      model: e.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
+      fallbackModel: fallbackModelOf(
+        e.GEMINI_FALLBACK_MODEL,
+        e.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
+      ),
+    },
     secrets: {
       anthropicApiKey: e.ANTHROPIC_API_KEY,
+      geminiApiKey: e.GEMINI_API_KEY,
       exaApiKey: e.EXA_API_KEY,
       sessionSecret: e.SESSION_SECRET,
     },
   };
+}
+
+/** The fallback model, or undefined when it is off ("none") or the same as the main model. */
+function fallbackModelOf(raw: string | undefined, main: string): string | undefined {
+  const m = raw ?? DEFAULT_GEMINI_FALLBACK_MODEL;
+  return m.toLowerCase() === 'none' || m === main ? undefined : m;
 }

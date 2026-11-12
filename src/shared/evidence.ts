@@ -1,5 +1,6 @@
 import type { EntityId, EvidenceId, Ms, Origin, SnapshotId } from './ids.js';
 import type { TurnBudget } from './infrastructure.js';
+import type { CrawlBasis } from './search.js';
 
 export type AuthorityTier = 'A1' | 'A2' | 'B' | 'C';
 export type Modality = 'current' | 'planned' | 'historical' | 'conditional' | 'promotional';
@@ -134,6 +135,8 @@ export interface SourceSnapshot {
   providerLastUpdatedAt: Ms | null;
   observedAt: Ms;
   freshFetch: boolean;
+  /** Equals `confirmed_live` exactly when `freshFetch` is true. Absent only on hand-built snapshots. */
+  crawlBasis?: CrawlBasis;
   crawlStatus: 'ok' | 'failed' | 'unknown';
   origin: Origin;
 }
@@ -159,6 +162,12 @@ export interface EntityContext {
   aliases: string[];
   plans: string[];
   officialDomains: string[];
+  /**
+   * Domains the owner's registry explicitly maps to this entity (never a name match, never a model guess, never
+   * a domain listed for two entities). Provenance is kept apart from `officialDomains`, which may also carry
+   * domains from earlier sources. Absent means no explicit ownership is known (ADR-41).
+   */
+  ownedDomains?: string[];
   otherEntityAliases: string[];
 }
 

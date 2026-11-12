@@ -1,0 +1,34 @@
+export type CitationSegment =
+  | { type: 'text'; text: string }
+  | { type: 'cite'; text: string; n: number; href: string; title: string };
+
+export function safeHref(url: string): string | null;
+export function splitCitations(
+  text: string,
+  sources: Array<{ n: number; url: string; title?: string | null; domain?: string }>,
+): CitationSegment[];
+export function describeIssues(issues: string[]): string;
+export function sentenceMarker(
+  status: string,
+  issues?: string[],
+): { kind: string; label: string; title: string } | null;
+export function outcomeNote(
+  status: string | undefined,
+  context: { hasAnswer: boolean },
+): { kind: 'warning' | 'error'; text: string } | null;
+export function conversationLabel(c: { title: string | null; preview: string | null }): string;
+export function leadingBreak(text: string): { newParagraph: boolean; text: string };
+export function paragraphStarts(content: string, texts: string[]): boolean[];
+export function sentenceGap(newParagraph: boolean, paragraphHasText: boolean): string;
+export function paragraphTexts(chunks: string[]): string[];
+export function storedParagraphTexts(content: string, texts: string[]): string[];
+export function sentenceBasis(
+  status: string,
+  kind?: string,
+  previous?: string,
+): 'verified' | 'sourced' | 'unconfirmed' | null;
+export function sourceLabel(source: {
+  title?: string | null;
+  url?: string;
+  domain?: string;
+}): string;

@@ -1,7 +1,7 @@
 # ADR-38: Which assertions may become historical baselines
 
 - **Status:** Accepted
-- **Implementation:** partly implemented
+- **Implementation:** implemented
 - **Decided:** Owner decision, 2026-11-12: separate historical recall from baseline eligibility. The exact rules below were derived from the placeholder grammar, the persisted sentence statuses and the schema, and are recorded for the owner's review (Q-015)
 - **Recorded:** 2026-11-11, updated 2026-11-12
 - **Related:** [ADR-23](ADR-23.md), [ADR-32](ADR-32.md), [Q-015](../questions.md)
@@ -28,7 +28,24 @@ Two separate questions, two separate rules.
 2. placeholder is the current-value variant `F<n>`. Not `F<n>:baseline` (a restatement; the original assertion is the baseline), `F<n>:verdict` (a comparison, not a value) or `F<n>:derived:<k>` (computed, no belief key of its own; its inputs are the baseline candidates);
 3. its sentence has status `verified`. `unverified`, `unchecked` and `truncated` are recallable only;
 4. `belief_key` and `value_json` are both set;
-5. at least one linked evidence statement, and every linked statement has `verification_status = 'pass'`. An assertion whose evidence was removed (for example by privacy deletion) has no links and is ineligible.
+5. at least one linked evidence statement, and every linked statement has `verification_status = 'pass'`. An assertion whose evidence was removed (for example by privacy deletion) has no links and is ineligible;
+6. its finding's `current_status` was `confirmed` when it was stored. A statement made about a `contested`, `stale`, `unknown` or `unable_to_verify` finding records an uncertainty or limitation: it is stored and recallable, but it is not a factual baseline (added 2026-11-12).
+
+**Atomic assertions.** An answer with several claims produces one assertion per placeholder, not one per sentence or paragraph.
+
+**What can establish a historical assertion** (owner decision, 2026-11-12):
+
+| State | Can establish a historical assertion? |
+|---|---|
+| Generated but not rendered | No |
+| Truncated | No |
+| Rendered but unacknowledged | No |
+| Acknowledged and fully validated | Yes |
+| Contains an unsupported factual claim | No |
+| Contains a valid factual claim with sufficient evidence | Yes |
+| Contains uncertainty or an explicit limitation | Recorded, but not a factual baseline |
+
+With ADR-40, a sentence with an unsupported claim is never sent, so the "No" rows are enforced before storage as well as at eligibility.
 
 A baseline keeps its original evidence links and the sentence status it had when stored; neither is recomputed. Re-checking whether the evidence still supports the value is a separate step (architecture §8, row 3).
 
@@ -40,7 +57,9 @@ A baseline keeps its original evidence links and the sentence status it had when
 
 ## Evidence and implementation references
 
-- Enforced and tested: a verdict event or a finding's baseline may only target an assertion presented to the same user in an earlier turn; delivery state is derived (T-ASR-05 in [tests/integration/db/turn-completion.test.ts](../../tests/integration/db/turn-completion.test.ts), ADR-31). **Not implemented:** rules 2 to 5 and the loader. The rules are decided (Accepted); the implementation is partial for that reason.
+- The loader: [src/db/repositories/baseline-loader.ts](../../src/db/repositories/baseline-loader.ts) (rule 6 added on 2026-11-12, reason `finding_not_confirmed`). `loadBaselines` returns the eligible claims; `recallUnverified` returns presented claims that are not eligible, labelled unverified with the reasons. Tested rule by rule, each broken in isolation next to a valid claim, plus cross-user isolation, by [tests/integration/db/baseline-loader.test.ts](../../tests/integration/db/baseline-loader.test.ts). Presentation is also enforced by the database (T-ASR-05 in [tests/integration/db/turn-completion.test.ts](../../tests/integration/db/turn-completion.test.ts), ADR-31).
+- Where assertions are built: `buildAssertions` in [src/orchestration/prepare.ts](../../src/orchestration/prepare.ts) makes one assertion per rendered `[[F…]]` placeholder of a sent sentence, recording exactly what was rendered; message and source placeholders make none. Eligibility is decided only by the loader above, so the builder never has to judge a claim.
+- Caller: the audit lane, through `LoaderBaselineSource` in [src/app/store-adapters.ts](../../src/app/store-adapters.ts), which turns eligible claims into baselines (decoding the belief key and loading the stored evidence). Exercised end to end with replayed providers only. Claims from the audit's own turn are excluded from both methods (an implementation choice, not stated in the rules above).
 
 ## Revisit when
 

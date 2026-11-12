@@ -13,11 +13,15 @@ export const IN_MEMORY = ':memory:';
  */
 export function openDatabase(filePath: string): Db {
   const inMemory = filePath === IN_MEMORY;
-  if (!inMemory) fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  // A new data directory is private to the owner (POSIX; ignored on Windows). An existing one is left alone.
+  if (!inMemory) fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
 
   const db = new Database(filePath);
+  if (!inMemory) restrictToOwner(filePath);
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
+  // Deleted rows (privacy deletion) are overwritten with zeros rather than left in free pages.
+  db.pragma('secure_delete = ON');
   if (!inMemory) {
     const [row] = db.pragma('journal_mode = WAL') as Array<{ journal_mode: string }>;
     if (row?.journal_mode !== 'wal') {
@@ -29,4 +33,17 @@ export function openDatabase(filePath: string): Db {
     }
   }
   return db;
+}
+
+/**
+ * Makes the database file readable and writable by its owner only (0600). SQLite gives the -wal and -shm files
+ * the permissions of the database file. POSIX only: Windows has no such mode bits, and its ACLs are left as
+ * the user profile sets them.
+ */
+export function restrictToOwner(
+  filePath: string,
+  platform: NodeJS.Platform = process.platform,
+): void {
+  if (platform === 'win32') return;
+  fs.chmodSync(filePath, 0o600);
 }

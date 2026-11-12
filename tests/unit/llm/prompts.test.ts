@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest';
+import { ANALYSIS_PROMPT_VERSION, ANALYSIS_SYSTEM } from '../../../src/llm/prompts/analysis.js';
+import { SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM } from '../../../src/llm/prompts/synthesis.js';
+
+describe('synthesis prompt', () => {
+  it('is version 5 and forbids free-text change language, requiring verdict placeholders', () => {
+    expect(SYNTHESIS_PROMPT_VERSION).toBe('synthesis.v7');
+    expect(SYNTHESIS_SYSTEM).toContain('CHANGE OVER TIME or a COMPARISON');
+    expect(SYNTHESIS_SYSTEM).toContain('[[F3:verdict]]');
+    expect(SYNTHESIS_SYSTEM).toContain('Free text must not describe changes');
+    expect(SYNTHESIS_SYSTEM).toContain('verdict placeholder of THAT finding');
+    expect(SYNTHESIS_SYSTEM).toContain('A plain value placeholder');
+    expect(SYNTHESIS_SYSTEM).toContain('must not say again what it says');
+    expect(SYNTHESIS_SYSTEM).toContain('ExampleCo: [[F1]].');
+  });
+});
+
+describe('analysis prompt', () => {
+  it('is version 5, defines the three time roles with examples and forbids years the user did not write', () => {
+    expect(ANALYSIS_PROMPT_VERSION).toBe('analysis.v5');
+    expect(ANALYSIS_SYSTEM).toContain(
+      'reference_conversation: a day or time the user says an EARLIER CONVERSATION',
+    );
+    expect(ANALYSIS_SYSTEM).toContain('"On Monday we shortlisted 5 tools"');
+    expect(ANALYSIS_SYSTEM).toContain('"what did I ask on 3 November"');
+    expect(ANALYSIS_SYSTEM).toContain('change_since: the lower bound of a "since"');
+    expect(ANALYSIS_SYSTEM).toContain('event_time: the date of a real-world event');
+    expect(ANALYSIS_SYSTEM).toContain('is never event_time');
+    expect(ANALYSIS_SYSTEM).toContain(
+      'must NOT contain a year or a date that the user did not write',
+    );
+    expect(ANALYSIS_SYSTEM).toContain('entity_set');
+  });
+
+  it('marks a recall that names no day with a conversation scope, and sends greetings to chat', () => {
+    expect(ANALYSIS_SYSTEM).toContain('set "recallScope" to "conversation"');
+    expect(ANALYSIS_SYSTEM).toContain('"what have we talked about so far?"');
+    expect(ANALYSIS_SYSTEM).toContain('Leave "recallScope" out on every other message.');
+    expect(ANALYSIS_SYSTEM).toContain('chat: greetings, thanks, small talk');
+  });
+
+  it('asks for queries about a stated subject of an earlier conversation, and none when it is not stated', () => {
+    expect(ANALYSIS_SYSTEM).toContain('"managed Postgres hosting pricing"');
+    expect(ANALYSIS_SYSTEM).toContain('When the subject is not stated');
+  });
+});
+
+describe('topical recall prompt lines', () => {
+  it('routes dateless earlier-conversation questions to recall with topic terms', () => {
+    expect(ANALYSIS_SYSTEM).toContain('"I mentioned ...", "you told me about ..."');
+    expect(ANALYSIS_SYSTEM).toContain('"topicTerms"');
+  });
+
+  it('tells the answer that the most recent of disagreeing earlier messages is current', () => {
+    expect(SYNTHESIS_SYSTEM).toContain(
+      'the most recent one is the current state; say what changed only if both are shown',
+    );
+    expect(SYNTHESIS_SYSTEM).toContain('"My earlier answer:"');
+  });
+});

@@ -1,0 +1,153 @@
+{
+  "pageId": "hubspot-sales-software",
+  "vendor": "HubSpot",
+  "categories": ["per_seat", "conditions"],
+  "entity": {
+    "name": "HubSpot",
+    "aliases": ["HubSpot", "Sales Hub"],
+    "knownPlans": ["free", "starter", "professional", "enterprise"],
+    "officialDomains": ["hubspot.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "low",
+  "claims": [
+    {
+      "id": "free",
+      "plan": "Free",
+      "planNorm": "free",
+      "value": {
+        "amount": 0,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "No credit card required\n\n$0/month",
+      "contextQuote": "### Free",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "note": "The footnote \"Price shown in USD\" is more than 400 characters away, so the currency is only verifiable as unknown here."
+    },
+    {
+      "id": "starter-regular",
+      "plan": "Starter",
+      "planNorm": "starter",
+      "value": {
+        "amount": 20,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Starts at\n\n$10 $20/month\n\nper seat*",
+      "contextQuote": "### Starter",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); conditional_cue: fail (value kind is lower_bound but the text implies exact)"
+      },
+      "confidence": "low"
+    },
+    {
+      "id": "starter-promo",
+      "plan": "Starter",
+      "planNorm": "starter",
+      "value": {
+        "amount": 10,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "promotional",
+      "conditions": "Discount available for new customers only. Offer available for a limited time.",
+      "quote": "Starts at\n\n$10 $20/month\n\nper seat*",
+      "contextQuote": "### Starter",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); conditional_cue: fail (value kind is lower_bound but the text implies exact; modality promotional claimed without a promotional cue in the text)"
+      },
+      "confidence": "low",
+      "note": "The condition text is in the footnote, outside any 400-character quote that also holds the price."
+    },
+    {
+      "id": "professional",
+      "plan": "Professional",
+      "planNorm": "professional",
+      "value": {
+        "amount": 100,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Starts at\n\n$100/month\n\nper seat",
+      "contextQuote": "### Professional",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); conditional_cue: fail (value kind is lower_bound but the text implies exact)"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "enterprise",
+      "plan": "Enterprise",
+      "planNorm": "enterprise",
+      "value": {
+        "amount": 150,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Starts at\n\n$150/month\n\nper seat",
+      "contextQuote": "### Enterprise",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (per_seat claimed without a seat marker); conditional_cue: fail (value kind is lower_bound but the text implies exact)"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "traps": [
+    {
+      "id": "promo-as-current",
+      "kind": "promotional",
+      "description": "The new-customer discount price ($10) must not be presented as the current standard price.",
+      "match": {
+        "amount": 10,
+        "modality": ["current"]
+      }
+    },
+    {
+      "id": "percent-stats",
+      "kind": "other",
+      "description": "Marketing statistics (73%, 94%, 82%) are not prices.",
+      "match": {
+        "amount": 94
+      }
+    }
+  ],
+  "ignorable": [],
+  "notes": "Marketing page with a pricing teaser: \"Starts at $10 $20/month per seat*\" for Starter with a footnote about a limited-time discount for new customers, and a footnote far below saying \"Price shown in USD\". Which of the two Starter figures is crossed out is not visible in text: the reviewer read $10 as the promotional price and $20 as the regular price (low confidence)."
+}

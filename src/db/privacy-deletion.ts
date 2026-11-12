@@ -7,7 +7,7 @@ import { queryAll, queryOne } from './sql.js';
 /**
  * Beliefs and belief history are derived data. After evidence is deleted, they must be recomputed
  * for the affected keys: delete the rows for `keys`, then replay the remaining `pass` evidence.
- * The resolver lives in the evidence/belief milestone, so the procedure takes it as a dependency
+ * The belief resolver is a separate component, so the procedure takes it as a dependency
  * rather than leaving derived state silently stale.
  */
 export interface BeliefRebuilder {

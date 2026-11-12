@@ -23,7 +23,7 @@ Typed. Historical and negated statements get no price key.
 ## Consequences and trade-offs
 
 - More keys; "comparable but not equal" listings need a rule.
-- The key has no locale dimension: see ADR-37 and Q-001.
+- Locale is a dimension of the key (decided in ADR-37, contract and shared type updated 2026-11-12; not yet implemented in code).
 
 ## Evidence and implementation references
 

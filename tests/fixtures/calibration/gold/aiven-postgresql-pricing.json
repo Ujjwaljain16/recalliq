@@ -1,0 +1,214 @@
+{
+  "pageId": "aiven-postgresql-pricing",
+  "vendor": "Aiven",
+  "categories": ["usage_based", "tiered_billing", "conditions"],
+  "entity": {
+    "name": "Aiven",
+    "aliases": ["Aiven"],
+    "knownPlans": ["free", "developer", "hobbyist", "startup", "business", "premium"],
+    "officialDomains": ["aiven.io"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "free",
+      "plan": "Free",
+      "planNorm": "free",
+      "value": {
+        "amount": 0,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+      "contextQuote": "# Plans & Pricing",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "bestAchievable": {
+        "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+        "contextQuote": "Aiven's pricing is all-inclusive and transparent, providing you with the confidence and ease to forecast monthly expenses without any surprises from variable costs.",
+        "status": "pass"
+      }
+    },
+    {
+      "id": "developer",
+      "plan": "Developer",
+      "planNorm": "developer",
+      "value": {
+        "amount": 5,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+      "contextQuote": "# Plans & Pricing",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "bestAchievable": {
+        "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+        "contextQuote": "Aiven's pricing is all-inclusive and transparent, providing you with the confidence and ease to forecast monthly expenses without any surprises from variable costs.",
+        "status": "pass"
+      }
+    },
+    {
+      "id": "hobbyist",
+      "plan": "Hobbyist",
+      "planNorm": "hobbyist",
+      "value": {
+        "amount": 12,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+      "contextQuote": "# Plans & Pricing",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "bestAchievable": {
+        "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+        "contextQuote": "Aiven's pricing is all-inclusive and transparent, providing you with the confidence and ease to forecast monthly expenses without any surprises from variable costs.",
+        "status": "pass"
+      }
+    },
+    {
+      "id": "startup",
+      "plan": "Startup",
+      "planNorm": "startup",
+      "value": {
+        "amount": 75,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+      "contextQuote": "# Plans & Pricing",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "bestAchievable": {
+        "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+        "contextQuote": "Aiven's pricing is all-inclusive and transparent, providing you with the confidence and ease to forecast monthly expenses without any surprises from variable costs.",
+        "status": "pass"
+      }
+    },
+    {
+      "id": "business",
+      "plan": "Business",
+      "planNorm": "business",
+      "value": {
+        "amount": 180,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+      "contextQuote": "# Plans & Pricing",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "bestAchievable": {
+        "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+        "contextQuote": "Aiven's pricing is all-inclusive and transparent, providing you with the confidence and ease to forecast monthly expenses without any surprises from variable costs.",
+        "status": "pass"
+      }
+    },
+    {
+      "id": "premium",
+      "plan": "Premium",
+      "planNorm": "premium",
+      "value": {
+        "amount": 270,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "unspecified",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "lower_bound"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+      "contextQuote": "# Plans & Pricing",
+      "expected": {
+        "status": "weak",
+        "reason": "subject_binding: weak (only the official domain suggests the subject)"
+      },
+      "confidence": "high",
+      "bestAchievable": {
+        "quote": "| PostgreSQL® | Free $0/month | Developer $5/month | Hobbyist starting from $12/month | Startup starting from $75/month | Business starting from $180/month | Premium starting from $270/month |",
+        "contextQuote": "Aiven's pricing is all-inclusive and transparent, providing you with the confidence and ease to forecast monthly expenses without any surprises from variable costs.",
+        "status": "pass"
+      }
+    }
+  ],
+  "traps": [
+    {
+      "id": "hourly-as-monthly",
+      "kind": "other",
+      "description": "Hourly equivalents ($0.02, $0.10, $0.25, $0.37 per hour) must not be reported as monthly prices.",
+      "match": {
+        "amount": 0.1,
+        "billingPeriod": ["monthly"]
+      }
+    },
+    {
+      "id": "lower-bound-as-exact",
+      "kind": "other",
+      "description": "\"starting from\" prices must be lower bounds, not exact prices.",
+      "match": {
+        "amount": 75,
+        "planNorm": "startup",
+        "billingPeriod": ["annual"]
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "hourly",
+      "description": "Hourly equivalents on the cards.",
+      "match": {
+        "quoteContains": ["/hour"]
+      }
+    }
+  ],
+  "notes": "Plan cards plus a comparison table whose first row repeats each plan with its price (\"Startup starting from $75/month\"). Cards also show an hourly equivalent. \"Starting from\" marks lower bounds. No currency is declared."
+}

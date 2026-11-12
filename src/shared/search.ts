@@ -18,6 +18,17 @@ export interface SearchRequest {
   contentChars: number;
 }
 
+/**
+ * What a result's freshness rests on. Four distinct states:
+ * - `confirmed_live`: the provider reported, for this result, that a live crawl succeeded (a per-result marker;
+ *   neither an HTTP 200 nor a `maxAgeHours: 0` request can establish it);
+ * - `requested_live`: a live crawl was requested and the content is sufficient, but nothing per result confirms it;
+ * - `cached`: the request allowed cached content, or the provider marked the result cached;
+ * - `unknown`: anything else, including a live request whose content is too short or too thin to trust.
+ * Only `confirmed_live` has any effect on belief status, `displayedAt` or a detector verdict.
+ */
+export type CrawlBasis = 'confirmed_live' | 'requested_live' | 'cached' | 'unknown';
+
 export interface SearchHit {
   url: string;
   title: string | null;
@@ -28,6 +39,8 @@ export interface SearchHit {
   providerScore: number | null;
   /** True only if a live fetch was requested AND this result's crawl succeeded. */
   freshFetch: boolean;
+  /** Absent on hits from older recordings or scripted sources; the store then derives it from `freshFetch`. */
+  crawlBasis?: CrawlBasis;
   crawlStatus: 'ok' | 'failed' | 'unknown';
 }
 

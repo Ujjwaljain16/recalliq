@@ -1,0 +1,24 @@
+{
+  "pageId": "zoho-crm-pricing",
+  "vendor": "Zoho",
+  "categories": ["per_seat", "negative_control"],
+  "entity": {
+    "name": "Zoho CRM",
+    "aliases": ["Zoho CRM", "Zoho"],
+    "knownPlans": ["free", "standard", "professional", "enterprise", "bigin express"],
+    "officialDomains": ["zoho.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "high",
+  "claims": [],
+  "traps": [
+    {
+      "id": "any-price",
+      "kind": "other",
+      "description": "The captured text holds no price at all; every price statement is wrong. \"5000 API calls/day\", \"up to 10 custom email templates\" and \"3 users\" are limits, not prices.",
+      "match": {}
+    }
+  ],
+  "ignorable": [],
+  "notes": "NEGATIVE CONTROL. A real pricing page whose captured text names the plans (\"Standard/user/month\") but contains no amount: prices are rendered client-side. Nothing extractable; any price claim here is invented or taken from another number on the page."
+}

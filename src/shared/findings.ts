@@ -1,5 +1,6 @@
 import type { Belief, BeliefStatus, PendingSignal } from './belief.js';
 import type { AuthorityTier, NormalizedValue, VerifiedEvidence } from './evidence.js';
+import type { CrawlBasis } from './search.js';
 import type {
   AssertionId,
   EntityId,
@@ -31,6 +32,14 @@ export type PriceVerdictReason =
   | 'same_source_bracketing'
   | 'stated_effective_date'
   | 'listed_differently'
+  | 'insufficient_coverage'
+  /** The baseline or the current value rests only on tier C sources, so no change or confirmation is computed. */
+  | 'low_authority_source'
+  /**
+   * A releases finding with no interval start: the user named no "since" and there is no earlier answer to
+   * compare with, so "no releases found" would have no window. Never `none_found` then.
+   */
+  | 'no_time_window'
   | CoverageFailure;
 
 export type ReleaseVerdict = 'releases_found' | 'none_found' | 'unable_to_verify';
@@ -43,6 +52,13 @@ export interface Coverage {
   newestDatedSource: Ms | null;
   freshOfficialFetched: boolean;
   failure: CoverageFailure | null;
+  /**
+   * Sources obtained by searches made for releases (news, blog, changelog, announcements), as opposed to pricing
+   * pages. A negative release conclusion needs at least one. Absent means unknown, which counts as none.
+   */
+  releaseSources?: number;
+  /** The newest provider date among those release sources, or null when none is dated. */
+  newestDatedReleaseSource?: Ms | null;
 }
 
 /** The change occurred in (after, notAfter]. */
@@ -64,11 +80,15 @@ export interface ChangeDetector {
     effectiveFrom?: Ms;
     direction?: 'up' | 'down' | 'other';
   };
+  /**
+   * `t0` is the start of the release interval: the earliest baseline, else the user's "since". `null` means the
+   * turn has no interval, and then the verdict is never `none_found` (reason `no_time_window`).
+   */
   releases(
     evidence: VerifiedEvidence[],
     coverage: Coverage,
-    t0: Ms,
-  ): { verdict: ReleaseVerdict; items: VerifiedEvidence[] };
+    t0: Ms | null,
+  ): { verdict: ReleaseVerdict; items: VerifiedEvidence[]; reason?: 'no_time_window' };
 }
 
 /**
@@ -97,6 +117,12 @@ export interface Finding {
     value: NormalizedValue | null;
     displayedAt: Ms | null;
     verifiedAt: Ms | null;
+    /**
+     * What the winning evidence's freshness rests on: the strongest basis among the snapshots it came from.
+     * Reported only, so wording can say a result rests on a live crawl that was requested but not confirmed
+     * (`requested_live`). It feeds no status and no verdict. Absent when the snapshots carry no basis.
+     */
+    crawlBasis?: CrawlBasis;
     citations: SnapshotId[];
     contested?: Belief['contestedValues'];
     pendingSignals: PendingSignal[];
@@ -127,12 +153,32 @@ export interface Finding {
   evidenceIds: EvidenceId[];
 }
 
+/**
+ * What a source obtained by this turn's own searches says, as stored. Untrusted text: it is shown to the answer
+ * model as data and it is what a sourced sentence is checked against. It never reaches the client or memory
+ * through the finding set.
+ */
+export interface SourceContent {
+  /** The stored snapshot text the search returned. */
+  text: string;
+  /** The provider's publication date, a hint only. */
+  publishedAt: Ms | null;
+}
+
 export interface FindingSet {
   turnId: TurnId;
   createdAt: Ms;
   findings: Finding[];
   sources: Record<
     SnapshotId,
-    { url: string; title: string | null; domain: string; tier: AuthorityTier; observedAt: Ms }
+    {
+      url: string;
+      title: string | null;
+      domain: string;
+      tier: AuthorityTier;
+      observedAt: Ms;
+      /** Present only for a source of this turn's searches: what a sourced sentence may quote. */
+      content?: SourceContent;
+    }
   >;
 }

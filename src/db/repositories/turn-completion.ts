@@ -6,10 +6,12 @@ import type { Db } from '../connection.js';
 import { InvalidCompletionError, InvalidTransitionError, NotFoundError } from '../errors.js';
 import { turnCompletionSchema } from '../schemas.js';
 import { queryOne } from '../sql.js';
+import { parseEnrichment, writeEnrichment } from './enrichment.js';
 import type { MessageRepository } from './messages.js';
 
 const turnState = z.object({
   conversation_id: z.string(),
+  user_message_id: z.string(),
   state: z.string(),
   status: z.string(),
 });
@@ -21,20 +23,17 @@ const lane = z.enum(['chat', 'recall', 'research', 'audit', 'clarify']);
  * Checks a TurnCompletion for internal consistency, before any write. Pure.
  *
  * Throws ZodError for a malformed shape and InvalidCompletionError for a well-formed but inconsistent one,
- * including requests that a later milestone fulfils (enrichment arrives with memory in milestone 3, belief
- * recomputation with the belief resolver in milestone 4): those are rejected loudly, never ignored.
+ * including a request that is not supported yet (belief recomputation needs the belief resolver): that is
+ * rejected loudly, never ignored. Enrichment is checked structurally here and against the
+ * user message (decision quotes) inside the completion transaction.
  */
 export function validateCompletion(turnId: TurnId, completion: TurnCompletion): void {
+  parseEnrichment(completion.enrichment); // untrusted LLM output
   const c = turnCompletionSchema.parse(completion);
 
   if (c.touchedBeliefKeys.length > 0) {
     throw new InvalidCompletionError(
-      'touchedBeliefKeys is not supported yet: belief recomputation needs the belief resolver (milestone 4)',
-    );
-  }
-  if (c.enrichment.tags.length + c.enrichment.entities.length + c.enrichment.decisions.length > 0) {
-    throw new InvalidCompletionError(
-      'enrichment is not supported yet: write-time enrichment arrives with memory retrieval (milestone 3)',
+      'touchedBeliefKeys is not supported yet: belief recomputation needs the belief resolver',
     );
   }
 
@@ -113,9 +112,9 @@ export function validateCompletion(turnId: TurnId, completion: TurnCompletion): 
 /**
  * Stores the outcome of a turn atomically: the assistant message, findings, assertions with their evidence
  * links, the `not_presented` events for sentences that were never streamed, the verdict events on baseline
- * assertions, and the final turn row. Either all of it is written or none is.
+ * assertions, the write-time enrichment (search rows, tags, decisions), and the final turn row. Either all of it is written or none is.
  *
- * Delivery rules applied here (architecture R4):
+ * Delivery rules applied here (architecture, answer delivery):
  *   - assertions are stored unpresented; only a browser acknowledgement (TurnRepository.ack) presents them;
  *   - an assertion in a sentence beyond `streamedThrough` is born with a `not_presented` event;
  *   - a streamed sentence gets no event yet: streamed-but-unacknowledged is a derived state, not a claim told;
@@ -131,11 +130,12 @@ export function completeTurn(
 ): void {
   validateCompletion(turnId, completion);
   const c = completion;
+  const enrichment = parseEnrichment(c.enrichment);
 
   db.transaction(() => {
     const turn = queryOne(
       db,
-      'SELECT conversation_id, state, status FROM turns WHERE id = ? AND user_id = ?',
+      'SELECT conversation_id, user_message_id, state, status FROM turns WHERE id = ? AND user_id = ?',
       turnState,
       [turnId, userId],
     );
@@ -173,6 +173,19 @@ export function completeTurn(
         turnId,
       }).id;
     }
+
+    // Enrichment shares this transaction: if anything below fails, the search rows and decisions go too.
+    writeEnrichment(
+      db,
+      {
+        userId,
+        conversationId: parseId('cnv', turn.conversation_id),
+        userMessageId: parseId('msg', turn.user_message_id),
+        assistantMessageId,
+        now,
+      },
+      enrichment,
+    );
 
     const isPresentedBaseline = db.prepare(
       'SELECT 1 AS one FROM assertions WHERE id = ? AND user_id = ? AND presented_at IS NOT NULL AND turn_id <> ?',

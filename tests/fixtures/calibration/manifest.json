@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "labelledBy": "An AI model reading the captured page text. Not reviewed by a human yet: spot-check low and medium confidence labels first.",
+  "capturedOn": "2026-11-12",
+  "exa": {
+    "requests": 18,
+    "totalCostUsd": 0.126,
+    "contentMode": "text",
+    "contentChars": 6000
+  },
+  "pages": [
+    {
+      "id": "pipedrive-pricing",
+      "vendor": "Pipedrive",
+      "pageFile": "pages/pipedrive-pricing.json",
+      "goldFile": "gold/pipedrive-pricing.json"
+    },
+    {
+      "id": "salesforce-sales-pricing",
+      "vendor": "Salesforce",
+      "pageFile": "pages/salesforce-sales-pricing.json",
+      "goldFile": "gold/salesforce-sales-pricing.json"
+    },
+    {
+      "id": "freshsales-pricing",
+      "vendor": "Freshworks (Freshsales)",
+      "pageFile": "pages/freshsales-pricing.json",
+      "goldFile": "gold/freshsales-pricing.json"
+    },
+    {
+      "id": "hubspot-sales-hub-pricing-guide",
+      "vendor": "HubSpot",
+      "pageFile": "pages/hubspot-sales-hub-pricing-guide.json",
+      "goldFile": "gold/hubspot-sales-hub-pricing-guide.json"
+    },
+    {
+      "id": "hubspot-sales-software",
+      "vendor": "HubSpot",
+      "pageFile": "pages/hubspot-sales-software.json",
+      "goldFile": "gold/hubspot-sales-software.json"
+    },
+    {
+      "id": "close-plans-and-billing",
+      "vendor": "Close",
+      "pageFile": "pages/close-plans-and-billing.json",
+      "goldFile": "gold/close-plans-and-billing.json"
+    },
+    {
+      "id": "zoho-crm-pricing",
+      "vendor": "Zoho",
+      "pageFile": "pages/zoho-crm-pricing.json",
+      "goldFile": "gold/zoho-crm-pricing.json"
+    },
+    {
+      "id": "neon-pricing",
+      "vendor": "Neon",
+      "pageFile": "pages/neon-pricing.json",
+      "goldFile": "gold/neon-pricing.json"
+    },
+    {
+      "id": "neon-faq-pay-per-use",
+      "vendor": "Neon",
+      "pageFile": "pages/neon-faq-pay-per-use.json",
+      "goldFile": "gold/neon-faq-pay-per-use.json"
+    },
+    {
+      "id": "supabase-pricing",
+      "vendor": "Supabase",
+      "pageFile": "pages/supabase-pricing.json",
+      "goldFile": "gold/supabase-pricing.json"
+    },
+    {
+      "id": "render-pricing",
+      "vendor": "Render",
+      "pageFile": "pages/render-pricing.json",
+      "goldFile": "gold/render-pricing.json"
+    },
+    {
+      "id": "railway-plans",
+      "vendor": "Railway",
+      "pageFile": "pages/railway-plans.json",
+      "goldFile": "gold/railway-plans.json"
+    },
+    {
+      "id": "digitalocean-managed-databases",
+      "vendor": "DigitalOcean",
+      "pageFile": "pages/digitalocean-managed-databases.json",
+      "goldFile": "gold/digitalocean-managed-databases.json"
+    },
+    {
+      "id": "aiven-postgresql-pricing",
+      "vendor": "Aiven",
+      "pageFile": "pages/aiven-postgresql-pricing.json",
+      "goldFile": "gold/aiven-postgresql-pricing.json"
+    },
+    {
+      "id": "notion-pricing",
+      "vendor": "Notion",
+      "pageFile": "pages/notion-pricing.json",
+      "goldFile": "gold/notion-pricing.json"
+    },
+    {
+      "id": "linear-pricing",
+      "vendor": "Linear",
+      "pageFile": "pages/linear-pricing.json",
+      "goldFile": "gold/linear-pricing.json"
+    },
+    {
+      "id": "canva-pricing",
+      "vendor": "Canva",
+      "pageFile": "pages/canva-pricing.json",
+      "goldFile": "gold/canva-pricing.json"
+    },
+    {
+      "id": "slack-pricing",
+      "vendor": "Slack",
+      "pageFile": "pages/slack-pricing.json",
+      "goldFile": "gold/slack-pricing.json"
+    },
+    {
+      "id": "jira-pricing",
+      "vendor": "Atlassian",
+      "pageFile": "pages/jira-pricing.json",
+      "goldFile": "gold/jira-pricing.json"
+    },
+    {
+      "id": "dropbox-standard-plan",
+      "vendor": "Dropbox",
+      "pageFile": "pages/dropbox-standard-plan.json",
+      "goldFile": "gold/dropbox-standard-plan.json"
+    }
+  ]
+}

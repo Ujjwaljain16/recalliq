@@ -1,0 +1,194 @@
+{
+  "pageId": "hubspot-sales-hub-pricing-guide",
+  "vendor": "HubSpot",
+  "categories": ["per_seat", "tiered_billing", "conditions"],
+  "entity": {
+    "name": "HubSpot",
+    "aliases": ["HubSpot", "Sales Hub"],
+    "knownPlans": [
+      "free tools",
+      "sales hub starter",
+      "sales hub professional",
+      "sales hub enterprise"
+    ],
+    "officialDomains": ["hubspot.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "starter-annual",
+      "plan": "Sales Hub Starter",
+      "planNorm": "sales hub starter",
+      "value": {
+        "amount": 9,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$9/seat (annual) or $15/seat (monthly)",
+      "contextQuote": "Sales Hub Starter",
+      "expected": {
+        "status": "fail",
+        "reason": "billing_period: fail (needs both a monthly marker and \"billed annually\")"
+      },
+      "confidence": "medium",
+      "note": "Column header says \"Monthly Cost (Annual)\": a monthly price when billed annually."
+    },
+    {
+      "id": "starter-monthly",
+      "plan": "Sales Hub Starter",
+      "planNorm": "sales hub starter",
+      "value": {
+        "amount": 15,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$9/seat (annual) or $15/seat (monthly)",
+      "contextQuote": "Sales Hub Starter",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "professional-annual",
+      "plan": "Sales Hub Professional",
+      "planNorm": "sales hub professional",
+      "value": {
+        "amount": 90,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly_billed_annually",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Price: $90/month per user (billed annually)",
+      "contextQuote": "## Sales Hub Professional Pricing",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "professional-monthly",
+      "plan": "Sales Hub Professional",
+      "planNorm": "sales hub professional",
+      "value": {
+        "amount": 100,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "monthly",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$90/seat (annual) or $100/seat (monthly)",
+      "contextQuote": "Sales Hub Professional",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "enterprise",
+      "plan": "Sales Hub Enterprise",
+      "planNorm": "sales hub enterprise",
+      "value": {
+        "amount": 150,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "per_seat",
+        "usageUnit": null,
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "$150/seat",
+      "contextQuote": "Sales Hub Enterprise",
+      "expected": {
+        "status": "pass"
+      },
+      "confidence": "medium",
+      "note": "The period is only given by the table header \"Monthly Cost (Annual)\" far above; labelled unspecified."
+    }
+  ],
+  "traps": [
+    {
+      "id": "onboarding-1500",
+      "kind": "other",
+      "description": "Professional onboarding fee ($1,500) is one-time, not a seat price.",
+      "match": {
+        "amount": 1500,
+        "billingPeriod": ["monthly", "annual", "monthly_billed_annually"]
+      }
+    },
+    {
+      "id": "onboarding-3500",
+      "kind": "other",
+      "description": "Enterprise onboarding fee ($3,500) is one-time, not a seat price.",
+      "match": {
+        "amount": 3500,
+        "billingPeriod": ["monthly", "annual", "monthly_billed_annually"]
+      }
+    },
+    {
+      "id": "core-seat",
+      "kind": "other",
+      "description": "Core seats ($45-50/month) are a different seat type, not the plan price.",
+      "match": {
+        "quoteContains": ["core seats"],
+        "amount": 45
+      }
+    },
+    {
+      "id": "save-percent",
+      "kind": "other",
+      "description": "Savings percentages (40%, 10%) are not prices.",
+      "match": {
+        "quoteContains": ["Save 40%"]
+      }
+    }
+  ],
+  "ignorable": [
+    {
+      "id": "free-tools",
+      "description": "Free tools are $0.",
+      "match": {
+        "amount": 0
+      }
+    },
+    {
+      "id": "annual-cost-range",
+      "description": "The Starter \"$108-180/annually per user\" range restates the seat price.",
+      "match": {
+        "quoteContains": ["annually per user"]
+      }
+    },
+    {
+      "id": "sales-seat-range",
+      "description": "The \"$90-150/month\" sales-seat range restates plan prices.",
+      "match": {
+        "quoteContains": ["full sales seats"]
+      }
+    }
+  ],
+  "notes": "Official editorial pricing guide. The overview table was flattened to one cell per line. Starter and Professional list an annual-billing seat price and a monthly-billing seat price in one line (\"$9/seat (annual) or $15/seat (monthly)\"). One-time onboarding fees ($1,500, $3,500) and core-seat prices are not plan prices."
+}

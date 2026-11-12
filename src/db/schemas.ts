@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import type { PersistedSentence, SentenceIssue, SentenceStatus } from '../shared/answer.js';
+import type {
+  PersistedSentence,
+  SentenceIssue,
+  SentenceKind,
+  SentenceStatus,
+} from '../shared/answer.js';
 import type { AckRequest } from '../shared/delivery.js';
 import type {
   BillingPeriod,
@@ -69,9 +74,16 @@ const sentenceIssue = exhaustive<SentenceIssue>()([
   'free_date',
   'unsupported_verdict_word',
   'unsupported_global_negative',
+  'duplicate_text',
   'judge_unsupported',
   'judge_partial',
   'judge_unavailable',
+  'ungrounded_number',
+  'ungrounded_name',
+  'ungrounded_source',
+  'sourced_link',
+  'sourced_too_long',
+  'empty_sentence',
 ]);
 
 export const persistedSentenceSchema = z.object({
@@ -80,6 +92,7 @@ export const persistedSentenceSchema = z.object({
   template: z.string(),
   status: sentenceStatus,
   issues: z.array(sentenceIssue),
+  kind: exhaustive<SentenceKind>()(['verified', 'sourced', 'unconfirmed']).optional(),
   placeholders: z.array(
     z.object({
       token: z.string(),
@@ -135,6 +148,8 @@ const coverageSchema = z.object({
   newestDatedSource: z.number().nullable(),
   freshOfficialFetched: z.boolean(),
   failure: coverageFailure.nullable(),
+  releaseSources: z.number().int().min(0).optional(),
+  newestDatedReleaseSource: z.number().nullable().optional(),
 }) satisfies z.ZodType<Coverage>;
 
 const pendingSignalSchema = z.object({
@@ -170,6 +185,9 @@ const verdictReason = exhaustive<PriceVerdictReason>()([
   'same_source_bracketing',
   'stated_effective_date',
   'listed_differently',
+  'insufficient_coverage',
+  'low_authority_source',
+  'no_time_window',
   'search_timeout',
   'search_unavailable',
   'quota_exhausted',
@@ -205,7 +223,13 @@ export const findingSchema = z.object({
       verifiedAt: z.number().nullable(),
       citations: z.array(srcId),
       contested: z
-        .array(z.object({ value: normalizedValueSchema, evidenceIds: z.array(evId) }))
+        .array(
+          z.object({
+            value: normalizedValueSchema,
+            evidenceIds: z.array(evId),
+            conditions: z.array(z.string()).optional(),
+          }),
+        )
         .optional(),
       pendingSignals: z.array(pendingSignalSchema),
     })
@@ -365,9 +389,9 @@ export const turnMetricsSchema = z.object({
 }) satisfies z.ZodType<TurnMetrics>;
 
 /**
- * The parts of a TurnCompletion that milestone 2 stores and relies on. `analysis`, `context` and `events` are
- * checked only as JSON-shaped envelopes here: their full schemas arrive with their producers (turn analysis
- * and memory in milestone 3, the SSE writer in milestone 5). See docs/questions.md Q-014.
+ * The parts of a TurnCompletion that the persistence layer stores and relies on. `analysis`, `context` and `events` are
+ * checked only as JSON-shaped envelopes here: their full schemas arrive with their producers (turn analysis,
+ * memory, and the SSE writer). See docs/questions.md, "JSON columns are only partly validated".
  */
 export const turnCompletionSchema = z.object({
   status: terminalStatus,

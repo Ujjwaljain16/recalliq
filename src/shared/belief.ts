@@ -8,7 +8,8 @@ import type {
 import type { EntityId, EvidenceId, Ms } from './ids.js';
 
 // Belief-key functions (encodePriceKey, decodePriceKey, keyForEvidence, comparableKeys) are part
-// of the contract but are implemented in src/belief/belief-key.ts in the evidence/belief milestone.
+// of the contract but are implemented in src/belief/belief-key.ts with the evidence and belief code.
+// keyForEvidence takes the source as { domain, urlNorm }: locale is derived by code from the URL (ADR-37).
 
 export type Arrangement = 'list' | 'conditional' | 'promotional' | 'planned';
 
@@ -30,6 +31,12 @@ export interface PriceBeliefKey {
    * `string`.)
    */
   currency: CurrencyCode;
+  /**
+   * Canonical BCP-47 tag as produced by `Intl.getCanonicalLocales` (for example `en-GB`, `de-DE`), or the
+   * literal `und` when the locale cannot be determined. Derived by code from the source URL, never by the
+   * model. Regional distinctions are kept: `en-GB` and `en-US` are different keys (ADR-37).
+   */
+  locale: string;
   valueKind: NormalizedValue['valueKind'];
 }
 
@@ -54,7 +61,16 @@ export interface Belief {
   entityId: EntityId;
   status: BeliefStatus;
   value: NormalizedValue | null;
-  contestedValues?: Array<{ value: NormalizedValue; evidenceIds: EvidenceId[] }>;
+  /**
+   * One entry per distinct value. `conditions` carries the extraction's condition text of that value's
+   * evidence (for example "Access the features available in Professional subscriptions"), so an answer can say
+   * which subscription each price belongs to. Absent when no evidence of the value states one.
+   */
+  contestedValues?: Array<{
+    value: NormalizedValue;
+    evidenceIds: EvidenceId[];
+    conditions?: string[];
+  }>;
   displayedAt: Ms | null;
   /** Latest fresh_fetch winner. */
   verifiedAt: Ms | null;

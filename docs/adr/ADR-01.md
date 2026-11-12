@@ -29,7 +29,7 @@ C. The orchestrator (not the model) chooses the lane and runs a fixed sequence o
 
 ## Evidence and implementation references
 
-- Weighted decision matrix in [stage-3-architecture.md](../stage-3-architecture.md) (Part II). The scores are the author's judgements, **not** measurements.
+- Weighted decision matrix in [architecture.md](../architecture.md) (Part II). The scores are the author's judgements, **not** measurements.
 - Implemented so far: only the persistence and state-machine foundation (ADR-29, ADR-30, ADR-32). The orchestrator, lanes and components are not implemented (milestone 5).
 
 ## Revisit when

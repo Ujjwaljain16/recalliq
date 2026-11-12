@@ -288,13 +288,8 @@ describe('T-ASR-02: completion is atomic: a failure part-way writes nothing', ()
 describe('T-ASR-03: inconsistent or premature completions are refused before anything is written', () => {
   const cases: Array<[string, (c: TurnCompletion) => TurnCompletion, 'invalid' | 'zod']> = [
     [
-      'belief keys to recompute (needs the resolver, milestone 4)',
+      'belief keys to recompute (needs the belief resolver)',
       (c) => ({ ...c, touchedBeliefKeys: ['price:v1|x'] }),
-      'invalid',
-    ],
-    [
-      'write-time enrichment (needs memory, milestone 3)',
-      (c) => ({ ...c, enrichment: { tags: ['hubspot'], entities: [], decisions: [] } }),
       'invalid',
     ],
     [

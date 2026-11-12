@@ -24,8 +24,8 @@ import type {
 import type { EntityMention, TurnAnalysis, UserFact } from './understanding.js';
 
 /**
- * Contract of the turn repository. Implemented in the conversation-lifecycle milestone; the
- * privacy-deletion procedure it lists is already available as `deleteConversation` in src/db.
+ * Contract of the turn repository (implemented by `SqliteTurnRepository`); the
+ * privacy-deletion procedure it lists is available as `deleteConversation` in src/db.
  */
 export interface TurnRepository {
   begin(

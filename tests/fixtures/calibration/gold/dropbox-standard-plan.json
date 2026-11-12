@@ -1,0 +1,24 @@
+{
+  "pageId": "dropbox-standard-plan",
+  "vendor": "Dropbox",
+  "categories": ["conditions", "negative_control"],
+  "entity": {
+    "name": "Dropbox",
+    "aliases": ["Dropbox"],
+    "knownPlans": ["standard", "standard classic", "advanced", "plus", "essentials"],
+    "officialDomains": ["dropbox.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "high",
+  "claims": [],
+  "traps": [
+    {
+      "id": "any-price",
+      "kind": "other",
+      "description": "The text holds no price; every price statement is wrong. Storage sizes and limits are not prices.",
+      "match": {}
+    }
+  ],
+  "ignorable": [],
+  "notes": "NEGATIVE CONTROL. A help-center article about the Standard plan whose FAQ answers \"How much does Dropbox Standard cost?\" with a non-answer (\"determined by several factors, including the number of members and your geographic location\"). Storage amounts (3 TB, 1 TB, 5 TB) and \"100 GB\" transfer limits are not prices."
+}

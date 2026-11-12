@@ -1,4 +1,4 @@
--- 001_init: schema from docs/stage-3-contracts.md §1, unchanged except for one deviation:
+-- 001_init: schema from docs/contracts.md §1, unchanged except for one deviation:
 -- the contract's two PRAGMA lines (journal_mode = WAL, foreign_keys = ON) are NOT here.
 -- They are connection settings, and SQLite refuses to change journal_mode inside the
 -- transaction each migration runs in. They are applied by openDatabase() (src/db/connection.ts).

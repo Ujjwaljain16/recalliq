@@ -1,0 +1,396 @@
+import { z } from 'zod';
+import {
+  parseId,
+  type ConversationId,
+  type Ms,
+  type TurnId,
+  type UserId,
+} from '../../shared/ids.js';
+import type {
+  ConversationOverview,
+  MemoryCandidate,
+  MemoryRetriever,
+  TopicalRecallOptions,
+} from '../../shared/memory.js';
+import { persistedSentencesSchema } from '../schemas.js';
+import type { DayInterval } from '../../shared/temporal.js';
+import type { Db } from '../connection.js';
+import { queryAll } from '../sql.js';
+
+/** The message-memory half of MemoryRetriever; decisions and entities are a separate concern. */
+export type MessageMemory = Pick<
+  MemoryRetriever,
+  'messagesInIntervals' | 'searchAll' | 'conversationOverview' | 'topicalRecall'
+>;
+
+export const MAX_CANDIDATES = 8;
+export const MAX_EXCERPT_CHARS = 300;
+/** A topical recall hit is quoted in full up to this length. */
+export const MAX_TOPICAL_EXCERPT_CHARS = 900;
+/** Ranked rows read before assistant messages are cut down to what was shown. */
+const TOPICAL_OVERFETCH = 5;
+const MAX_INTERVALS = 16;
+const MAX_TERMS = 16;
+const MAX_TOKENS = 24;
+const MAX_TOKEN_CHARS = 64;
+
+const intervalSchema = z
+  .object({
+    startMs: z.number().int().safe(),
+    endMs: z.number().int().safe(),
+    localDate: z.string().min(1),
+    tz: z.string().min(1),
+  })
+  .refine((iv) => iv.startMs < iv.endMs, 'interval must be non-empty and half-open');
+const intervalsSchema = z.array(intervalSchema).max(MAX_INTERVALS);
+const termsSchema = z.array(z.string()).max(MAX_TERMS);
+
+const candidateRow = z.object({
+  message_id: z.string(),
+  conversation_id: z.string(),
+  turn_id: z.string().nullable(),
+  created_at: z.number(),
+  tz: z.string(),
+  content: z.string(),
+  body: z.string().nullable(),
+  tags: z.string().nullable(),
+  rank: z.number().nullable(),
+});
+
+const countRow = z.object({ n: z.number().int() });
+
+function validZone(tz: string): string | null {
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+    return tz;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Turns untrusted topic terms into safe FTS5 tokens. Only letters and digits survive (the same
+ * characters the unicode61 tokenizer indexes), so no FTS5 operator, column filter, prefix star,
+ * quote or parenthesis can reach MATCH. Duplicates are removed; the result is bounded.
+ */
+export function sanitizeTerms(terms: readonly string[]): string[] {
+  const seen = new Set<string>();
+  for (const term of termsSchema.parse([...terms])) {
+    for (const token of term.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) {
+      if (token.length <= MAX_TOKEN_CHARS) seen.add(token);
+      if (seen.size >= MAX_TOKENS) return [...seen];
+    }
+  }
+  return [...seen];
+}
+
+/** Every token is a double-quoted phrase of letters and digits, OR-ed together. */
+function toMatchExpression(tokens: readonly string[]): string {
+  return tokens.map((t) => `"${t}"`).join(' OR ');
+}
+
+function formatLocal(ms: Ms, tz: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(ms));
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}`;
+}
+
+function excerptOf(content: string, max: number = MAX_EXCERPT_CHARS): string {
+  const chars = Array.from(content.replace(/\s+/g, ' ').trim());
+  if (chars.length <= max) return chars.join('');
+  return chars.slice(0, max - 1).join('') + '…';
+}
+
+/**
+ * The part of a long message to show for a topical recall: the window of at most `max` characters that holds the
+ * most of the searched words (distinct words first, then how often they occur), not the first `max` characters.
+ * A short message is returned whole. An ellipsis marks each cut end. Words match as the search matches them
+ * (same word, or the same first letters of a word of similar length).
+ */
+export function passageOf(content: string, tokens: readonly string[], max: number): string {
+  const chars = Array.from(content.replace(/\s+/g, ' ').trim());
+  if (chars.length <= max) return chars.join('');
+  const text = chars.join('');
+  const room = max - 2; // each cut end costs one ellipsis character
+
+  const hits: Array<{ at: number; token: number }> = [];
+  const wordRe = /[\p{L}\p{N}]+/gu;
+  for (let m = wordRe.exec(text); m !== null; m = wordRe.exec(text)) {
+    const w = m[0].toLowerCase();
+    tokens.forEach((t, token) => {
+      const n = Math.min(w.length, t.length);
+      if (
+        w === t ||
+        (n >= 4 && w.slice(0, n) === t.slice(0, n) && Math.abs(w.length - t.length) <= 4)
+      )
+        hits.push({
+          at: chars.length === text.length ? m.index : Array.from(text.slice(0, m.index)).length,
+          token,
+        });
+    });
+  }
+  if (hits.length === 0) return excerptOf(content, max);
+  let best = { start: 0, distinct: -1, total: -1 };
+  for (const h of hits) {
+    const start = Math.max(0, Math.min(h.at - Math.floor(room / 6), chars.length - room));
+    const inside = hits.filter((x) => x.at >= start && x.at < start + room);
+    const distinct = new Set(inside.map((x) => x.token)).size;
+    if (distinct > best.distinct || (distinct === best.distinct && inside.length > best.total)) {
+      best = { start, distinct, total: inside.length };
+    }
+  }
+  const end = Math.min(chars.length, best.start + room);
+  const body = chars.slice(best.start, end).join('');
+  return (best.start > 0 ? '…' : '') + body + (end < chars.length ? '…' : '');
+}
+
+const topicalRow = candidateRow.extend({
+  role: z.enum(['user', 'assistant']),
+  rendered_through: z.number().int(),
+  sentences_json: z.string().nullable(),
+});
+
+/** The sentences of an assistant message that were acknowledged as rendered; '' when none, or unreadable. */
+function presentedText(sentencesJson: string | null, renderedThrough: number): string {
+  if (sentencesJson === null || renderedThrough < 0) return '';
+  try {
+    const parsed = persistedSentencesSchema.safeParse(JSON.parse(sentencesJson));
+    if (!parsed.success) return '';
+    return parsed.data
+      .filter((s) => s.index <= renderedThrough)
+      .map((s) => s.text)
+      .join(' ');
+  } catch {
+    return '';
+  }
+}
+
+/** Approximate: FTS stems words (porter), so a token counts as matched on a shared stem-like prefix. */
+function matchedTokens(tokens: readonly string[], text: string): string[] {
+  const words = text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  return tokens.filter((t) =>
+    words.some((w) => {
+      if (w === t) return true;
+      const n = Math.min(w.length, t.length);
+      return n >= 4 && w.slice(0, n) === t.slice(0, n) && Math.abs(w.length - t.length) <= 4;
+    }),
+  );
+}
+
+/**
+ * SQLite implementation of the message-recall reads (architecture section 7, "plausible"). Every
+ * query is parameterised and filtered by user_id on both messages and message_search. Only user-role
+ * messages are candidates: recall is about what the user asked. Rows are not filtered by origin here;
+ * a real database cannot hold non-live messages (migration 002), a fixture database may.
+ */
+export class SqliteMessageMemory implements MessageMemory {
+  constructor(private readonly db: Db) {}
+
+  /**
+   * With topic terms: user messages inside the intervals whose indexed text matches (bm25 order, then
+   * createdAt, then id). Without usable terms: every user message inside the intervals, oldest first.
+   * Intervals are half-open [startMs, endMs). At most MAX_CANDIDATES.
+   */
+  messagesInIntervals(u: UserId, iv: DayInterval[], terms: string[]): MemoryCandidate[] {
+    const intervals = intervalsSchema.parse(iv);
+    if (intervals.length === 0) return [];
+    const tokens = sanitizeTerms(terms);
+
+    const range = intervals.map(() => '(m.created_at >= ? AND m.created_at < ?)').join(' OR ');
+    const rangeParams = intervals.flatMap((i) => [i.startMs, i.endMs]);
+
+    const rows =
+      tokens.length === 0
+        ? queryAll(
+            this.db,
+            `SELECT m.id AS message_id, m.conversation_id, m.turn_id, m.created_at, m.tz, m.content,
+                    NULL AS body,
+                    (SELECT ms2.tags FROM message_search ms2
+                      WHERE ms2.message_id = m.id AND ms2.user_id = m.user_id) AS tags,
+                    NULL AS rank
+               FROM messages m
+              WHERE m.user_id = ? AND m.role = 'user' AND (${range})
+              ORDER BY m.created_at ASC, m.id ASC
+              LIMIT ${MAX_CANDIDATES}`,
+            candidateRow,
+            [u, ...rangeParams],
+          )
+        : queryAll(
+            this.db,
+            `SELECT m.id AS message_id, m.conversation_id, m.turn_id, m.created_at, m.tz, m.content,
+                    ms.body AS body, ms.tags AS tags, bm25(message_fts) AS rank
+               FROM message_fts
+               JOIN message_search ms ON ms.rowid = message_fts.rowid
+               JOIN messages m ON m.id = ms.message_id
+              WHERE message_fts MATCH ?
+                AND ms.user_id = ? AND m.user_id = ? AND m.role = 'user' AND (${range})
+              ORDER BY rank ASC, m.created_at ASC, m.id ASC
+              LIMIT ${MAX_CANDIDATES}`,
+            candidateRow,
+            [toMatchExpression(tokens), u, u, ...rangeParams],
+          );
+
+    return rows.map((row) => {
+      const intervalIndex = intervals.findIndex(
+        (i) => row.created_at >= i.startMs && row.created_at < i.endMs,
+      );
+      const interval = intervals[intervalIndex];
+      return this.toCandidate(row, tokens, interval?.tz ?? row.tz, intervalIndex);
+    });
+  }
+
+  /**
+   * FTS-only search over all of the user's user-role messages. `intervalIndex` is -1 (no interval),
+   * `localTime` is in the message's own recorded tz. Empty or unusable terms yield [].
+   */
+  searchAll(u: UserId, terms: string[], limit: number): MemoryCandidate[] {
+    const n = z.number().int().min(0).parse(limit);
+    const tokens = sanitizeTerms(terms);
+    if (tokens.length === 0 || n === 0) return [];
+    const cap = Math.min(n, MAX_CANDIDATES);
+    const rows = queryAll(
+      this.db,
+      `SELECT m.id AS message_id, m.conversation_id, m.turn_id, m.created_at, m.tz, m.content,
+              ms.body AS body, ms.tags AS tags, bm25(message_fts) AS rank
+         FROM message_fts
+         JOIN message_search ms ON ms.rowid = message_fts.rowid
+         JOIN messages m ON m.id = ms.message_id
+        WHERE message_fts MATCH ?
+          AND ms.user_id = ? AND m.user_id = ? AND m.role = 'user'
+        ORDER BY rank ASC, m.created_at ASC, m.id ASC
+        LIMIT ${cap}`,
+      candidateRow,
+      [toMatchExpression(tokens), u, u],
+    );
+    return rows.map((row) => this.toCandidate(row, tokens, row.tz, -1));
+  }
+
+  /**
+   * Topical recall across ALL of the user's conversations: messages whose indexed text matches the terms, best
+   * bm25 matches first, at most `limit`, then presented oldest first. The message of `excludeTurn` is never
+   * returned. An assistant message is returned only as the sentences the user was shown (acknowledged as
+   * rendered), and only when that shown text itself matches. Both tables are filtered by user_id.
+   */
+  topicalRecall(u: UserId, terms: string[], opts: TopicalRecallOptions): MemoryCandidate[] {
+    const limit = Math.min(z.number().int().min(0).parse(opts.limit), MAX_CANDIDATES);
+    const tokens = sanitizeTerms(terms);
+    if (tokens.length === 0 || limit === 0) return [];
+    const roles =
+      opts.roles === 'both' ? "m.role IN ('user','assistant')" : `m.role = '${opts.roles}'`;
+    const rows = queryAll(
+      this.db,
+      `SELECT m.id AS message_id, m.conversation_id, m.turn_id, m.created_at, m.tz, m.content, m.role,
+              m.rendered_through, m.sentences_json,
+              ms.body AS body, ms.tags AS tags, bm25(message_fts) AS rank
+         FROM message_fts
+         JOIN message_search ms ON ms.rowid = message_fts.rowid
+         JOIN messages m ON m.id = ms.message_id
+        WHERE message_fts MATCH ?
+          AND ms.user_id = ? AND m.user_id = ? AND ${roles}
+          AND (m.turn_id IS NULL OR m.turn_id <> ?)
+        ORDER BY rank ASC, m.created_at ASC, m.id ASC
+        LIMIT ${limit * TOPICAL_OVERFETCH}`,
+      topicalRow,
+      [toMatchExpression(tokens), u, u, opts.excludeTurn],
+    );
+    const zone = validZone(opts.tz);
+    const hits: MemoryCandidate[] = [];
+    for (const row of rows) {
+      const text =
+        row.role === 'user' ? row.content : presentedText(row.sentences_json, row.rendered_through);
+      if (text.trim() === '') continue;
+      if (row.role === 'assistant' && matchedTokens(tokens, text).length === 0) continue;
+      const candidate = this.toCandidate({ ...row, content: text }, tokens, zone ?? row.tz, -1);
+      hits.push({
+        ...candidate,
+        excerpt: passageOf(text, tokens, MAX_TOPICAL_EXCERPT_CHARS),
+        role: row.role,
+      });
+      if (hits.length >= limit) break;
+    }
+    return hits.sort((a, b) => a.createdAt - b.createdAt || a.messageId.localeCompare(b.messageId));
+  }
+
+  /**
+   * The conversation's user messages created at or before `before`, except the one of turn `excludeTurn`: the
+   * most recent `limit` of them, returned oldest first (by sequence number), plus their total and the number of
+   * the user's other conversations that hold a user message by then. Both reads are filtered by user_id.
+   */
+  conversationOverview(
+    u: UserId,
+    conversationId: ConversationId,
+    excludeTurn: TurnId,
+    before: Ms,
+    limit: number,
+    tz: string,
+  ): ConversationOverview {
+    const n = Math.min(z.number().int().min(0).parse(limit), MAX_CANDIDATES);
+    const where = `m.user_id = ? AND m.conversation_id = ? AND m.role = 'user' AND m.created_at <= ?
+                   AND (m.turn_id IS NULL OR m.turn_id <> ?)`;
+    const params = [u, conversationId, before, excludeTurn];
+    const rows =
+      n === 0
+        ? []
+        : queryAll(
+            this.db,
+            `SELECT m.id AS message_id, m.conversation_id, m.turn_id, m.created_at, m.tz, m.content,
+                    NULL AS body,
+                    (SELECT ms2.tags FROM message_search ms2
+                      WHERE ms2.message_id = m.id AND ms2.user_id = m.user_id) AS tags,
+                    NULL AS rank
+               FROM messages m
+              WHERE ${where}
+              ORDER BY m.seq DESC
+              LIMIT ${n}`,
+            candidateRow,
+            params,
+          ).reverse();
+    const total =
+      queryAll(this.db, `SELECT COUNT(*) AS n FROM messages m WHERE ${where}`, countRow, params)[0]
+        ?.n ?? 0;
+    const otherConversations =
+      queryAll(
+        this.db,
+        `SELECT COUNT(DISTINCT m.conversation_id) AS n FROM messages m
+          WHERE m.user_id = ? AND m.conversation_id <> ? AND m.role = 'user' AND m.created_at <= ?`,
+        countRow,
+        [u, conversationId, before],
+      )[0]?.n ?? 0;
+    const zone = validZone(tz);
+    return {
+      hits: rows.map((row) => this.toCandidate(row, [], zone ?? row.tz, -1)),
+      total,
+      otherConversations,
+    };
+  }
+
+  private toCandidate(
+    row: z.output<typeof candidateRow>,
+    tokens: readonly string[],
+    tz: string,
+    intervalIndex: number,
+  ): MemoryCandidate {
+    return {
+      conversationId: parseId('cnv', row.conversation_id),
+      messageId: parseId('msg', row.message_id),
+      turnId: row.turn_id === null ? null : parseId('trn', row.turn_id),
+      createdAt: row.created_at,
+      localTime: formatLocal(row.created_at, tz),
+      excerpt: excerptOf(row.content),
+      tags: (row.tags ?? '').split(/\s+/).filter((t) => t.length > 0),
+      matchedTerms:
+        row.rank === null ? [] : matchedTokens(tokens, `${row.body ?? ''} ${row.tags ?? ''}`),
+      // bm25() is lower-is-better and negative; expose higher-is-better. Listing has no relevance.
+      score: row.rank === null ? 0 : -row.rank,
+      intervalIndex,
+    };
+  }
+}

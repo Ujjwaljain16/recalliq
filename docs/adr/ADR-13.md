@@ -26,7 +26,7 @@ The second, as a pure function over `pass` evidence using `displayedAt`, rebuild
 
 ## Evidence and implementation references
 
-- [stage-3-architecture.md](../stage-3-architecture.md) R3. Types: [src/shared/belief.ts](../../src/shared/belief.ts). The `beliefs` tables exist; the resolver does not (milestone 4).
+- [architecture.md](../architecture.md) R3. Types: [src/shared/belief.ts](../../src/shared/belief.ts). The `beliefs` tables exist; the resolver does not (milestone 4).
 
 ## Revisit when
 

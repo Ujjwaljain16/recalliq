@@ -7,30 +7,31 @@ the code does meanwhile.
 Status values: **open** (needs a decision), **decided** (owner decision recorded, implementation pending),
 **applied** (implemented as described).
 
-The normative contracts (`stage-3-contracts.md`) were **not** modified in Milestones 1 and 2. The final documentation pass (2026-11-12) added a correction note and §1.2 to contracts §1 and corrected architecture §8; contracts §2 (including the locale change) is still unedited.
+The normative contracts (`contracts.md`) were **not** modified in Milestones 1 and 2. The final documentation pass (2026-11-12) added a correction note and §1.2 to contracts §1 and corrected architecture §8; contracts §2 (including the locale change) is still unedited.
 Proposed contract edits are written here for review instead. Decisions are recorded in [adr/README.md](adr/README.md); this file keeps the
 questions, including resolved ones and their history.
 
 | ID | Topic | Status | Blocks | ADR |
 |---|---|---|---|---|
-| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **decided** (rule, effective-date distinction, locale as a dimension); a, b, c, e are proposed defaults; contract §2 edit **not applied** | Milestone 4 change detector (unimplemented) | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
+| Q-001 | Temporal proof for `changed`; missing `locale` dimension | **applied**: rule, definitions, locale in the key, content as-of time and the change detector are implemented and tested (2026-11-12) | — | [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md) |
 | Q-002 | Demo isolation covers only some tables | **applied** (migration 002, M2); complete isolation still not claimed | — | [ADR-28](adr/ADR-28.md) |
 | Q-003 | PRAGMAs outside migrations | **applied**, approved | — | [ADR-25](adr/ADR-25.md) |
 | Q-004 | Test IDs T-DB-01..10 | **applied** → [testing.md](testing.md) | — | — |
 | Q-005 | Deletion and the belief rebuilder | **applied**, rebuild correctness untested until M4 | T-DB-09 | [ADR-35](adr/ADR-35.md) |
 | Q-006 | `begin` while a different key is running | **applied** (M2) | — | [ADR-30](adr/ADR-30.md) |
-| Q-007 | `user_id` consistency beyond messages and turns | **partly applied** (migration 003, M2); table-by-table plan recorded (2026-11-12), remaining tables **not yet enforced** | Each table, before its first use in M3 or M4 | [ADR-27](adr/ADR-27.md) |
+| Q-007 | `user_id` consistency beyond messages and turns | **applied** (migrations 003, 006, 007, 008); plan recorded (2026-11-12); `search_requests`, `search_results` (migration 007) and `beliefs`, `belief_history` (migration 008); only snapshots-by-turn (no such column) remain, protected at their links | — | [ADR-27](adr/ADR-27.md) |
 | Q-008 | Declared-only contract functions | applied | — | — |
 | Q-009 | Type-identical lint edits | applied | — | — |
 | Q-010 | Small implementation choices | applied | — | — |
-| Q-011 | No failure edge from most states | open | Milestone 5 | [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md) |
+| Q-011 | No failure edge from most states | **applied** (migration 010, failure policy in the coordinator, 2026-11-12) | — | [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md) |
 | Q-012 | Acknowledgement before the answer is stored | open | — | [ADR-23](adr/ADR-23.md) |
 | Q-013 | Meaning of `AckRequest.complete` | open | — | [ADR-31](adr/ADR-31.md) |
 | Q-014 | JSON columns only partly validated | open | Milestones 3, 5 | [ADR-32](adr/ADR-32.md), [ADR-05](adr/ADR-05.md) |
-| Q-015 | Which assertions may become baselines | **decided** (rules, ADR-38); loader not implemented | Milestone 3 | [ADR-38](adr/ADR-38.md) |
+| Q-015 | Which assertions may become baselines | **applied** (rules and loader); no caller until M5 | — | [ADR-38](adr/ADR-38.md) |
 | Q-016 | `recoverRunning` assumes one process | open | — | [ADR-34](adr/ADR-34.md), [ADR-33](adr/ADR-33.md) |
 | Q-017 | Behaviour added beyond the contract | applied | — | [ADR-30](adr/ADR-30.md), [ADR-32](adr/ADR-32.md) |
 | Q-018 | Test IDs introduced in M2 | applied → [testing.md](testing.md) | — | — |
+| Q-019 | Provider cache age or capture time is not in the contract | open | Milestone 4 change detector | [ADR-36](adr/ADR-36.md) |
 
 ---
 
@@ -42,7 +43,7 @@ The 39-ADR structure and numbering were accepted, with these decisions. Docs onl
 - **Q-015 / ADR-38 decided:** historical *recall* and *baseline eligibility* are different. Rules in [ADR-38](adr/ADR-38.md). The loader is not implemented.
 - **Q-001:** the effective-date distinction is decided; locale is a required comparability dimension ([ADR-37](adr/ADR-37.md)); the change detector stays unimplemented until M4.
 - **Q-007:** a table-by-table plan with timing is recorded below; ownership is **not** fully enforced today.
-- **ADR-34 and ADR-39 stay Proposed**, no mechanism and no failure edges chosen. **Q-011, Q-012, Q-013, Q-014 and Q-016 stay open.**
+- **ADR-34 stays Proposed**, no mechanism chosen. **ADR-39 was later accepted and implemented** (see Q-011). **Q-012, Q-013, Q-014 and Q-016 stay open.**
 - **Corrections to normative text:** contracts §1 (PRAGMAs, migrations 002–005) and architecture §8, §12, Part IV scenarios 2–3, the scenario matrix, U12 and U19.
 
 ## Owner review of Milestone 2 (2026-11-11)
@@ -50,7 +51,7 @@ The 39-ADR structure and numbering were accepted, with these decisions. Docs onl
 Milestone 2 was approved, with these qualifications. They are recorded here and in the ADRs; none of the questions below is closed by them.
 
 - **Q-011 (failure transitions), resolve before M5.** Define a failure transition from every non-terminal state with an explicit recovery policy, but do **not** add arbitrary
-  failure edges: decide which failures are recoverable, which are terminal, and how partial work is preserved. → [ADR-39](adr/ADR-39.md), Proposed.
+  failure edges: decide which failures are recoverable, which are terminal, and how partial work is preserved. → [ADR-39](adr/ADR-39.md), now Accepted and implemented.
 - **Q-007 (ownership), still open.** Evidence, findings and assertions are protected; `search_requests`, `decisions`, snapshots and beliefs are not. Ownership integrity must not be
   described as fully enforced. Add the constraints and cross-user regression tests before those tables are used heavily. → [ADR-27](adr/ADR-27.md).
 - **Q-015 (historical baselines), resolve before M3.** Only presented assertions can become baselines: a presented assertion can be retrieved as previously communicated; a
@@ -63,7 +64,7 @@ Milestone 2 was approved, with these qualifications. They are recorded here and 
 ## Q-001: temporal proof for `changed`, and the missing `locale` dimension
 
 **ADR:** [ADR-36](adr/ADR-36.md), [ADR-37](adr/ADR-37.md), [ADR-22](adr/ADR-22.md)  
-**History:** Raised in M1 (conflict between the kickoff and architecture §8) → owner decided the rule on 2026-11-11 → on 2026-11-12 the owner settled the effective-date question (d) and accepted locale as a comparability dimension; the contract §2 edit is recorded but **not applied**. The change detector is **unimplemented** and stays so until M4.
+**History:** Raised in M1 (conflict between the kickoff and architecture §8) → owner decided the rule on 2026-11-11 → on 2026-11-12 the owner settled the effective-date question (d), accepted locale (canonical BCP-47, `und` when unknown) and approved the definitions of observation, source identity and comparability. Contracts §2 and `src/shared/belief.ts` were updated. The change detector is **unimplemented** and stays so until M4.
 
 ### Owner decision (2026-11-11): the exact proof requirements
 
@@ -93,7 +94,7 @@ as 48 h *before* T0 followed by a later different observation. The decision abov
 
 ### Sub-questions the decision leaves open
 
-The following need an answer before `ChangeDetector` is written. Row d is decided (2026-11-12). Rows a, b, c and e are **proposed defaults, not owner-confirmed**: the code will follow them unless the owner says otherwise. Architecture §8 states a and b as the working definitions.
+The following need an answer before `ChangeDetector` is written. All rows are decided (d on 2026-11-12, then a, b, c and e as approved definitions on 2026-11-12): an observation is an immutable, timestamped snapshot with sufficient content and validated supporting evidence; source identity is `url_norm` (meaningful query parameters kept, only tracking parameters removed); comparable means `comparableKeys === 'equal'` including locale; the baseline's own fetch never counts; an unknown locale cannot independently establish `changed`. The first reading of "sufficient content" as a successful fresh crawl was **relaxed by the owner on 2026-11-12**: a provider-cached copy can be an observation if it was retrieved after the relevant event, its retrieval time is recorded separately, its cache metadata is kept, and its content supports the claim; it needs an established content as-of time to support a positive `changed` (see ADR-36).
 
 | # | Question | Proposed answer |
 |---|---|---|
@@ -151,7 +152,7 @@ regions, on the same domain, therefore maps to **one** key:
 6. Open point for the reviewer: two observations of the **same URL** with locale `unspecified` are
    comparable (same page), but `unspecified` against a known locale is not.
 
-Status: **decided as a dimension** (2026-11-12): locale is a required pricing-comparability dimension ([ADR-37](adr/ADR-37.md)). The edit above to contracts §2 is the recorded implementation and has **not** been applied; it lands with the first code that writes belief keys. Nothing is implemented, and the change detector will not be written before then. The point in item 6 is adopted: `unspecified` against a known locale is not comparable.
+Status: **applied to the contract** (2026-11-12): locale is a required pricing-comparability dimension ([ADR-37](adr/ADR-37.md)). The owner approved a different encoding from the proposal above: a canonical BCP-47 tag (`Intl.getCanonicalLocales`) with `und` for unknown, instead of a lower-cased tag with `unspecified`; contracts §2 and `src/shared/belief.ts` carry it. The key-encoding functions and the change detector are implemented. Item 6 is superseded: different locales, `und` against a known locale included, are incomparable, and `und` cannot independently establish `changed`.
 
 ---
 
@@ -166,7 +167,7 @@ and any change to or deletion of `meta.db_mode`. The tests are the `T-DB-07` gro
 the characterisation tests that documented the gap were removed because the gap no longer exists.
 
 The migration goes slightly beyond the three tables Q-002 named (relabelling and `db_mode` immutability): those
-were the extra findings in [proposals/q-002-demo-isolation.md](proposals/q-002-demo-isolation.md), and without them the three
+were the extra findings in [proposals/demo-isolation.md](proposals/demo-isolation.md), and without them the three
 tables could still be bypassed.
 
 **Still not claimed:** complete isolation. The proposal's residual list stands: `belief_history`, `search_cache`
@@ -253,9 +254,8 @@ one winner, five `TurnInProgressError`, one running turn, one stored message.
 **History:** Raised in M1 → partly applied in M2 (migration 003). **Still open** for the tables listed there.
 
 Applied for evidence (turn, snapshot, entity), findings (entity), assertions (turn, message, finding-to-turn) and
-`assertion_evidence`. Still open, deliberately out of scope for Milestone 2:
+`assertion_evidence` (migration 003), and for `decisions` and `decision_entities` (migration 006, milestone 3, 8 triggers, 24 tests) and for `search_requests` and `search_results` (migration 007, milestone 4, 5 triggers). Still open:
 
-- `search_requests` and `decisions` (`user_id` vs their turn and conversation);
 - `source_snapshots`, which has no turn;
 - `beliefs` and `belief_history`.
 
@@ -267,8 +267,8 @@ Rule for timing: a table's ownership trigger and its cross-user tests land in th
 
 | Table | What is unchecked now | Planned enforcement | Enforce before first use by |
 |---|---|---|---|
-| `decisions` | `user_id` may differ from its conversation's or message's owner; `message_id` may belong to another conversation; `supersedes_id` may point at another user's decision | Insert trigger: `user_id` equals the conversation's and the message's; the message belongs to the conversation; `supersedes_id` is the same user's. Update trigger: identity columns immutable | Whichever milestone first writes decisions (M3 if the enricher or recall lane does) |
-| `decision_entities` | The decision and the entity may belong to different users | Insert trigger: both rows have the same `user_id` | Same change as `decisions` |
+| `decisions` (**applied, migration 006**) | `user_id` may differ from its conversation's or message's owner; `message_id` may belong to another conversation; `supersedes_id` may point at another user's decision | Insert trigger: `user_id` equals the conversation's and the message's; the message belongs to the conversation; `supersedes_id` is the same user's. Update trigger: identity columns immutable | Whichever milestone first writes decisions (M3 if the enricher or recall lane does) |
+| `decision_entities` (**applied, migration 006**) | The decision and the entity may belong to different users | Insert trigger: both rows have the same `user_id` | Same change as `decisions` |
 | `search_requests` | `user_id` may differ from its turn's; `entity_id` is unchecked | Insert trigger: `user_id` equals the turn's; `entity_id`, if set, is the same user's. Identity columns immutable | M4, before the first search adapter persists a request |
 | `search_results` | A request and a snapshot of different users can be linked | Insert trigger: request and snapshot have the same `user_id` | M4, with `search_requests` |
 | `source_snapshots` | It has no turn: a snapshot cannot be tied to the turn that fetched it. `user_id` is bound only by the writer | Cannot be checked against a turn. Ownership is enforced at its links (evidence, already covered; `search_results`, above) and by making the identity columns immutable | M4, with `search_results` |
@@ -313,19 +313,22 @@ comment. No lint rule is disabled anywhere.
 
 None of these blocks Milestone 3. Each says what the code does meanwhile.
 
-### Q-011: no failure edge from most states — open (before Milestone 5)
+### Q-011: no failure edge from most states — applied (2026-11-12)
 
-**ADR:** [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md)  
-**History:** Raised in M2. **Open.** Owner review: see "Owner review of Milestone 2" above.
+**ADR:** [ADR-39](adr/ADR-39.md), [ADR-29](adr/ADR-29.md)
+**History:** Raised in M2, open through the owner review. The owner decided that replay misses and unexpected failures must move the turn to a terminal state. **Applied.**
 
-The state machine in architecture §4 has failure edges only from ANALYZING and SYNTHESIZING (to PERSISTING) and from
-PERSISTING (to FAILED). It matches the diagram exactly, so an unexpected exception while SEARCHING, EXTRACTING, VERIFYING
-or RESOLVING_BELIEFS has no legal way to a final state: `setState(…, 'PERSISTING')` is refused. The architecture says the
-orchestrator never throws and degrades instead, which covers the expected failures, but it does not say what a bug does.
+The state machine in architecture §4 had failure edges only from ANALYZING and SYNTHESIZING (to PERSISTING) and from
+PERSISTING (to FAILED), so an unexpected exception while SEARCHING, EXTRACTING, VERIFYING or RESOLVING_BELIEFS (and in
+RECEIVED, RESOLVING_CONTEXT, PLANNING) had no legal way to a final state.
 
-**Behaviour meanwhile:** the turn stays `running` until `recoverRunning` interrupts it on the next start.
-**Smallest correction if wanted:** allow every non-final state to go to PERSISTING (an edge change in architecture §4 and
-migration 004). Decide before the orchestrator is written.
+**What the code does now:** every non-final state has an edge to PERSISTING (26 edges, in the TypeScript table and in migration 010). An unexpected error
+before persistence makes the coordinator move the turn to PERSISTING and call `complete()` with status `failed`, an error code naming the class
+(`replay_miss`, `internal_error`, `contract_violation`, `persistence:<code>`, `external_error`, `deadline`, `cancelled`) and no assistant message; the client gets an SSE
+`error` event and the original error is logged and rethrown. If the finalising write fails, `fail()` is used when the turn reached PERSISTING, otherwise
+`recoverRunning` still interrupts the turn on the next start. Normal typed outcomes (partial, interrupted, clarify, a fixed reply for a provider outage) are unchanged.
+
+**Not done:** findings gathered before the error are not stored by the failure path, partial search and evidence rows are not cleaned up, and a failed turn is not retried automatically.
 
 ### Q-012: an acknowledgement that arrives before the answer is stored is rejected — open
 
@@ -355,10 +358,9 @@ server streamed, so `renderedThrough` must equal the streamed extent exactly (ot
 
 `TurnCompletion.analysis`, `.context` and `.events` are checked as JSON-shaped envelopes only; their full schemas arrive
 with their producers (turn analysis and memory in Milestone 3, the SSE writer in Milestone 5). Fully validated now: sentences,
-findings, normalised values, metrics, assertions and baseline events. `complete()` **rejects** a completion with non-empty
-`enrichment` or `touchedBeliefKeys`, with an explicit error, until Milestones 3 and 4 can act on them; it never ignores them.
+findings, normalised values, metrics, assertions and baseline events. `complete()` now **accepts and validates** `enrichment` (milestone 3: tags, entity mentions and decisions, with limits, in the same transaction; invalid input rejects the whole completion). It still **rejects** non-empty `touchedBeliefKeys` until milestone 4; it never ignores them. Still envelope-only: `analysis`, `context`, `events`.
 
-### Q-015: which stored assertions may become baselines — decided (rules); loader not implemented (Milestone 3)
+### Q-015: which stored assertions may become baselines — applied (Milestone 3)
 
 **ADR:** [ADR-38](adr/ADR-38.md)  
 **History:** Raised in M2. Direction given by the owner; on 2026-11-12 the owner adopted the recall / baseline-eligibility distinction and the rules were written from the actual placeholder grammar and schema. **Decided**; nothing in code applies them yet.
@@ -368,7 +370,7 @@ The database records every assertion and its delivery state; it does not decide 
 - `F<n>:baseline`, `F<n>:verdict` and `F<n>:derived:<k>` are **not** baselines; only `F<n>` is;
 - an assertion in a sentence with status `unverified`, `unchecked` or `truncated` is recallable but **not** a baseline.
 
-Still open: the baseline loader that applies rules 2 to 5 (M3), and its tests.
+Applied in milestone 3: `BaselineLoader` ([ADR-38](adr/ADR-38.md)) implements rules 1 to 6 and a separate `recallUnverified`; 24 tests. It has no caller until the audit lane (milestone 5).
 
 ### Q-016: `recoverRunning` assumes one application process per database file — open
 
@@ -403,3 +405,16 @@ acked then disconnect; never rendered; duplicate and out-of-order acks; reconnec
 original) without numbers, and only T-DLV-02 is cited by number elsewhere. The eighth (interrupted turns keep the exact
 extent) comes from the Milestone 2 requirements. `T-TRN-*` (turn lifecycle) and `T-ASR-*` (assertion persistence) are new
 IDs assigned in Milestone 2 and do not exist in the contract documents.
+
+### Q-019: provider cache age or capture time is not in the contract — open
+
+**ADR:** [ADR-36](adr/ADR-36.md)
+**History:** Raised 2026-11-12 when the observation definition was relaxed to allow provider-cached copies. **Open.**
+
+ADR-36 needs a content as-of time for a cached observation, and asks that cache metadata and age be preserved when the provider reports them. `SearchHit` and `SourceSnapshot` have only `observedAt`, `providerPublishedAt`, `providerLastUpdatedAt`, `freshFetch` and `crawlStatus`, and the schema has no column for a capture time or cache age. Until this is settled the change detector derives the as-of time from the fields that exist: `observedAt` for a live crawl, otherwise `providerLastUpdatedAt`, otherwise unknown (which cannot support `changed`). Proposed resolution, once the search adapter shows what the provider actually returns: a nullable `contentAsOf` on `SearchHit`, `SourceSnapshot` and the evidence time fields, with an additive migration. Not applied: it changes shared contracts and the schema.
+
+**Finding from the search adapter (2026-11-12, from reading docs.exa.ai; nothing was run against the live API):** the documented search API has no per-result capture time or cache age. A live crawl is requested with `contents.maxAgeHours: 0` (content fetched within the last 60 seconds); a cached result is marked only by `statuses[].source = "cached"`, a field documented for the contents endpoint and **not confirmed** for search. Consequently a cached hit can be dated no better than `publishedAt`, which is a hint. The adapter sets `freshFetch` only when a live fetch was requested, the crawl status is ok and the status source is `live` (an assumption: only `cached` is documented), so it errs towards false. A `contentAsOf` field would therefore usually be null, and the change detector will mostly derive an as-of time from `observedAt` of a live crawl. Raw `source` and `status` are kept in recordings. Decision on adding the field is deferred until a real recording exists.
+
+**Observed on 2026-11-12 with the real API (one request pair):** a search response has no `statuses`, no per-result crawl or cache marker, no crawl date and no last-updated field (see [provider-evaluation.md](provider-evaluation.md)). Consequence: `freshFetch` is false for every real Exa result, so the content as-of time is unknown unless the provider gives a last-updated time (it does not), and a `changed` verdict by re-observation is unreachable on live data. Options: (a) keep the conservative rule, so live audits give `differs_timing_unknown` or use an explicit effective date; (b) treat a request made with `maxAgeHours: 0` as the provider's statement that the content was fetched live, which is documented behaviour but not a per-result report and is not verified for failed fetches. Not decided.
+
+**Implemented with constraints (2026-11-12):** the freshness observation proposal ([proposals/freshness-observation-state.md](proposals/freshness-observation-state.md)) is implemented as approved. Each snapshot records a `crawl_basis` (`confirmed_live`, `requested_live`, `cached`, `unknown`; migration 009). `confirmed_live` needs a per-result provider marker, so it is never produced for real Exa search responses. A `maxAgeHours: 0` request with sufficient content is `requested_live`, which is recorded and reported in the finding but changes no belief status, `displayedAt` or verdict; short or thin content is `unknown`. Option (b) is therefore not adopted: a live request is not treated as a confirmation. Retrieval time stays separate from source time. A dedicated capture-time field is still not added.

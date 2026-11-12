@@ -1,0 +1,91 @@
+{
+  "pageId": "neon-pricing",
+  "vendor": "Neon",
+  "categories": ["usage_based", "conditions"],
+  "entity": {
+    "name": "Neon",
+    "aliases": ["Neon"],
+    "knownPlans": ["free", "launch", "scale"],
+    "officialDomains": ["neon.com"],
+    "otherEntityAliases": []
+  },
+  "pageConfidence": "medium",
+  "claims": [
+    {
+      "id": "launch-cu-hour",
+      "plan": "Launch",
+      "planNorm": "launch",
+      "value": {
+        "amount": 0.106,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "cu-hour",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Launch plan: $0.106 per CU-hour",
+      "contextQuote": "### What is a CU-hour?",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (usage claimed without a metered marker)"
+      },
+      "confidence": "high",
+      "note": "Metered per CU-hour (Neon’s compute unit hour); the unit word is \"CU-hour\"."
+    },
+    {
+      "id": "scale-cu-hour",
+      "plan": "Scale",
+      "planNorm": "scale",
+      "value": {
+        "amount": 0.222,
+        "currency": "unknown",
+        "currencySymbol": "$",
+        "unit": "usage",
+        "usageUnit": "cu-hour",
+        "billingPeriod": "unspecified",
+        "valueKind": "exact"
+      },
+      "modality": "current",
+      "conditions": null,
+      "quote": "Scale plan: $0.222 per CU-hour",
+      "contextQuote": "### What is a CU-hour?",
+      "expected": {
+        "status": "fail",
+        "reason": "subject_binding: weak (only the official domain suggests the subject); unit: fail (usage claimed without a metered marker)"
+      },
+      "confidence": "high"
+    }
+  ],
+  "traps": [
+    {
+      "id": "typical-spend-15",
+      "kind": "other",
+      "description": "\"Typical Spend $15/Month\" (title) is an illustrative figure, not a plan price.",
+      "match": {
+        "amount": 15
+      }
+    },
+    {
+      "id": "startup-credits",
+      "kind": "promotional",
+      "description": "\"up to $100k in credits\" is a program credit, not a price.",
+      "match": {
+        "amount": 100
+      }
+    },
+    {
+      "id": "rate-without-unit",
+      "kind": "usage_without_unit",
+      "description": "A CU-hour rate must carry the metered unit; $0.106 as a flat or unspecified price is wrong.",
+      "match": {
+        "amount": 0.106,
+        "unit": ["flat", "unspecified", "per_seat"]
+      }
+    }
+  ],
+  "ignorable": [],
+  "notes": "The only plan prices in the captured text are the per-CU-hour rates inside an FAQ answer. The title line says \"Typical Spend $15/Month\", which is an example, not a plan price. \"Up to $100k in credits\" is a startup-program credit."
+}
