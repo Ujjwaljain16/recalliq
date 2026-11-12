@@ -1,101 +1,112 @@
 # RecallIQ — design
 
-A chat agent with one tool, web search, that remembers your conversations and can check its own earlier answers
-against today's sources. **Every statement in an answer says how sure it is: verified, sourced, or not found.**
+RecallIQ is a chat agent with one tool, web search. What makes it different is memory with a sense of time: it
+remembers what you asked and what it answered, and when you come back ("On Monday we shortlisted five CRM tools.
+Has anything changed since?") it can tell apart three things most assistants blur together: _the world changed_,
+_my earlier answer was wrong_, and _I can't tell when it changed_. Every sentence it shows carries how sure it is:
+**verified** by code against a quote, **sourced** from a cited page, or **not found**.
 
 ## How a turn works
 
-1. **Understand** (one model call): intent, entities, search queries and time references ("on Monday", "since
-   then"). Times are resolved by code in the user's time zone, not by the model.
-2. **Reconstruct context before routing.** Stored messages, shortlists and entities for the referenced day are
-   retrieved (SQLite FTS5), _then_ a deterministic router picks a lane: chat, recall, research, audit or clarify.
-   History is an input to routing, never something only one lane can see.
-3. **Research, bounded.** A planner (code) turns the analysis into at most 16 searches (4 per entity, 6 entities).
-   Search goes through Exa under a per-process limiter. One absolute 60 s deadline covers the whole turn, with a
-   budget per stage.
-4. **Two kinds of statement.**
-   - **Verified:** prices and releases are extracted as atomic claims with a verbatim quote, then checked by
-     code (quote present, value in quote, plan/billing/unit binding, owner of the page). Code renders them into
-     the answer through placeholders; the model never types a verified number. A label the extractor got wrong
-     (a monthly price billed annually labelled annual, a bare "$" labelled USD) is reset to what the text says
-     and checked again; amounts, quotes and plans are never repaired.
-   - **Sourced:** for everything else the model writes from source excerpts and must cite one. A deterministic
-     check withholds the sentence unless every number, date, amount and name appears in _one_ cited excerpt.
-5. **Temporal truth.** Snapshots, evidence, assertions (what we actually said) and beliefs are separate,
-   append-only layers. "Changed" is only ever said when the old value was observed after our answer and the new
-   value later on the same page, or the page states an effective date. Otherwise the answer says the values
-   differ and the timing is unknown. Our earlier answer is a baseline only if it was actually shown to the user
-   (client acknowledgement) and was verified.
-6. **Safe delivery.** Sentences stream as they pass validation; a sentence that fails is withheld whole, never
-   cut. Change words ("raised", "launched", "unchanged") need a matching verdict from code. Every finding is
-   reported: one the model left out is added as a line written in code, and a recalled message is quoted once.
+1. **Understand.** One model call turns the message into intent, companies, search queries and time phrases
+   ("on Monday", "since then"). Code, not the model, turns those phrases into dates in your time zone.
+2. **Remember before deciding.** Messages, shortlists and companies from the day you referred to are fetched
+   (SQLite full-text search). Only then does a deterministic router pick a lane: chat, recall, research, audit or
+   clarify. History is an input to routing, not a feature of one lane.
+3. **Search, bounded.** A planner written in code turns the analysis into at most 16 searches. One 60 s deadline
+   covers the whole turn, and each stage has its own budget, so a slow step cannot starve the answer.
+4. **Answer early, then check.** As soon as pages arrive, a short sourced answer streams ("Here is what the
+   sources say while I check the details"). Meanwhile prices and releases are extracted as small claims with a
+   verbatim quote and checked by code: the quote is on the page, the number is in the quote, the plan, unit and
+   billing period bind to it, and the page belongs to the company.
+5. **Write with placeholders.** The model writes the checked part with `[[F3]]`-style placeholders and code fills
+   in the verified values, so the model never types a verified number. A sentence citing a page is released only
+   if every number, date and name in it appears in that page's excerpt. A sentence that fails is withheld whole,
+   never cut mid-way, and a finding the model forgot is added as a line written in code.
+6. **Keep the record.** What each page said, what the agent claimed, and what it now believes are separate
+   append-only layers. An earlier answer counts as a baseline only if it was verified _and_ the browser confirmed
+   it was shown to you. Asking "Is the price you gave me still correct?" compares against exactly that.
 
 ## Why this shape
 
-- **Reason with the model, decide with code.** The model interprets language and writes prose; code owns time,
-  routing, budgets, verification, belief resolution and state transitions (a 26-edge turn state machine with
-  typed failures). The model cannot silently rewrite what the system believes or what it said before.
-- **The examples are about time and memory.** "Has it changed since Monday?" needs to separate _the world
-  changed_, _my answer was wrong_ and _I can't tell when_. That is only possible if what was said, what each
-  source said and when are stored separately.
-- **Modular monolith + SQLite.** One process, transactional storage with triggers for ownership and
-  immutability, `npm install && npm run dev`, no infrastructure to run.
+- **The model reasons, code decides.** Language is the model's job; time, routing, budgets, verification and
+  state changes are code (a 26-edge turn state machine with typed failures). The model cannot quietly rewrite
+  what the system said before or what it believes.
+- **The example questions are about time.** "Has it changed since Monday?" is unanswerable unless what was said,
+  what each source said, and when, are stored separately. That drove the whole data model.
+- **One process, one SQLite file.** Triggers enforce ownership and immutability; `npm install && npm run dev` is
+  the whole setup.
+
+## What broke along the way, and what we changed
+
+Most of the design above was written first. Most of what makes it work live came from running it and watching it
+fail.
+
+- **The planned model fell over.** `gemini-3.5-flash` returned 503s and 429s on the free tier. We moved to
+  `flash-lite` with a fallback model and a rate limiter per model. Then our own limiter (15 calls a minute) starved
+  the final answer until the 60 s deadline cut it off; calls now divert to the fallback model instead of waiting,
+  and a call still running after a few seconds is also sent there (first answer wins).
+- **Checked answers felt dead.** Price questions showed nothing for 20–36 s while extraction ran, so we added the
+  quick sourced answer. A live rerun then showed it silently switched off for exactly the history questions,
+  because the recalled-message opening had to come first. The opening now goes out first and the quick answer
+  follows it (first text 31 s → 9–12 s).
+- **Saying things twice.** The quick and checked parts repeated the same price. Comparing words failed on
+  paraphrases and wrongly matched two products at the same price; comparing the numbers plus the product names
+  works.
+- **A safety check ate the memory feature.** A guard against repeating a value also withheld every answer that
+  quoted your earlier message, so memory answers became "I could not process that". Fixing it, and searching
+  across all your conversations, took the LongMemEval dev sample from 13% to 38%.
+- **Right numbers, wrong labels.** Correct prices were thrown away because the extractor called "$100 per user per
+  month, billed annually" an annual price, or a bare "$" US dollars. Code now resets a label to what the text
+  says and checks again; amounts and quotes are never touched. Salesforce went from one verified price to four.
+- **Strict by design, and switched off by it.** On a fresh install Supabase's own site counted as an unofficial
+  page, and Exa never confirms a live crawl, so every price was "last seen date unknown" and no earlier answer
+  could become a baseline. The self-audit could not fire at all, and a "still correct?" question was even routed
+  past it. We relaxed both rules on purpose ([ADR-44](docs/adr/ADR-44.md)): a domain that is exactly the company's
+  name is official, and a requested live crawl dates the page. It now answers "no sign of a change in what I
+  could check" against its own earlier answer; "changed on <date>" still needs proof of when.
+- **Smaller ones:** a second search round that used up the deadline, a benchmark harness throttled by our own
+  new-session quota, one plan listed in four currencies, a quick sentence about a release that the release check
+  then said did not exist. Each has a test that fails if it comes back.
 
 ## Considered and rejected
 
-- **Vector-store RAG as the whole memory.** Good at "what did we discuss", but it cannot say what was asserted
-  when, so it cannot audit an old answer. FTS5 over stored messages plus structured records was enough; no
-  embeddings until a measurement shows recall failing.
-- **An unrestricted agent loop / multi-agent orchestration.** Harder to bound in time and cost under a 60 s turn
-  and free-tier rate limits; a planner with a fallback round gives most of the benefit.
-- **LLM-only verification.** A model judge is used only for entailment ambiguity; it never decides on its own
-  that a number is supported.
-- **Letting the model speak freely about prices.** Fast, but unauditable. Sourced statements keep speed for
-  general questions while only verified statements can claim a change.
-- **Graph database, microservices.** Not justified for one user's history on one machine.
+- **Vector RAG as the whole memory.** Good for "what did we discuss", but it cannot say what was asserted when.
+  Full-text search over stored messages plus structured records was enough; no embeddings until a measurement
+  says otherwise.
+- **An open-ended agent loop or several agents.** Hard to bound under a 60 s deadline and free-tier limits; a
+  planner with one fallback round gives most of the benefit.
+- **Letting the model talk freely about prices.** Fast and unauditable. Sourced sentences keep general answers
+  fast; only verified ones can claim a change.
+- **A model as the verifier.** A model judge only settles ambiguous comparisons; it never decides on its own that
+  a number is supported.
+- **Graph database, microservices.** Not justified for one person's history on one machine.
 
-## What has been measured (single runs, `gemini-3.5-flash-lite` free tier + Exa)
+## What we measured (single runs, `gemini-3.5-flash-lite` free tier + Exa)
 
-- **Latency, live runs (single samples):** chat and memory 1.4–3.3 s to first text; general research 5–10 s. Price
-  questions stream a cited answer from the sources at 8–12 s (22 s total for one vendor, 43 s for five) while the
-  checks run; before this they showed nothing for 20–36 s. Each model has its own rolling per-minute budget, and a
-  call goes to a fallback model instead of waiting when the main model's budget is used up; an analysis or
-  extraction call still running after 4 s / 12 s is also sent to the fallback model, first answer wins. The three
-  history questions, live: first text 5–13 s, complete in 20–50 s.
-- **Temporal rules:** 55 holdout cases written from the specification and committed before the first run
-  (`docs/holdout-evaluation.md`); all pass. About 2,470 automated tests, with mutation checks on every protection
-  added recently.
-- **Extraction:** on 20 real pricing pages (AI-labelled, partly reviewed), the current prompt reached 58% claim
-  precision without an official-domain registry and 0 false passes in every run (`docs/extraction-calibration.md`).
-- **Security review:** no critical or high findings; rebinding, quota, CORS and baseline-poisoning issues fixed
-  (`docs/security.md`).
-- **Public benchmarks** (FreshQA, SimpleQA, LongMemEval; `docs/benchmarks.md`): 30-question dev samples, then
-  100-question test samples, one run each, all finished. SimpleQA 80/100 (80%, 95% range 71–87%; 13% declined,
-  7% wrong). FreshQA 69/100 (69%, 59–77%); fast-changing facts are weak (11 of 27, 41%) and its answer key dates
-  from April 2026. LongMemEval 37/100 (37%, 28–47%): single-session questions 15 of 24 on the user and assistant
-  sides, but multi-session (3 of 24) and temporal reasoning (6 of 25) are weak because counting and date
-  arithmetic across messages are not supported. Median time to first text 4–7 s. Graders: SimpleQA uses the
-  published template; the other two are our wording of each paper's description. Small samples, a lite model on
-  a free tier, with some provider failures retried: read them as a rough picture, not a score to compare with
-  other systems.
+- **Speed:** chat and memory 2–4 s; general research 5–10 s; price questions show sourced text after 5–13 s and
+  finish in 20–50 s.
+- **Benchmarks, 100-question samples** (`docs/benchmarks.md`): SimpleQA 80% (95% range 71–87%, 7% wrong, 13%
+  declined); FreshQA 69% (59–77%; fast-changing facts 41%, and its answer key is from April 2026); LongMemEval 37%
+  (28–47%; single-session recall 15 of 24, counting across conversations 3 of 24). Small samples and our own
+  grader wording for two of them: a rough picture, not a leaderboard score.
+- **Correctness:** 2,600+ automated tests, mutation-checked protections, 55 temporal cases written before the
+  first run (all pass), and an independent security review with no critical or high findings.
 
 ## Known limits
 
-- Without an owner list of official domains (`OFFICIAL_DOMAINS_FILE`) ordinary pages count as low authority, so a
-  live run will say "differs, timing unknown" rather than "changed". This is deliberate: an unknown page must not
-  be able to manufacture a change.
-- Exa reports no per-result crawl marker, so freshness is "last seen" rather than "confirmed live".
-- Grounding is lexical: a correct number attached to the wrong plan in the same excerpt passes.
-- A quick sourced sentence can mention a release that the release check did not count (a research paper, say),
-  so the two sections can read as disagreeing.
-- Memory search reads the user's side of conversations; the assistant's side is audited through stored
-  assertions instead.
+- The exact-name rule can be wrong when someone else owns the name (linear.com is not Linear's site); an
+  `OFFICIAL_DOMAINS_FILE` entry overrides it.
+- Grounding is lexical: a right number attached to the wrong plan inside one excerpt passes.
+- Counting and date arithmetic across remembered conversations is not supported.
+- On the free tier, rate limits can slow or interrupt a turn; the app says so and offers a retry.
 
 ## With another week
 
-1. Counting and date arithmetic across remembered messages (the weak LongMemEval types).
-2. Gap-directed second search round (search for _why_ a claim failed: plan, billing period, owner page).
-3. A small, reviewed official-domain registry flow so change verdicts work out of the box.
-4. Evaluate stronger models per role (analysis, extraction, synthesis) on the dev sets.
+1. Counting and date arithmetic across remembered conversations.
+2. A second search round aimed at _why_ a claim failed (missing plan, billing period, the company's own page).
+3. Fetch the vendor's pricing page directly when search only returns blogs, with proper SSRF defences.
+4. Compare stronger models per role on the benchmark dev sets.
 
-Details: `docs/architecture.md`, `docs/adr/`, `docs/running.md`, `docs/testing.md`.
+More: [docs/architecture.md](docs/architecture.md), [docs/adr/](docs/adr/README.md),
+[docs/security.md](docs/security.md), [docs/testing.md](docs/testing.md).
