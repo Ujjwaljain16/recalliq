@@ -7,6 +7,11 @@ something, it says so instead of guessing.
 
 **How it works and why:** [DESIGN.md](DESIGN.md) (one page). Decisions: [docs/adr/README.md](docs/adr/README.md).
 
+![A live run, no edits: adding the example history, a question about "Monday" answered from memory and then researched, and the agent checking its own earlier Supabase answer](docs/media/demo.gif)
+
+_A real run on the free Gemini tier, recorded without edits and sped up only where nothing changed on screen
+(80 s). The CRM answer is partial: some vendors' prices could not be confirmed, and it says which._
+
 ## Try it in two minutes
 
 Needs Node.js 22 or newer. No database server: storage is one local SQLite file.
