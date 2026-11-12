@@ -111,7 +111,7 @@ export class ExampleHistory {
     const list = examples(today);
     this.db.transaction(() => {
       for (const ex of list) {
-        const at = (firstInstantOnOrAfter(ex.day, tz) + ex.hour * 3_600_000);
+        const at = firstInstantOnOrAfter(ex.day, tz) + ex.hour * 3_600_000;
         const clock = fixedClock(at);
         const conversation = new ConversationRepository(this.db, clock).create({
           userId,
