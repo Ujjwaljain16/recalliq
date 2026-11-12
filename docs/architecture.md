@@ -1,12 +1,12 @@
-# Stage 3: Architecture Selection and System Design
+# Architecture Selection and System Design
 
-**Status:** approved direction, reconciled in Stage 3.1 on 2026-11-11.
+**Status:** approved direction, reconciled after the design review on 2026-11-11.
 **Companion documents:**
 - [contracts.md](contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
 - [design-doc-blueprint.md](history/design-doc-blueprint.md): the plan for the final design document (historical).
 - [design-review.md](history/design-review.md): the record of the first design reconciliation (historical).
 
-The Stage 2 decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, Exa as provisional search provider, and Haiku + Sonnet as provisional models.
+The earlier technology decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, Exa as provisional search provider, and Haiku + Sonnet as provisional models.
 
 Where this document and the contracts file disagree, **the contracts file wins**, and the disagreement is a bug to fix.
 
@@ -95,7 +95,7 @@ When the currency is unknown, the statement is still valid: we record that the p
 
 Only `pass` statements can feed beliefs, prices or change verdicts. `weak` statements reach the synthesizer only as narrative context, and are always labelled "unconfirmed".
 
-**Known cost** [HYPOTHESIS, to measure in Phase 4]. The bare-`$` and subject-binding rules will push more vendor pricing statements to `weak` or currency-unknown. We accept that: under-claiming is better than misattributing. The bake-off measures the actual weak rate (U15).
+**Known cost** [HYPOTHESIS, to measure in the search provider bake-off]. The bare-`$` and subject-binding rules will push more vendor pricing statements to `weak` or currency-unknown. We accept that: under-claiming is better than misattributing. The bake-off measures the actual weak rate (U15).
 
 ### R3. Belief keys, time and belief resolution
 
@@ -169,7 +169,7 @@ Release facts use `release:v1|e=<id>|t=<sha1(normalised title)>`. They form an e
 
 **Inputs.** Every `pass` statement for one key, for this user, plus the previous belief.
 
-**Authority tiers** (unchanged from Stage 3):
+**Authority tiers:**
 
 | Tier | Source |
 |---|---|
@@ -316,7 +316,7 @@ General research path: when the turn names no entity, the planner searches the a
 
 ### R5. Evaluation data classes
 
-This is unchanged from Stage 3.
+This part was not changed by the design review.
 
 | Class | Identification | Use |
 |---|---|---|
@@ -374,7 +374,7 @@ There is one absolute deadline per turn: `deadline = startedAt + TURN_DEADLINE_M
 
 ## Part II: Candidate architectures and selection
 
-This part is unchanged from Stage 3. Four options were scored:
+This part was not changed by the design review. Four options were scored:
 
 | Option | Weighted score |
 |---|---|
@@ -715,7 +715,7 @@ The two proofs:
   - **Re-observation bracketing.** All of: (1) an observation of `vB` made **after** T0 (the baseline's own fetch precedes T0 and does not count); (2) a later observation of `C.value`; (3) both from the same source identity, the same `url_norm` (semantically meaningful query parameters are kept; only tracking parameters are removed); (4) `comparableKeys === 'equal'` for the two observations and the baseline, across every pricing dimension including locale ([ADR-37](adr/ADR-37.md)); (5) the locale is known, not `und`: an unknown locale cannot independently establish `changed`. `changeWindow = {after: the vB observation, notAfter: C's observation of C.value}`.
   - **Explicit effective date.** Some `pass` statement at tier A1 or A2 for `C.value` carries an `effectiveFrom` that the extraction explicitly associates with that price (a date stated in the text about that price, not the page's publication date or the fetch time) and `effectiveFrom > T0`. `changeWindow` is "from `effectiveFrom`". Only an explicitly associated, reliable effective date can establish timing; **publication dates and fetch dates alone never do** (a fresh fetch never sets `effectiveFrom`, T-BEL-22).
 
-  An **observation** is an immutable, timestamped source snapshot that (1) was successfully retrieved after the relevant event (the previous answer for the old value, the old-value observation for the new value), with its retrieval timestamp (`observed_at`) recorded independently of the source's publication or modification timestamps; (2) keeps any cache metadata and age the provider reports; and (3) has content sufficient to support the specific pricing claim (a validated `pass` statement). A provider-cached copy can be an observation. **A fresh retrieval is not necessarily fresh source content:** a cached result establishes what the provider returned at a particular time, not that the underlying source had that value at that time. So each observation also needs a **content as-of time**: `observed_at` when the provider reports a successful live crawl (`fresh_fetch` and `crawl_status = ok`); otherwise the provider's last-updated time when it gives one (the conservative choice: the earlier time); otherwise unknown. If the as-of time cannot be established, the observation cannot support a positive `changed` verdict. For the proof, the old-value observation's retrieval and as-of times must both be later than the previous answer, and the new-value observation's must be later than the old-value observation's. This introduces no crawler: it only reads what the search provider returned. Whether the contract can hold a provider-reported cache age or capture time is open: Q-019. Neither route is implemented: the change detector is milestone 4.
+  An **observation** is an immutable, timestamped source snapshot that (1) was successfully retrieved after the relevant event (the previous answer for the old value, the old-value observation for the new value), with its retrieval timestamp (`observed_at`) recorded independently of the source's publication or modification timestamps; (2) keeps any cache metadata and age the provider reports; and (3) has content sufficient to support the specific pricing claim (a validated `pass` statement). A provider-cached copy can be an observation. **A fresh retrieval is not necessarily fresh source content:** a cached result establishes what the provider returned at a particular time, not that the underlying source had that value at that time. So each observation also needs a **content as-of time**: `observed_at` when the provider reports a successful live crawl (`fresh_fetch` and `crawl_status = ok`); otherwise the provider's last-updated time when it gives one (the conservative choice: the earlier time); otherwise unknown. If the as-of time cannot be established, the observation cannot support a positive `changed` verdict. For the proof, the old-value observation's retrieval and as-of times must both be later than the previous answer, and the new-value observation's must be later than the old-value observation's. This introduces no crawler: it only reads what the search provider returned. Whether the contract can hold a provider-reported cache age or capture time is open: Q-019. The change detector ([src/belief/detector.ts](../src/belief/detector.ts)) and the as-of rule ([src/belief/as-of.ts](../src/belief/as-of.ts)) implement this definition ([ADR-36](adr/ADR-36.md)).
 
   *Superseded text, kept as history:* "same-source bracketing: there is an observation of `vB` from C's winning `url_norm` with `displayedAt ≥ T0 − 48 h` (usually the baseline's own fresh fetch), and C's winning observation of `C.value` is later."
 
@@ -817,7 +817,7 @@ Other adapters: replay, recording and fake. Model IDs come from config.
 
 ### 12. Database
 
-The DDL is in contracts §1. Changes in 3.1:
+The DDL is in contracts §1. Changes made in the design review:
 
 **Time and keys**
 - Snapshot time is `observed_at`.
@@ -875,7 +875,7 @@ The authoritative types are contracts §2 `SseEvent`. Summary:
 
 ### 14. Errors and degradation
 
-**Failure matrix** (the "deadline" row is new in 3.1):
+**Failure matrix** (the "deadline" row was added in the design review):
 
 | Failure | User impact | Persisted state |
 |---|---|---|
@@ -894,7 +894,7 @@ The authoritative types are contracts §2 `SseEvent`. Summary:
 
 ### 15. Security boundaries
 
-This is unchanged from Stage 3, with one 3.1 addition: source titles and URLs can't bind a subject (R2), which closes the comparison-article misattribution path. The other controls:
+This is unchanged from the original design, with one addition from the design review: source titles and URLs can't bind a subject (R2), which closes the comparison-article misattribution path. The other controls:
 
 | Concern | Control |
 |---|---|
@@ -945,7 +945,7 @@ The architecture is unchanged: replay through the orchestrator with a FixedClock
 | INV-09 | No `pass` price statement has a subject established only by title, URL or domain |
 | INV-10 | No live adapter is constructed in replay mode |
 
-**Regression cases added in 3.1** (in addition to the 60 from Stage 3):
+**Regression cases added in the design review** (in addition to the original 60):
 
 | Issue | Case IDs | Content |
 |---|---|---|
@@ -997,7 +997,7 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
 
 ---
 
-## Part IV: Adversarial scenarios, updated for 3.1
+## Part IV: Adversarial scenarios, updated after the design review
 
 1. **Exact date with several conversations.** Unchanged. A date-only question lists every question asked that day. A date + topic question with more than one match goes to clarify. No arbitrary pick.
 
@@ -1005,7 +1005,7 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
    - If our 3 Nov answer wasn't supported by its own evidence under re-verification, the verdict is `baseline_incorrect: unsupported_at_time`.
    - If an A1 statement shows the other value was in effect by 3 Nov (`effectiveFrom ≤ T0`, or `displayedAt ≤ T0` with a known basis), the verdict is `baseline_incorrect: other_value_in_effect_at_T0`.
    - *(2026-11-12)* A price with an explicitly associated A1/A2 `effectiveFrom > T0` gives `changed` from that date. A publication date or a fetch time alone gives no timing.
-   - **If nothing shows timing, the verdict is `differs_timing_unknown`, not `changed`.** The pre-3.1 behaviour of reporting `changed` with a caveat was removed because it claimed more than the evidence showed.
+   - **If nothing shows timing, the verdict is `differs_timing_unknown`, not `changed`.** The earlier behaviour of reporting `changed` with a caveat was removed because it claimed more than the evidence showed.
 
 3. **The vendor changes the pricing page without an announcement.**
    - *(Revised 2026-11-12.)* The baseline's own fetch precedes T0 and no longer counts. `changed` needs the old price observed again **after** T0 on the same `url_norm`, then the new price observed later; the window is between those two observations. Otherwise the verdict is `differs_timing_unknown`. The earlier text allowed a fresh fetch up to 48 h before T0.
@@ -1030,7 +1030,7 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
    - Sentences that were never streamed get a `not_presented` event.
    - On reconnect, the client re-renders and acks.
 
-8. **Memory poisoning.** Unchanged, plus a 3.1 hardening: a page title naming our entity can't bind a planted price.
+8. **Memory poisoning.** Unchanged, plus a hardening from the design review: a page title naming our entity can't bind a planted price.
 
 9. **An interrupted answer in the DB.**
    - Interrupted assistant messages carry sentence statuses, ending in `truncated`.
@@ -1044,9 +1044,9 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
 
 ## Part V: Roadmap
 
-The roadmap is unchanged from Stage 3, phases 0–14, each with a doc gate from the [blueprint](history/design-doc-blueprint.md) §6. Within those phases, 3.1 adds:
+The roadmap has 15 steps (0 to 14), each with a documentation gate from the [blueprint](history/design-doc-blueprint.md) §6. Within those steps, the design review adds:
 
-| Phase | Additions |
+| Step | Additions |
 |---|---|
 | 1 | Triggers and owner checks; T-DB-* |
 | 3 | `TurnBudget` from the first vertical slice; T-BUD-01..03 |
@@ -1063,13 +1063,13 @@ See the [blueprint](history/design-doc-blueprint.md).
 
 | ID | Item | Default | Settled by |
 |---|---|---|---|
-| U1 | Search provider | Exa | Phase-4 bake-off |
-| U7 | Extraction model | Sonnet 5.5 at low effort | Phase-11 eval |
+| U1 | Search provider | Exa | Step-4 bake-off |
+| U7 | Extraction model | Sonnet 5.5 at low effort | Step-11 eval |
 | U12 | Time windows: freshness, contest window, FindingSet reuse | 30 d / 7 d / 30 min | Eval. *(The bracketing tolerance, 48 h, was removed on 2026-11-12, see U19.)* |
 | U13 | Tier-B domain list | About 20 domains | Eval |
 | U14 | Run to completion after a client disconnect | On | Observed cost |
-| U15 | Rates of weak results and unknown currency on real pricing pages | Unknown | Phase-4 measurement. If high, revisit the R2 association window, but **never** relax title binding or bare-`$` handling |
-| U16 | Whether Exa `text` keeps enough heading structure for header association | Unknown | Phase-4 measurement |
-| U17 | Whether Exa's crawler location affects the prices it fetches (regional pricing) | Unknown; not documented | Phase-4 spot check; otherwise documented as limitation L-11 |
-| U18 | Whether `sendBeacon` acks on `pagehide` work reliably across browsers | Re-render ack is the fallback | Manual check in Phase 9 |
+| U15 | Rates of weak results and unknown currency on real pricing pages | Unknown | Step-4 measurement. If high, revisit the R2 association window, but **never** relax title binding or bare-`$` handling |
+| U16 | Whether Exa `text` keeps enough heading structure for header association | Unknown | Step-4 measurement |
+| U17 | Whether Exa's crawler location affects the prices it fetches (regional pricing) | Unknown; not documented | Step-4 spot check; otherwise documented as limitation L-11 |
+| U18 | Whether `sendBeacon` acks on `pagehide` work reliably across browsers | Re-render ack is the fallback | Manual check in step 9 |
 | U19 | Same-source bracketing tolerance | **Closed 2026-11-12: removed.** The old-value observation must be after T0 ([Q-001](questions.md), [ADR-36](adr/ADR-36.md)) | Nothing to tune |

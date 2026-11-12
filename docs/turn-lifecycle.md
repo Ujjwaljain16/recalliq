@@ -1,4 +1,4 @@
-# Turn lifecycle, delivery and migrations (Milestone 2)
+# Turn lifecycle, delivery and migrations
 
 What the persistence layer guarantees about turns, acknowledgements and assertions, and where each guarantee is
 enforced. The normative contracts ([contracts.md](contracts.md)) were **not** modified; the
@@ -13,12 +13,16 @@ migrations below add to them.
 | 003 | `003_ownership_consistency.sql` | Evidence, findings and assertions only reference rows owned by the same user as their turn; links cannot be edited | Q-007 (evidence, findings, assertions) |
 | 004 | `004_turn_lifecycle.sql` | The turn state machine (19 edges; its transition trigger is replaced by 010), finality of finished turns, immutable turn identity, state/status coupling | Q-006 (with the contract's `turns_one_running` index) |
 | 005 | `005_delivery_acknowledgement.sql` | Streamed vs rendered extents, "presented only if acknowledged", the rules for `presented` / `not_presented` / verdict events | Delivery boundary (architecture R4) |
+| 006 | `006_decision_ownership.sql` | `decisions` and `decision_entities` belong to the same user as the conversation and message; identity columns are immutable; links are append-only | Q-007 (decisions) |
+| 007 | `007_search_ownership.sql` | `search_requests` and `search_results` belong to the same user as their turn and snapshot; append-only | Q-007 (search records) |
+| 008 | `008_belief_ownership.sql` | `beliefs` and `belief_history` reference only the same user's entities and evidence | Q-007 (beliefs) |
+| 009 | `009_snapshot_crawl_basis.sql` | Each snapshot records a `crawl_basis` (`confirmed_live`, `requested_live`, `cached`, `unknown`); a snapshot flagged as a fresh fetch cannot claim `requested_live` or `cached` | [ADR-22](adr/ADR-22.md) |
 | 010 | `010_turn_failure_edges.sql` | Drops and recreates the transition trigger with 26 edges: a failure edge to PERSISTING from every non-final state that lacked one. Every other lifecycle trigger of 004 is untouched | ADR-39 |
 
 Migration 002 went slightly beyond the three tables Q-002 named (relabelling and `db_mode` immutability); that
 was the validated proposal in [proposals/demo-isolation.md](proposals/demo-isolation.md), and it is
-reported as such. Migration 003 does not cover `search_requests`, `decisions`, `beliefs` or snapshot-to-turn links:
-Q-007 stays partly open.
+reported as such. Migration 003 covers evidence, findings and assertions; migrations 006 to 008 add decisions, search records and
+beliefs (Q-007). Snapshots have no turn column, so their ownership is enforced at their links.
 
 ## State machine
 
@@ -136,5 +140,5 @@ An interrupted answer streamed through sentence 2 of 5, with claims in 1, 3 and 
 
 See [questions.md](questions.md) Q-011 to Q-018. The ones that matter most: an acknowledgement sent before the
 answer is stored is rejected (the browser must re-acknowledge after rendering the stored answer); `recoverRunning`
-assumes one application process per database file; write-time enrichment is accepted since milestone 3, but belief recomputation (`touchedBeliefKeys`) in `complete()` is rejected
-until milestone 4.
+assumes one application process per database file; write-time enrichment is accepted by `complete()`, but belief recomputation (`touchedBeliefKeys`) is rejected: beliefs are recomputed
+separately, by the belief repository before the turn completes.
