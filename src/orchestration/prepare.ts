@@ -1,3 +1,4 @@
+import { escapeRegExp } from '../shared/regexp.js';
 import type { PersistedSentence, SentenceStatus } from '../shared/answer.js';
 import type { NormalizedValue } from '../shared/evidence.js';
 import type { Finding, FindingSet } from '../shared/findings.js';
@@ -198,7 +199,9 @@ export function findingsForAnswer(
   const asked = userMessage.normalize('NFKC').toLowerCase();
   const namesPlan = (f: Finding): boolean => {
     const plan = /\|p=([^|]+)/.exec(f.beliefKey ?? '')?.[1];
-    return plan !== undefined && plan !== '-' && new RegExp(`\\b${escapeRe(plan)}\\b`).test(asked);
+    return (
+      plan !== undefined && plan !== '-' && new RegExp(`\\b${escapeRegExp(plan)}\\b`).test(asked)
+    );
   };
   const plain = (f: Finding): boolean =>
     f.intent === 'pricing' &&
@@ -239,8 +242,4 @@ export function findingsForAnswer(
   }
   if (dropped.size === 0) return set;
   return { ...set, findings: set.findings.filter((f) => !dropped.has(f.id)) };
-}
-
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

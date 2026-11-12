@@ -99,7 +99,7 @@ Most of the design was written first. Most of what makes it work live came from 
 - **Observed latency, not a load test.** Across the 300 benchmark questions: median first text 4–7 s and median
   completion 6–8 s, 90th percentile 12–15 s. Price questions with several companies are slower: in live runs,
   first text after 5–13 s and completion in 20–50 s, and a five-company question occasionally hits the 60 s limit.
-- **Correctness:** 2,600+ automated tests, mutation-checked protections, 55 temporal cases written before the
+- **Correctness:** about 2,600 automated tests, mutation-checked protections, 55 temporal cases written before the
   first run (all pass), and an independent security review with no critical or high findings.
 
 ## Known limits

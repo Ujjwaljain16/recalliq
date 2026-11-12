@@ -126,6 +126,13 @@ acknowledgement (ADR-23): monotonic and idempotent, never past the streamed exte
 
 Runs the privacy deletion procedure (contracts 1.1). `204`; `409` while a turn is running in it.
 
+### `POST /api/example-history`
+
+Body `{ "tz": "Asia/Kolkata" }`. Writes three dated example conversations for the current user (last Monday's CRM
+shortlist, the most recent 3 November, last Tuesday), titled "Example: ..." and stating no prices, so the history
+questions have something to refer to on a fresh install. `200 { "created": 3 }`, or `{ "created": 0 }` when they
+already exist; `401` without a session; `400` for an unknown time zone. Code: [src/app/example-history.ts](../src/app/example-history.ts).
+
 ## Browser client
 
 `web/` is plain HTML, CSS and ES modules, no build step. It renders each sentence when its delta arrives,

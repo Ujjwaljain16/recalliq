@@ -1,3 +1,4 @@
+import { escapeRegExp } from '../shared/regexp.js';
 import { claimSignature, repeatsClaim, type ClaimSignature } from './duplicate.js';
 import type {
   AnswerPipeline,
@@ -527,7 +528,6 @@ export class LlmAnswerPipeline implements AnswerPipeline {
  * sentence is about an entity when it renders only that entity's findings, or, with no finding, when its text
  * names exactly one of the finding entities. Withheld sentences never reach this, so they leave no stray lines.
  */
-const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export class ParagraphLayout {
   private readonly names: Array<{ name: string; re: RegExp }>;

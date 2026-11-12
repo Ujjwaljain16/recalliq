@@ -7,7 +7,7 @@ the repository, so re-run the suite before relying on these numbers.
 Run everything: `npm run check` (typecheck, lint, format check, tests). Tests only: `npm test`. Every test is offline and
 deterministic: in-memory SQLite or a temporary file, a fixed clock, no network, no live provider.
 
-**Last run** (2026-11-12, on the integration branch): 162 test files (160 passed, 2 skipped), 2615 tests passed, 5 skipped (tests gated on provider keys or platform), 1 `todo`, 0 failed. The per-group counts further down were taken at earlier points and are not updated here; re-run the suite for current figures.
+**Last run** (2026-11-12, on the integration branch): 159 test files (157 passed, 2 skipped), 2591 tests passed, 5 skipped (tests gated on provider keys or platform), 1 `todo`, 0 failed. The per-group counts further down were taken at earlier points and are not updated here; re-run the suite for current figures.
 
 Test IDs: those named in the contract documents are used as given. IDs the documents list without numbers were enumerated here
 (Q-004, Q-018). `T-TRN-*` and `T-ASR-*` are IDs added with the turn lifecycle work and do not exist in the contract documents.
