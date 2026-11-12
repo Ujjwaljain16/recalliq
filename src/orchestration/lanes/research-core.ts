@@ -95,7 +95,12 @@ export async function runResearch(
     ...(options.quick === true && extracted && onSourcesReady
       ? {
           onSourcesReady: (sources: FindingSet['sources']) =>
-            onSourcesReady({ ctx, sources, entities: namesAbout(input, deps, ctx) }),
+            onSourcesReady({
+              ctx,
+              sources,
+              entities: namesAbout(input, deps, ctx),
+              releasesChecked: input.analysis.intents.includes('releases'),
+            }),
         }
       : {}),
   });

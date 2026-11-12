@@ -35,6 +35,8 @@ export interface LaneInput {
     lead?: string[];
     /** The names the question is about. */
     entities?: string[];
+    /** The turn checks releases: the quick section leaves release claims to that check. */
+    releasesChecked?: boolean;
   }) => void;
 }
 

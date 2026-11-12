@@ -134,6 +134,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         recall: new Map(),
         ctx: input.ctx,
         ...(input.entities ? { entities: input.entities } : {}),
+        ...(input.releasesChecked ? { releasesChecked: true } : {}),
         userMessage: input.userMessage,
         window: [],
         tz: input.tz,
@@ -238,6 +239,14 @@ export class LlmAnswerPipeline implements AnswerPipeline {
           !about.some((n) => namesEntity(withoutAttribution(c.text), n))
         )
           return withhold(['off_topic']);
+        // When the turn checks releases, a release is said once that check has counted it, with its coverage.
+        // A quick sentence saying "X launched Y" could otherwise sit above "X: no releases found".
+        if (
+          quick &&
+          input.releasesChecked === true &&
+          RELEASE_CLAIM.test(withoutAttribution(c.text))
+        )
+          return withhold(['unchecked_release']);
         // A repeat is dropped without a warning: nothing the user needs is missing.
         if (said.some((s) => repeatsClaim(sig, s))) return;
         said.push(sig);
@@ -559,6 +568,10 @@ export class ParagraphLayout {
     return named.length === 1 ? (named[0]?.name ?? null) : null;
   }
 }
+
+/** A sentence that reports a launch, release or announcement. */
+const RELEASE_CLAIM =
+  /\b(?:launch(?:es|ed)?|releas(?:e|es|ed)|ship(?:s|ped)|introduc(?:es|ed)|announc(?:es|ed)|publish(?:es|ed)|unveil(?:s|ed)|roll(?:s|ed)? out|debut(?:s|ed)?)\b/i;
 
 /** The sentence without its "According to <domain>" opening, which names the source, not the subject. */
 const withoutAttribution = (text: string): string => text.replace(/according to \S+/gi, ' ');

@@ -118,3 +118,37 @@ describe('the continuation of a quick section in the verified prompt', () => {
     expect(m?.content).not.toContain('already_shown');
   });
 });
+
+describe('quick section and a release check in the same turn', () => {
+  const releaseSources = {
+    [SRC]: {
+      url: 'https://acme.example/pricing',
+      title: 'Acme pricing',
+      domain: 'acme.example',
+      tier: 'A1' as const,
+      observedAt: T_NOV_3,
+      content: { text: 'Acme CRM launched Smart Docs this week.', publishedAt: null },
+    },
+  };
+  const LAUNCH = 'According to acme.example, Acme CRM launched Smart Docs [[S:src_pricing]].';
+
+  it('leaves a release claim to the release check when the turn checks releases', async () => {
+    const { events, emit } = sink();
+    const out = await new LlmAnswerPipeline({ llm: new Scripted([LAUNCH]) }).quick(
+      { ...input(), sources: releaseSources, releasesChecked: true },
+      new FakeBudget(60_000),
+      emit,
+    );
+    expect(out.sentences).toEqual([]);
+    expect(JSON.stringify(events)).toContain('unchecked_release');
+  });
+
+  it('says it when the turn does not check releases', async () => {
+    const out = await new LlmAnswerPipeline({ llm: new Scripted([LAUNCH]) }).quick(
+      { ...input(), sources: releaseSources },
+      new FakeBudget(60_000),
+      () => undefined,
+    );
+    expect(out.sentences.map((s) => s.text).join(' ')).toContain('Smart Docs');
+  });
+});

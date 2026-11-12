@@ -37,6 +37,7 @@ export type SentenceIssue =
   /** A sourced sentence contains a link or an email address. */
   | 'sourced_link'
   | 'off_topic'
+  | 'unchecked_release'
   /** A sourced sentence quotes more than the per-sentence or per-answer cap. */
   | 'sourced_too_long'
   /** A verified or sourced sentence with fewer than three words once citations and attribution are removed. */
@@ -88,6 +89,8 @@ export interface QuickAnswerInput {
   ctx: ResolvedContext;
   /** The names the question is about; a quick sentence must name one of them when there are any. */
   entities?: readonly string[];
+  /** The turn checks releases itself: the quick section then states none (they are said once checked). */
+  releasesChecked?: boolean;
   userMessage: string;
   tz: IanaTz;
   /** Aborted by the caller when the verified section is ready: the stream stops and the open sentence is dropped. */
@@ -117,6 +120,8 @@ export interface AnswerPipeline {
       earlier?: readonly string[];
       /** The names the question is about (the quick section's sentences must name one of them). */
       entities?: readonly string[];
+      /** See QuickAnswerInput.releasesChecked. */
+      releasesChecked?: boolean;
       /**
        * The quoted passages of the sentences written in code that open this answer (the recalled messages). A
        * model sentence that quotes the same message again is dropped. Not shown to the model.
