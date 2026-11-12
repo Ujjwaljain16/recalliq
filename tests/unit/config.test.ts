@@ -8,9 +8,7 @@ describe('loadConfig', () => {
     expect(config.mode).toBe('real');
     expect(config.dbPath).toBe(path.resolve('data', 'app.db'));
     expect(config.port).toBe(3001);
-    expect(config.models).toEqual({ fast: 'claude-haiku-5-5', main: 'claude-sonnet-5-5' });
     expect(config.secrets).toEqual({
-      anthropicApiKey: undefined,
       geminiApiKey: undefined,
       exaApiKey: undefined,
       sessionSecret: undefined,
@@ -94,11 +92,11 @@ describe('loadConfig', () => {
   it('accepts a valid SESSION_SECRET and API keys', () => {
     const config = loadConfig({
       SESSION_SECRET: 'x'.repeat(32),
-      ANTHROPIC_API_KEY: 'k1',
+      GEMINI_API_KEY: 'k1',
       EXA_API_KEY: 'k2',
     });
     expect(config.secrets.sessionSecret).toHaveLength(32);
-    expect(config.secrets.anthropicApiKey).toBe('k1');
+    expect(config.secrets.geminiApiKey).toBe('k1');
     expect(config.secrets.exaApiKey).toBe('k2');
   });
 });

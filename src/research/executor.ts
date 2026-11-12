@@ -68,7 +68,7 @@ function asSearchError(e: unknown): SearchError | null {
 
 /**
  * One search may take at most this long in total, retries and waits included. Chosen from a single observation
- * batch of 20 live-crawl requests (median 4.6 s, slowest 7.0 s, 5 of 20 over 6 s); see docs/provider-evaluation.md.
+ * batch of 20 live-crawl requests (median 4.6 s, slowest 7.0 s, 5 of 20 over 6 s).
  * The Exa-side crawl timeout stays 5 s (set by the planner) and the turn deadline stays 60 s.
  */
 export const DEFAULT_SEARCH_CAP_MS = 9_000;

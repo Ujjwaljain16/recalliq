@@ -23,7 +23,6 @@ export interface AppConfig {
   port: number;
   /** ALLOWED_ORIGIN: the one cross-origin origin allowed to call the API. Unset by default: no CORS at all. */
   allowedOrigin: string | undefined;
-  models: { fast: string; main: string };
   /** Gemini model id for the Gemini adapter (GEMINI_MODEL); DEFAULT_GEMINI_MODEL when unset. */
   gemini: { model: string | undefined; fallbackModel: string | undefined };
   /**
@@ -31,7 +30,6 @@ export interface AppConfig {
    * The composition root of the research pipeline asserts the ones it uses are present.
    */
   secrets: {
-    anthropicApiKey: string | undefined;
     geminiApiKey: string | undefined;
     exaApiKey: string | undefined;
     sessionSecret: string | undefined;
@@ -55,9 +53,6 @@ const envSchema = z.object({
   DB_PATH: optionalString,
   PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65535).default(3001)),
   ALLOWED_ORIGIN: z.preprocess(blankToUndefined, z.url().optional()),
-  MODEL_FAST: z.preprocess(blankToUndefined, z.string().min(1).default('claude-haiku-5-5')),
-  MODEL_MAIN: z.preprocess(blankToUndefined, z.string().min(1).default('claude-sonnet-5-5')),
-  ANTHROPIC_API_KEY: optionalString,
   GEMINI_API_KEY: optionalString,
   GEMINI_MODEL: optionalString,
   GEMINI_FALLBACK_MODEL: optionalString,
@@ -90,7 +85,6 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
     dbPath: path.resolve(e.DB_PATH ?? DEFAULT_DB_FILE[mode]),
     port: e.PORT,
     allowedOrigin: e.ALLOWED_ORIGIN,
-    models: { fast: e.MODEL_FAST, main: e.MODEL_MAIN },
     gemini: {
       model: e.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
       fallbackModel: fallbackModelOf(
@@ -99,7 +93,6 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
       ),
     },
     secrets: {
-      anthropicApiKey: e.ANTHROPIC_API_KEY,
       geminiApiKey: e.GEMINI_API_KEY,
       exaApiKey: e.EXA_API_KEY,
       sessionSecret: e.SESSION_SECRET,

@@ -79,9 +79,7 @@ export function loadAppEnv(
     problems.push(...error.problems);
   }
 
-  const providerKeys = ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'EXA_API_KEY'].some(
-    (k) => blank(env[k]) !== undefined,
-  );
+  const providerKeys = ['GEMINI_API_KEY', 'EXA_API_KEY'].some((k) => blank(env[k]) !== undefined);
   const requested = blank(env['APP_COMPONENTS']);
   let components: ComponentKind = providerKeys ? 'live' : 'scripted';
   if (requested !== undefined) {

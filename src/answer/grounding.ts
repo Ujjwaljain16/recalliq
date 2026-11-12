@@ -1,3 +1,4 @@
+import { escapeRegExp } from '../shared/regexp.js';
 import type { SentenceIssue } from '../shared/answer.js';
 import { INVISIBLE } from '../llm/prompts/synthesis.js';
 import {
@@ -229,13 +230,12 @@ function collect(
   return masked;
 }
 
-const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 /** Whole-word, case-insensitive occurrence of `word` in `lowerText`. */
 function hasWord(lowerText: string, word: string): boolean {
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escape(word.toLowerCase())}(?![\\p{L}\\p{N}])`, 'u').test(
-    lowerText,
-  );
+  return new RegExp(
+    `(?<![\\p{L}\\p{N}])${escapeRegExp(word.toLowerCase())}(?![\\p{L}\\p{N}])`,
+    'u',
+  ).test(lowerText);
 }
 
 /** A digit outside 0-9 (full-width, Arabic-Indic, ...) or a full-width currency sign: never matched to ASCII. */

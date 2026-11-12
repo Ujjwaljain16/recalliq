@@ -1,6 +1,5 @@
-import { quotesOf } from '../../../src/answer/pipeline.js';
 import { describe, expect, it } from 'vitest';
-import { LlmAnswerPipeline, citedSnapshotIds } from '../../../src/answer/pipeline.js';
+import { LlmAnswerPipeline, citedSnapshotIds, quotesOf } from '../../../src/answer/pipeline.js';
 import { defaultRenderer, type Renderer } from '../../../src/answer/render.js';
 import { FakeLlm } from '../../../src/llm/fake.js';
 import { LlmError, type LlmPort } from '../../../src/shared/llm.js';

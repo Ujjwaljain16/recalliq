@@ -20,7 +20,7 @@ migrations below add to them.
 | 010 | `010_turn_failure_edges.sql` | Drops and recreates the transition trigger with 26 edges: a failure edge to PERSISTING from every non-final state that lacked one. Every other lifecycle trigger of 004 is untouched | ADR-39 |
 
 Migration 002 went slightly beyond the three tables Q-002 named (relabelling and `db_mode` immutability); that
-was the validated proposal in [proposals/demo-isolation.md](proposals/demo-isolation.md), and it is
+was a validated proposal (rationale in [questions.md](questions.md)), and it is
 reported as such. Migration 003 covers evidence, findings and assertions; migrations 006 to 008 add decisions, search records and
 beliefs (Q-007). Snapshots have no turn column, so their ownership is enforced at their links.
 

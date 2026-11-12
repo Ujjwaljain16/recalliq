@@ -3,10 +3,9 @@
 **Status:** approved direction, reconciled after the design review on 2026-11-11.
 **Companion documents:**
 - [contracts.md](contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
-- [design-doc-blueprint.md](history/design-doc-blueprint.md): the plan for the final design document (historical).
-- [design-review.md](history/design-review.md): the record of the first design reconciliation (historical).
+- [DESIGN.md](../DESIGN.md): the one-page summary; [adr/](adr/README.md): the decision records.
 
-The earlier technology decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, Exa as provisional search provider, and Haiku + Sonnet as provisional models.
+The earlier technology decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, and Exa as provisional search provider. The live set runs on Gemini (`gemini-3.5-flash-lite` with a fallback model).
 
 Where this document and the contracts file disagree, **the contracts file wins**, and the disagreement is a bug to fix.
 
@@ -16,7 +15,7 @@ Where this document and the contracts file disagree, **the contracts file wins**
 
 ### R1. How evidence extraction is batched
 
-**What we're deciding.** Search returns about 5–20 source snapshots across up to 6 entities. Each snapshot has to become typed, quoted evidence, which takes a Sonnet call. Latency is dominated by generating roughly 1.5k tokens of structured output. On the other side, splitting the work into more calls means repeating the system prompt in each one.
+**What we're deciding.** Search returns about 5–20 source snapshots across up to 6 entities. Each snapshot has to become typed, quoted evidence, which takes an extraction model call. Latency is dominated by generating roughly 1.5k tokens of structured output. On the other side, splitting the work into more calls means repeating the system prompt in each one.
 
 | | Option 1: one batched call | Option 2: one call per entity, in parallel | **Option 3: adaptive packing (selected)** |
 |---|---|---|---|
@@ -244,7 +243,7 @@ resolve(key, S_all, prev, now, policy):
       - An explicit calendar date (day + month, or month + year), unless it equals the local date of a resolved interval in `ResolvedContext`.
       - A verdict word (`raised`, `increased`, `cut`, `lowered`, `reduced`, `unchanged`, `no change`, `same price`, `launched`, `released`, `shipped`, `discontinued`, `removed`), unless the sentence also contains a `[[F…]]` whose verdict is in that word's compatible set (contracts §3).
       - A global negative claim ("none of them", "no changes", "nothing changed"), unless **every** finding in the FindingSet has a verdict compatible with "no change" **and** no finding is `unable_to_verify`.
-   6. **T3b judge** (Haiku, batched, off the critical path). It runs only for sentences that pass T3a and contain at least two finding placeholders together with a comparative word (`cheaper`, `more expensive`, `best`, `only`, `most`, `least`, `than`).
+   6. **T3b judge** (LLM, batched, off the critical path). It runs only for sentences that pass T3a and contain at least two finding placeholders together with a comparative word (`cheaper`, `more expensive`, `best`, `only`, `most`, `least`, `than`).
 4. **Sentence statuses.** The `pending` state is client-side only.
 
 | Status | Meaning |
@@ -338,13 +337,13 @@ There is one absolute deadline per turn: `deadline = startedAt + TURN_DEADLINE_M
 
    | Call | Cap |
    |---|---|
-   | Search | 9 s in total for one search, retries and waits included (live crawl ≤ 5 s on the provider's side). *Raised from 6 s on 2026-11-12 after a single observation batch: see [provider-evaluation.md](provider-evaluation.md)* |
+   | Search | 9 s in total for one search, retries and waits included (live crawl ≤ 5 s on the provider's side). *Raised from 6 s on 2026-11-12 after a single observation batch of 20 live-crawl requests* |
    | Analysis | 8 s |
    | Extraction | 25 s |
    | Judge | 4 s |
    | Synthesis | Until the deadline |
 
-   **How the search cap behaves.** One search has one time budget of 9 s for all its attempts together: a retry gets what is left, never a fresh 9 s, and it starts only if at least 2 s of that budget and the stage's admission rule allow it. Every attempt is also bounded by the turn deadline minus the stage reserve, and parallel searches all draw on that one deadline. A search that runs out of time is a typed `timeout` (or `deadline`) failure that becomes a coverage failure, never a success. The configured caps for the longest sequence (analysis 8 s, one search round 9 s, extraction 25 s, judge 4 s) add up to 46 s of the 60 s deadline, which leaves 14 s for synthesis and persistence by design. That is an allocation of time limits, not a measured execution time: no full turn has been timed under load, and the only measured figures are in the observation batch in [provider-evaluation.md](provider-evaluation.md).
+   **How the search cap behaves.** One search has one time budget of 9 s for all its attempts together: a retry gets what is left, never a fresh 9 s, and it starts only if at least 2 s of that budget and the stage's admission rule allow it. Every attempt is also bounded by the turn deadline minus the stage reserve, and parallel searches all draw on that one deadline. A search that runs out of time is a typed `timeout` (or `deadline`) failure that becomes a coverage failure, never a success. The configured caps for the longest sequence (analysis 8 s, one search round 9 s, extraction 25 s, judge 4 s) add up to 46 s of the 60 s deadline, which leaves 14 s for synthesis and persistence by design. That is an allocation of time limits, not a measured execution time: no full turn has been timed under load, and the only measured figures come from one observation batch of 20 live-crawl requests (median 4.6 s, slowest 7.0 s).
 
 3. **Reserves.** Time is set aside for the stages still to come:
 
@@ -429,7 +428,7 @@ flowchart LR
     api --> core --> db
   end
   core -- "web search (the one external tool)<br/>Exa /search only" --> exa[(Exa Search API)]
-  core -- "LLM inference (reasoning engine, not a tool)" --> llm[(Anthropic Messages API)]
+  core -- "LLM inference (reasoning engine, not a tool)" --> llm[(Gemini API)]
   dev([Developer]) -- "npm run eval / record / seed:demo" --> app
 ```
 
@@ -441,11 +440,11 @@ flowchart LR
 flowchart TB
   API[api: routes, SSE writer, ack, identity, rate limit] --> TO[TurnOrchestrator: state machine, lanes]
   TO --> BUD[TurnBudget: deadline, reserves, admission]
-  TO --> TA[TurnAnalyzer · LLM Haiku] & TR[TemporalResolver · code] & MR[MemoryRetriever · SQL/FTS5] & BL[BaselineLoader · SQL]
+  TO --> TA[TurnAnalyzer · LLM] & TR[TemporalResolver · code] & MR[MemoryRetriever · SQL/FTS5] & BL[BaselineLoader · SQL]
   TO --> RP[ResearchPlanner · templates] --> RX[ResearchExecutor] --> SP[[SearchPort]]
-  TO --> EB[ExtractionBatcher] --> EX[EvidenceExtractor · LLM Sonnet] --> EV[EvidenceVerifier T1/T2 · code]
+  TO --> EB[ExtractionBatcher] --> EX[EvidenceExtractor · LLM] --> EV[EvidenceVerifier T1/T2 · code]
   TO --> BR[BeliefResolver · code] --> CD[ChangeDetector · code] --> FB[FindingBuilder · code]
-  TO --> AP[AnswerPipeline: Synthesizer · LLM Sonnet stream → PlaceholderRenderer → integrity check → T3a → T3b judge · LLM Haiku]
+  TO --> AP[AnswerPipeline: Synthesizer · LLM stream → PlaceholderRenderer → integrity check → T3a → T3b judge · LLM]
   TO --> REPO[[Repositories]]
   TA & EX & AP --> LP[[LlmPort]]
 ```
@@ -482,11 +481,11 @@ sequenceDiagram
   participant B as Browser
   participant API as API
   participant O as Orchestrator
-  participant TA as Analyzer (Haiku)
+  participant TA as Analyzer (LLM)
   participant M as Memory
   participant R as Executor
   participant S as Exa
-  participant X as Extractor (Sonnet)
+  participant X as Extractor (LLM)
   participant BE as Verifier/Belief/Change
   participant AP as AnswerPipeline
   participant DB as SQLite
@@ -805,14 +804,12 @@ Malformed items are validated with zod per item, dropped, and counted.
 
 `LlmPort.structured` and `LlmPort.stream` (contracts §2).
 
-`AnthropicAdapter`:
-- `output_config.format` with JSON schema;
-- Haiku with thinking disabled;
-- Sonnet at effort `low`;
-- prompt caching on the system prompts;
-- SDK retries disabled, because retries are owned by the turn policy;
-- `refusal` mapped to the `refused` error;
-- usage recorded on every call.
+`GeminiLlm` ([src/llm/gemini/](../src/llm/gemini)):
+- `responseSchema` JSON output for structured calls, `streamGenerateContent` for streams;
+- every role on one model (`gemini-3.5-flash-lite` by default), with `FallbackLlm` switching to a fallback model on a
+  rate limit, an outage or a slow call;
+- a rolling per-minute budget per model (`src/llm/limiter.ts`); retries are bounded and owned by the turn budget;
+- a refusal is mapped to the `refused` error, and usage is recorded on every call.
 
 Other adapters: replay, recording and fake. Model IDs come from config.
 
@@ -1043,29 +1040,12 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
 
 ---
 
-## Part V: Roadmap
-
-The roadmap has 15 steps (0 to 14), each with a documentation gate from the [blueprint](history/design-doc-blueprint.md) §6. Within those steps, the design review adds:
-
-| Step | Additions |
-|---|---|
-| 1 | Triggers and owner checks; T-DB-* |
-| 3 | `TurnBudget` from the first vertical slice; T-BUD-01..03 |
-| 4 | Bake-off also measures T2 weak rates, bare-`$` frequency, and how often A1 sections lack a product name (U15, U16) |
-| 7 | T-EV-CUR, T-EV-SUBJ, T-EV-UNIT |
-| 8 | T-KEY, T-BEL-20..36 |
-| 9 | T-ANS, T-DLV, ack endpoint |
-
-## Part VI: DESIGN.md outline
-
-See the [blueprint](history/design-doc-blueprint.md).
-
-## Part VII: Open decisions
+## Part V: Open decisions
 
 | ID | Item | Default | Settled by |
 |---|---|---|---|
 | U1 | Search provider | Exa | Step-4 bake-off |
-| U7 | Extraction model | Sonnet 5.5 at low effort | Step-11 eval |
+| U7 | Extraction model | `gemini-3.5-flash-lite`, the same model as every role | A per-role model comparison |
 | U12 | Time windows: freshness, contest window, FindingSet reuse | 30 d / 7 d / 30 min | Eval. *(The bracketing tolerance, 48 h, was removed on 2026-11-12, see U19.)* |
 | U13 | Tier-B domain list | About 20 domains | Eval |
 | U14 | Run to completion after a client disconnect | On | Observed cost |

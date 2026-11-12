@@ -30,9 +30,8 @@ Not final. Exa is provisional because its documentation shows inline text, a fre
 
 ## Evidence and implementation references
 
-- [research-notes.md](../history/research-notes.md) §4: official documentation reviewed on 2026-11-11, with unverifiable items marked UNVERIFIED.
-- Implemented: the `SearchPort` adapter for Exa ([src/search/exa-adapter.ts](../../src/search/exa-adapter.ts), with [exa-request.ts](../../src/search/exa-request.ts) and [exa-schema.ts](../../src/search/exa-schema.ts)), recording and replay ([src/search/recording.ts](../../src/search/recording.ts), [src/search/replay.ts](../../src/search/replay.ts)) and the bake-off harness [scripts/bakeoff.ts](../../scripts/bakeoff.ts). The live component set uses Exa ([src/app/live.ts](../../src/app/live.ts)). Adapter tests: [tests/unit/search/exa-adapter.test.ts](../../tests/unit/search/exa-adapter.test.ts).
-- **The bake-off has not been run against any provider and nothing has been measured** ([docs/provider-evaluation.md](../provider-evaluation.md)). That is why the decision stays Proposed.
+- Implemented: the `SearchPort` adapter for Exa ([src/search/exa-adapter.ts](../../src/search/exa-adapter.ts), with [exa-request.ts](../../src/search/exa-request.ts) and [exa-schema.ts](../../src/search/exa-schema.ts)), recording and replay ([src/search/recording.ts](../../src/search/recording.ts), [src/search/replay.ts](../../src/search/replay.ts)). The live component set uses Exa ([src/app/live.ts](../../src/app/live.ts)). Adapter tests: [tests/unit/search/exa-adapter.test.ts](../../tests/unit/search/exa-adapter.test.ts).
+- **No provider comparison was run** (a bake-off harness was written and removed unused on 2026-11-12; it is in the git history). Exa is measured only as part of the live benchmarks ([docs/benchmarks.md](../benchmarks.md)). That is why the decision stays Proposed.
 
 ## Revisit when
 
