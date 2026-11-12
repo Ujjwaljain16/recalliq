@@ -12,103 +12,64 @@ import { snapshot } from '../evidence/support.js';
 import { baseline, DAY, ev, LIST_KEY, NOW, OK_COVERAGE, resolveAll, T0 } from './support.js';
 
 /**
- * The recorded crawl basis is reported, never used: for the same evidence, a snapshot that says requested_live,
- * cached or unknown must produce the same belief, the same time fields and the same verdict.
+ * A requested live crawl (Exa reports none per result) counts as what the page showed when it was read, so a
+ * price can be current and an earlier answer can be a baseline. It never times a change: only a confirmed fresh
+ * fetch or a stated effective date can make a verdict "changed".
  */
-const NOT_CONFIRMED: CrawlBasis[] = ['requested_live', 'cached', 'unknown'];
 const detector = new RuleChangeDetector();
-
-interface Scenario {
-  name: string;
-  /** Evidence for the non-confirmed snapshots, built for one basis. */
-  build: (basis: CrawlBasis) => VerifiedEvidence[];
-}
 
 const old = (basis: CrawlBasis, extra: Partial<Parameters<typeof ev>[0]> = {}) =>
   ev({ id: 'old', amount: 90, observedAt: T0 + 2 * DAY, fresh: false, basis, ...extra });
 const nu = (basis: CrawlBasis, extra: Partial<Parameters<typeof ev>[0]> = {}) =>
   ev({ id: 'new', amount: 100, observedAt: T0 + 10 * DAY, fresh: false, basis, ...extra });
 
-const scenarios: Scenario[] = [
-  { name: 'one recent non-confirmed price', build: (b) => [nu(b, { observedAt: NOW - DAY })] },
-  {
-    name: 'a recent price that also has a provider last-updated time',
-    build: (b) => [nu(b, { observedAt: NOW - DAY, lastUpdated: NOW - 2 * DAY })],
-  },
-  {
-    name: 'a re-observation of the old value then the new value on one page',
-    build: (b) => [old(b), nu(b)],
-  },
-  {
-    name: 'two different values from two official pages',
-    build: (b) => [
-      nu(b, { observedAt: NOW - DAY }),
-      ev({
-        id: 'other',
-        amount: 120,
-        observedAt: NOW - DAY,
-        fresh: false,
-        basis: b,
-        urlNorm: 'acme.example/other',
-      }),
-    ],
-  },
-  {
-    name: 'a new value with an explicit effective date',
-    build: (b) => [nu(b, { effectiveFrom: T0 + 5 * DAY })],
-  },
-  {
-    name: 'a published-only price',
-    build: (b) => [nu(b, { observedAt: NOW - DAY, published: NOW - 3 * DAY })],
-  },
-];
-
-describe('crawl basis changes no belief, time field or verdict', () => {
-  for (const sc of scenarios) {
-    it(`${sc.name}: identical for ${NOT_CONFIRMED.join(', ')}`, () => {
-      const outputs = NOT_CONFIRMED.map((basis) => {
-        const evidence = sc.build(basis);
-        const all = [...baseline().evidence, ...evidence];
-        const belief = resolveAll(all);
-        return {
-          times: evidence.map((e) => [
-            e.freshFetch,
-            e.displayedAt,
-            e.displayedAtBasis,
-            e.observedAt,
-          ]),
-          belief,
-          verdict: detector.price(baseline(), belief.belief, all, OK_COVERAGE),
-        };
-      });
-      for (const o of outputs.slice(1)) expect(o).toEqual(outputs[0]);
-    });
-  }
-
-  it('requested_live does not make evidence a fresh fetch or give it a displayed-at time', () => {
+describe('a requested live crawl', () => {
+  it('dates the evidence at the time it was read, without calling it a fresh fetch', () => {
     const snap = snapshot('x', { freshFetch: false, crawlBasis: 'requested_live' });
     expect(timeFields(snap, null, null)).toMatchObject({
       freshFetch: false,
-      displayedAt: null,
+      displayedAt: snap.observedAt,
       displayedAtBasis: 'unknown',
     });
   });
 
-  it('requested_live alone leaves a price stale, as cached does', () => {
-    const status = (b: CrawlBasis) => resolveAll([nu(b, { observedAt: NOW - DAY })]).belief.status;
-    expect(status('requested_live')).toBe('stale');
-    expect(status('requested_live')).toBe(status('cached'));
-    expect(status('requested_live')).not.toBe('confirmed');
+  it('does not when the crawl failed, and cached or unknown content stays undated', () => {
+    for (const s of [
+      snapshot('x', { freshFetch: false, crawlBasis: 'requested_live', crawlStatus: 'failed' }),
+      snapshot('x', { freshFetch: false, crawlBasis: 'cached' }),
+      snapshot('x', { freshFetch: false, crawlBasis: 'unknown' }),
+    ])
+      expect(timeFields(s, null, null).displayedAt).toBeNull();
   });
 
-  it('only a real fresh fetch (confirmed_live) changes what the evidence proves', () => {
+  it('makes a recent price current, where cached content leaves it stale', () => {
+    const status = (b: CrawlBasis) => resolveAll([nu(b, { observedAt: NOW - DAY })]).belief.status;
+    expect(status('requested_live')).toBe('confirmed');
+    expect(status('cached')).toBe('stale');
+  });
+
+  it('never times a change: the old value then a new one on one page is not "changed" without a fresh fetch', () => {
+    const verdict = (b: CrawlBasis, fresh: boolean) => {
+      const evidence = [
+        old(b, { fresh, ...(fresh ? { basis: 'confirmed_live' as const } : {}) }),
+        nu(b, { fresh, ...(fresh ? { basis: 'confirmed_live' as const } : {}) }),
+      ];
+      const all = [...baseline().evidence, ...evidence];
+      return detector.price(baseline(), resolveAll(all).belief, all, OK_COVERAGE).verdict;
+    };
+    expect(verdict('requested_live', false)).not.toBe('changed');
+    expect(verdict('cached', false)).not.toBe('changed');
+  });
+
+  it('only a real fresh fetch (confirmed_live) is a fresh fetch', () => {
     const confirmed = ev({ id: 'c', observedAt: NOW - DAY, fresh: true, basis: 'confirmed_live' });
     expect(confirmed.freshFetch).toBe(true);
+    expect(confirmed.displayedAtBasis).toBe('fresh_fetch');
     expect(resolveAll([confirmed]).belief.status).toBe('confirmed');
   });
 });
 
-describe('the basis reaches the finding without changing it', () => {
+describe('the basis reaches the finding', () => {
   const entity = {
     id: 'ent_acme' as const,
     name: 'Acme CRM',
@@ -155,19 +116,11 @@ describe('the basis reaches the finding without changing it', () => {
     }).findings[0];
   }
 
-  it('a finding resting on requested_live says so, with the same status and verdict as cached', () => {
+  it('a finding resting on requested_live says so', () => {
     const requested = assemble('requested_live');
     const cached = assemble('cached');
     expect(requested?.current?.crawlBasis).toBe('requested_live');
     expect(cached?.current?.crawlBasis).toBe('cached');
-    const strip = (f: typeof requested) => {
-      if (!f?.current) return f;
-      const current = { ...f.current };
-      delete current.crawlBasis;
-      return { ...f, id: 'x', current };
-    };
-    expect(strip(requested)).toEqual(strip(cached));
-    expect(requested?.currentStatus).toBe('stale');
   });
 
   it('a finding is unchanged, and carries no basis, when the snapshot has none', () => {

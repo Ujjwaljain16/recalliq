@@ -73,12 +73,19 @@ export class OfficialDomains {
     return new OfficialDomains(parsed.data);
   }
 
-  /** The registry's official domains for an entity, matched on its name or any alias. */
+  /**
+   * The official domains for an entity, matched on its name or any alias: what the registry lists, plus the
+   * domain that is exactly the name (see `nameDomains`). A registry entry for the name replaces the guess.
+   */
   domainsFor(entity: Pick<EntityRow, 'name' | 'aliases'>): string[] {
     const out = new Set<string>();
+    let listed = false;
     for (const n of [entity.name, ...entity.aliases]) {
-      for (const d of this.byName.get(normalizeEntityName(n)) ?? []) out.add(d);
+      const own = this.byName.get(normalizeEntityName(n));
+      if (own) listed = true;
+      for (const d of own ?? []) out.add(d);
     }
+    if (!listed) for (const d of nameDomains(entity)) out.add(d);
     return [...out];
   }
 
@@ -104,4 +111,27 @@ export class OfficialDomains {
       e.ownedDomains = this.domainsFor(e).filter(unique);
     });
   }
+}
+
+/** Endings a company's own site commonly uses. A lookalike on another ending (".shop", ".xyz") is not taken. */
+const NAME_TLDS = ['com', 'io', 'ai', 'dev', 'app', 'co', 'tech', 'so'];
+
+/**
+ * The domains that are exactly a company's name: "supabase.com" for Supabase, "pipedrive.com" for Pipedrive,
+ * and their subdomains (docs.supabase.com). Without this, a reviewer with no registry would find every vendor's
+ * own pricing page classified as an unofficial page, and nothing could ever be verified.
+ *
+ * Only an exact match of a one-word name (letters and digits, at least 4 of them) counts: "supabase-deals.com",
+ * "supabasepricing.com" and "zoho.com" for "Zoho CRM" do not. The known risk is a company whose name is held by
+ * someone else on one of these endings (linear.com is not Linear's site, linear.app is); a registry entry for the
+ * name overrides the guess, and DESIGN.md states the trade-off.
+ */
+export function nameDomains(entity: Pick<EntityRow, 'name' | 'aliases'>): string[] {
+  const out = new Set<string>();
+  for (const n of [entity.name, ...entity.aliases]) {
+    const word = normalizeEntityName(n);
+    if (!/^[a-z0-9]{4,}$/.test(word)) continue;
+    for (const tld of NAME_TLDS) out.add(`${word}.${tld}`);
+  }
+  return [...out];
 }
