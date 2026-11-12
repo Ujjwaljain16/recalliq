@@ -64,8 +64,14 @@ against today's sources. **Every statement in an answer says how sure it is: ver
   precision without an official-domain registry and 0 false passes in every run (`docs/extraction-calibration.md`).
 - **Security review:** no critical or high findings; rebinding, quota, CORS and baseline-poisoning issues fixed
   (`docs/security.md`).
-- **Public benchmarks** (FreshQA, SimpleQA, LongMemEval): the harness is built and tested offline; no live scores
-  yet, so none are claimed.
+- **Public benchmarks** (FreshQA, SimpleQA, LongMemEval; `docs/benchmarks.md`): 30-question dev samples, then
+  the 100-question test samples, which a daily free-tier quota stopped part way, so those counts are partial.
+  SimpleQA 80% on the first 60 test questions (48 correct, 95% range 68–88%, 15% declined; dev 24 of 30).
+  FreshQA 58% on the first 31 graded (18 correct, 41–74%; dev 16 of 30); fast-changing facts are weak (1 of 11)
+  and its answer key dates from April 2026. LongMemEval dev 11 of 29 (38%, 23–56%) after topical recall was
+  added (13% before); only 16 test questions finished (4 correct). Graders: SimpleQA uses the published
+  template; the other two are our wording of each paper's description. Small samples, one run each, a lite
+  model on a free tier: read them as a rough picture, not a score to compare with other systems.
 
 ## Known limits
 
