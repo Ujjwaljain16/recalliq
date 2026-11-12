@@ -1,3 +1,4 @@
+import { MAX_TOPICAL_EXCERPT_CHARS } from '../../../src/db/repositories/memory-retriever.js';
 import { describe, expect, it } from 'vitest';
 import { SqliteMessageMemory } from '../../../src/db/repositories/memory-retriever.js';
 import { newId, type ConversationId, type Ms, type UserId } from '../../../src/shared/ids.js';
@@ -279,11 +280,20 @@ describe('topical recall: the retriever', () => {
     expect(memory.topicalRecall(alice, ['"', '*', 'NEAR('], opts())).toEqual([]);
   });
 
-  it('quotes up to 600 characters of a message', () => {
+  it('quotes at most the excerpt limit of a long message', () => {
     const { t, alice, memory, say, opts } = setup();
     const long = `ferrari ${'word '.repeat(200)}`;
     say(alice, t.conversations.create({ userId: alice }).id, long, NOW - DAY);
     const [hit] = memory.topicalRecall(alice, ['ferrari'], opts());
-    expect(Array.from(hit?.excerpt ?? '').length).toBe(600);
+    expect(Array.from(hit?.excerpt ?? '').length).toBeLessThanOrEqual(MAX_TOPICAL_EXCERPT_CHARS);
+  });
+
+  it('shows the passage that holds the answer, not the start, of a long message', () => {
+    const { t, alice, memory, say, opts } = setup();
+    const long = `Write a script for a comedy scene. ${'The scene opens in a school hall. '.repeat(120)}Andy wears a bright orange tie and mismatched socks. ${'The staff meeting drags on. '.repeat(80)}`;
+    say(alice, t.conversations.create({ userId: alice }).id, long, NOW - DAY);
+    const [hit] = memory.topicalRecall(alice, ['andy', 'wears', 'tie'], opts());
+    expect(hit?.excerpt).toContain('bright orange tie');
+    expect(Array.from(hit?.excerpt ?? '').length).toBeLessThanOrEqual(MAX_TOPICAL_EXCERPT_CHARS);
   });
 });

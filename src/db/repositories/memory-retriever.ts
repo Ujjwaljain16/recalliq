@@ -26,7 +26,7 @@ export type MessageMemory = Pick<
 export const MAX_CANDIDATES = 8;
 export const MAX_EXCERPT_CHARS = 300;
 /** A topical recall hit is quoted in full up to this length. */
-export const MAX_TOPICAL_EXCERPT_CHARS = 600;
+export const MAX_TOPICAL_EXCERPT_CHARS = 900;
 /** Ranked rows read before assistant messages are cut down to what was shown. */
 const TOPICAL_OVERFETCH = 5;
 const MAX_INTERVALS = 16;
@@ -107,6 +107,49 @@ function excerptOf(content: string, max: number = MAX_EXCERPT_CHARS): string {
   const chars = Array.from(content.replace(/\s+/g, ' ').trim());
   if (chars.length <= max) return chars.join('');
   return chars.slice(0, max - 1).join('') + '…';
+}
+
+/**
+ * The part of a long message to show for a topical recall: the window of at most `max` characters that holds the
+ * most of the searched words (distinct words first, then how often they occur), not the first `max` characters.
+ * A short message is returned whole. An ellipsis marks each cut end. Words match as the search matches them
+ * (same word, or the same first letters of a word of similar length).
+ */
+export function passageOf(content: string, tokens: readonly string[], max: number): string {
+  const chars = Array.from(content.replace(/\s+/g, ' ').trim());
+  if (chars.length <= max) return chars.join('');
+  const text = chars.join('');
+  const room = max - 2; // each cut end costs one ellipsis character
+
+  const hits: Array<{ at: number; token: number }> = [];
+  const wordRe = /[\p{L}\p{N}]+/gu;
+  for (let m = wordRe.exec(text); m !== null; m = wordRe.exec(text)) {
+    const w = m[0].toLowerCase();
+    tokens.forEach((t, token) => {
+      const n = Math.min(w.length, t.length);
+      if (
+        w === t ||
+        (n >= 4 && w.slice(0, n) === t.slice(0, n) && Math.abs(w.length - t.length) <= 4)
+      )
+        hits.push({
+          at: chars.length === text.length ? m.index : Array.from(text.slice(0, m.index)).length,
+          token,
+        });
+    });
+  }
+  if (hits.length === 0) return excerptOf(content, max);
+  let best = { start: 0, distinct: -1, total: -1 };
+  for (const h of hits) {
+    const start = Math.max(0, Math.min(h.at - Math.floor(room / 6), chars.length - room));
+    const inside = hits.filter((x) => x.at >= start && x.at < start + room);
+    const distinct = new Set(inside.map((x) => x.token)).size;
+    if (distinct > best.distinct || (distinct === best.distinct && inside.length > best.total)) {
+      best = { start, distinct, total: inside.length };
+    }
+  }
+  const end = Math.min(chars.length, best.start + room);
+  const body = chars.slice(best.start, end).join('');
+  return (best.start > 0 ? '…' : '') + body + (end < chars.length ? '…' : '');
 }
 
 const topicalRow = candidateRow.extend({
@@ -268,7 +311,7 @@ export class SqliteMessageMemory implements MessageMemory {
       const candidate = this.toCandidate({ ...row, content: text }, tokens, zone ?? row.tz, -1);
       hits.push({
         ...candidate,
-        excerpt: excerptOf(text, MAX_TOPICAL_EXCERPT_CHARS),
+        excerpt: passageOf(text, tokens, MAX_TOPICAL_EXCERPT_CHARS),
         role: row.role,
       });
       if (hits.length >= limit) break;
