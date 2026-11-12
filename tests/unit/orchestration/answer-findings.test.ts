@@ -89,3 +89,20 @@ describe('quoted passages', () => {
     expect(quotesOf('A "short" quote')).toEqual([]);
   });
 });
+
+describe('one plan in several currencies', () => {
+  it('keeps the US dollar price of a plan listed in several currencies', () => {
+    const key = (cur: string) =>
+      `price:v1|e=sf|p=starter|a=list|u=per_seat|b=monthly|cur=${cur}|vk=exact`;
+    const fs = [
+      price(1, 'sf', 35, 'per_seat', { beliefKey: key('AUD') }),
+      price(2, 'sf', 25, 'per_seat', { beliefKey: key('EUR') }),
+      price(3, 'sf', 25, 'per_seat', { beliefKey: key('USD') }),
+      price(4, 'sf', 100, 'per_seat', { beliefKey: key('USD').replace('starter', 'pro') }),
+    ];
+    for (const f of fs)
+      if (f.current?.value)
+        f.current.value.currency = /cur=([A-Z]+)/.exec(f.beliefKey ?? '')?.[1] ?? 'USD';
+    expect(findingsForAnswer(set(fs))?.findings.map((f) => f.ord)).toEqual([3, 4]);
+  });
+});
