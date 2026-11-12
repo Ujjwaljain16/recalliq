@@ -11,6 +11,17 @@ import {
 /** Failures where another model may still answer: the primary is overloaded, rate limited or too slow. */
 const FALL_BACK_ON: ReadonlySet<LlmErrorCode> = new Set(['rate_limited', 'unavailable', 'timeout']);
 
+/**
+ * A structured call the primary model has not answered after `afterMs(role)` is also sent to the fallback model,
+ * when `ready()` says the fallback has quota to spare; the first answer wins and the other call is cancelled.
+ * Free-tier latency has a long tail (one extraction call in ten can take 15 s), and the slowest call of a turn
+ * decides when the answer can be written. Null for a role means no hedge.
+ */
+export interface HedgePolicy {
+  afterMs(role: string): number | null;
+  ready(): boolean;
+}
+
 export interface FallbackNotice {
   role: string;
   code: LlmErrorCode;
@@ -38,6 +49,7 @@ export class FallbackLlm implements LlmPort {
      * the fallback model at once, which has its own quota, instead of waiting past the turn deadline.
      */
     private readonly divert: () => boolean = () => false,
+    private readonly hedge: HedgePolicy | null = null,
   ) {}
 
   async structured<T>(r: StructuredRequest<T>): Promise<StructuredResult<T>> {
@@ -50,6 +62,8 @@ export class FallbackLlm implements LlmPort {
       });
       return this.fallback.structured(r);
     }
+    const after = this.hedge?.afterMs(r.role) ?? null;
+    if (after !== null) return this.hedged(r, after);
     try {
       return await this.primary.structured(r);
     } catch (e) {
@@ -57,6 +71,70 @@ export class FallbackLlm implements LlmPort {
       this.notify(r.role, e as LlmError);
       return this.fallback.structured(r);
     }
+  }
+
+  /**
+   * The primary call, plus the same request to the fallback model when the primary fails in a way another model
+   * could avoid, or is still running after `afterMs`. The first success wins and the other call is aborted; when
+   * both fail, the primary's error is the one reported.
+   */
+  private hedged<T>(r: StructuredRequest<T>, afterMs: number): Promise<StructuredResult<T>> {
+    const pCut = new AbortController();
+    const fCut = new AbortController();
+    return new Promise((resolve, reject) => {
+      let done = false;
+      let running = 1;
+      let fallbackStarted = false;
+      let primaryError: unknown = null;
+      let fallbackError: unknown = null;
+      const finish = (): void => {
+        done = true;
+        clearTimeout(timer);
+      };
+      const settleFailure = (): void => {
+        if (done || running > 0) return;
+        finish();
+        const error = primaryError ?? fallbackError;
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+      const startFallback = (code: LlmErrorCode): void => {
+        if (fallbackStarted || done || r.signal.aborted) return;
+        fallbackStarted = true;
+        running++;
+        this.notify(r.role, new LlmError(code, 'fallback'));
+        this.fallback.structured({ ...r, signal: AbortSignal.any([r.signal, fCut.signal]) }).then(
+          (v) => {
+            if (done) return;
+            finish();
+            pCut.abort();
+            resolve(v);
+          },
+          (e: unknown) => {
+            running--;
+            fallbackError = e;
+            settleFailure();
+          },
+        );
+      };
+      const timer = setTimeout(() => {
+        if (this.hedge?.ready()) startFallback('timeout');
+      }, afterMs);
+      this.primary.structured({ ...r, signal: AbortSignal.any([r.signal, pCut.signal]) }).then(
+        (v) => {
+          if (done) return;
+          finish();
+          fCut.abort();
+          resolve(v);
+        },
+        (e: unknown) => {
+          running--;
+          if (done) return;
+          primaryError = e;
+          if (this.shouldFallBack(e, r.signal)) startFallback((e as LlmError).code);
+          settleFailure();
+        },
+      );
+    });
   }
 
   async *stream(r: StreamRequest): AsyncIterable<StreamEvent> {

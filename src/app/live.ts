@@ -62,6 +62,11 @@ function loadRegistry(env: AppEnv): OfficialDomains {
 
 /** A call that would wait longer than this for the main model goes to the fallback model instead. */
 const DIVERT_WAIT_MS = 1_500;
+/**
+ * A structured call still running after this long is also sent to the fallback model (see HedgePolicy). Set
+ * from the live sweeps: analysis usually answers in 2 s, extraction in 5 s, a judge call in 2 s.
+ */
+const HEDGE_AFTER_MS: Record<string, number> = { analysis: 4_000, extraction: 9_000, judge: 3_000 };
 
 /** Checks everything the live set needs, before the database is opened. */
 export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFactory {
@@ -109,6 +114,10 @@ export function liveFactory(env: AppEnv, options: LiveOptions = {}): ComponentFa
             { primary: c.config.gemini.model ?? '', fallback: fallbackModel },
             (n) => c.logger.warn({ ...n }, 'model fallback'),
             () => limiter.estimatedWaitMs() > DIVERT_WAIT_MS,
+            {
+              afterMs: (role) => HEDGE_AFTER_MS[role] ?? null,
+              ready: () => fallbackLimiter.estimatedWaitMs() === 0,
+            },
           );
     const search = liveSearchPort(env, doFetch, c.clock);
     return buildRealComponents(c, { kind: 'live', llm, search, origin: 'live', registry });
