@@ -117,6 +117,11 @@ export interface AnswerPipeline {
       earlier?: readonly string[];
       /** The names the question is about (the quick section's sentences must name one of them). */
       entities?: readonly string[];
+      /**
+       * The quoted passages of the sentences written in code that open this answer (the recalled messages). A
+       * model sentence that quotes the same message again is dropped. Not shown to the model.
+       */
+      quotedBefore?: readonly string[];
     },
     budget: TurnBudget,
     emit: EventSink,

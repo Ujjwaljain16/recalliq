@@ -18,6 +18,25 @@ function uniqueNames(input: LaneInput, deps: LaneDeps, ctx: ResolvedContext): st
 }
 
 /**
+ * Every name a sentence about the question's companies may use: their names, aliases, and the first label of
+ * their official domains ("freshworks" for Freshsales, whose page is freshworks.com).
+ */
+function namesAbout(input: LaneInput, deps: LaneDeps, ctx: ResolvedContext): string[] {
+  const stems = ctx.entities.flatMap((e) =>
+    [...e.officialDomains, ...(e.ownedDomains ?? [])]
+      .map((d) => d.replace(/^www./, '').split('.')[0] ?? '')
+      .filter((s) => s.length >= 4),
+  );
+  return [
+    ...new Set([
+      ...uniqueNames(input, deps, ctx),
+      ...ctx.entities.flatMap((e) => e.aliases),
+      ...stems,
+    ]),
+  ].filter((n) => n.trim() !== '');
+}
+
+/**
  * The part research and audit share: plan, hand the plan to the injected ResearchService with the turn's own
  * budget, check what comes back, and advance the turn.
  *
@@ -76,7 +95,7 @@ export async function runResearch(
     ...(options.quick === true && extracted && onSourcesReady
       ? {
           onSourcesReady: (sources: FindingSet['sources']) =>
-            onSourcesReady({ ctx, sources, entities: uniqueNames(input, deps, ctx) }),
+            onSourcesReady({ ctx, sources, entities: namesAbout(input, deps, ctx) }),
         }
       : {}),
   });

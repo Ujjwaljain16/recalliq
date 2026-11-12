@@ -212,14 +212,25 @@ export class LlmAnswerPipeline implements AnswerPipeline {
 
     // Sourced sentences already said (by the quick section, or earlier in this answer) are not said again.
     const said: ClaimSignature[] = (input.earlier ?? []).map(claimSignature);
+    // A recalled message quoted by a sentence written in code is not quoted again by the model.
+    const quoted = new Set(
+      [...(input.earlier ?? []), ...(input.quotedBefore ?? [])].flatMap(quotesOf),
+    );
     const release = async (c: Candidate): Promise<void> => {
       if (c.issues.length > 0) return withhold(c.issues);
+      const own = quotesOf(c.text);
+      if (own.some((q) => quoted.has(q))) return;
+      for (const q of own) quoted.add(q);
       if (c.kind === 'sourced') {
         const sig = claimSignature(c.text);
         // A quick sentence about something other than what the question names (another company's page that
         // matched the search) is not shown as an answer to it.
         const about = input.entities ?? [];
-        if (quick && about.length > 0 && !about.some((n) => namesEntity(c.text, n)))
+        if (
+          quick &&
+          about.length > 0 &&
+          !about.some((n) => namesEntity(withoutAttribution(c.text), n))
+        )
           return withhold(['off_topic']);
         // A repeat is dropped without a warning: nothing the user needs is missing.
         if (said.some((s) => repeatsClaim(sig, s))) return;
@@ -506,6 +517,16 @@ export class ParagraphLayout {
     const named = this.names.filter((n) => n.re.test(c.text));
     return named.length === 1 ? (named[0]?.name ?? null) : null;
   }
+}
+
+/** The sentence without its "According to <domain>" opening, which names the source, not the subject. */
+const withoutAttribution = (text: string): string => text.replace(/according to \S+/gi, ' ');
+
+/** Quoted passages of at least 20 characters, normalised for comparison. */
+export function quotesOf(text: string): string[] {
+  return [...text.matchAll(/["“]([^"”]{20,})["”]/g)].map((m) =>
+    (m[1] ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim(),
+  );
 }
 
 const namesEntity = (text: string, entity: string): boolean =>

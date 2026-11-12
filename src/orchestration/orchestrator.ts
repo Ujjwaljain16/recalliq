@@ -1,3 +1,4 @@
+import { quotesOf } from '../answer/pipeline.js';
 import type { AnswerPipeline, AnswerResult, PersistedSentence } from '../shared/answer.js';
 import type { FindingSet } from '../shared/findings.js';
 import type { MessageId, Ms, TurnId, UserId } from '../shared/ids.js';
@@ -45,6 +46,7 @@ import {
   citationsOf,
   countSentences,
   deterministicAnswer,
+  findingsForAnswer,
   statusForFindings,
   type DeterministicAnswer,
 } from './prepare.js';
@@ -594,7 +596,8 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
         try {
           result = await this.deps.answer.run(
             {
-              findings: outcome.findings,
+              // The answer text is written from at most a few plain prices per company (see findingsForAnswer).
+              findings: findingsForAnswer(outcome.findings),
               recall: outcome.recall,
               ctx: outcome.ctx,
               userMessage: c.req.text,
@@ -603,6 +606,10 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
               ...(early
                 ? { earlier: early.sentences.slice(quick.leadCount).map((s) => s.text) }
                 : {}),
+              quotedBefore: [
+                ...(early?.sentences.slice(0, quick.leadCount) ?? []),
+                ...lead.sentences,
+              ].flatMap((s) => quotesOf(s.text)),
             },
             c.budget,
             pipelineEmit,
