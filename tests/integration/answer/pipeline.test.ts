@@ -211,6 +211,24 @@ describe('answer pipeline: only validated sentences are released', () => {
     expect(JSON.stringify(withheld(s.events))).toContain('ungrounded_source');
   });
 
+  it('an answer drawn from a quoted earlier message is not a duplicate of the quote', async () => {
+    const quote =
+      'Write me the beginning of a script for a comedy scene. Andy wears an untidy stained white shirt and a loud tie.';
+    const llm = new FakeLlm().queueStream({
+      deltas: [
+        `In the script you asked for [[M:${MSG_1}]] Andy wears an untidy stained white shirt.`,
+      ],
+    });
+    const input = inputFor({
+      ctx: context({ memoryHits: [{ messageId: MSG_1 } as never] }),
+      recall: new Map([[MSG_1, { text: quote, localTime: '2026-11-03 14:05' }]]),
+    });
+    const s = sink();
+    const r = await pipeline(llm).run(input, new FakeBudget(60_000), s.emit);
+    expect(r.sentences.map((x) => x.text).join(' ')).toContain('stained white shirt');
+    expect(JSON.stringify(withheld(s.events))).not.toContain('duplicate_text');
+  });
+
   it('uses the time zone of the input to render dates', async () => {
     const f = finding(1, {
       baseline: {

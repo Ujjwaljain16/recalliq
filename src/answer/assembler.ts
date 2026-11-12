@@ -285,7 +285,10 @@ export class SentenceAssembler {
       quoted = checked.chars;
     }
 
-    if (repeatsRenderedText(open.template, open.placeholders)) issues.add('duplicate_text');
+    // Only a finding renders a short value that free text must not say again. A quoted earlier message is the
+    // material an answer is drawn from, so an answer sharing words with it is expected, not a repeat.
+    const renderedFindings = open.placeholders.filter((p) => p.findingId !== undefined);
+    if (repeatsRenderedText(open.template, renderedFindings)) issues.add('duplicate_text');
     if ((rendersFinding || sourced) && saysNothing(open)) issues.add('empty_sentence');
     if (sourced && issues.size === 0) {
       this.sourcedChars += quoted;
