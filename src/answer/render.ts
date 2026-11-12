@@ -250,7 +250,7 @@ function verdictText(f: Finding, records: AnswerRecords): string {
     case 'differs_timing_unknown':
       return "is different now; I can't tell whether it changed after my answer or my answer was already out of date";
     case 'releases_found':
-      return `${f.releases?.length ?? 0} release${f.releases?.length === 1 ? '' : 's'} found since my earlier answer`;
+      return `${f.releases?.length ?? 0} release${f.releases?.length === 1 ? '' : 's'} found in the period checked`;
     case 'none_found': {
       const n = f.coverage.sourcesChecked;
       const newest = f.coverage.newestDatedSource;
@@ -278,7 +278,18 @@ export const defaultRenderer: Renderer = {
         return currentText(record.finding, records);
       case 'derived': {
         const d = record.derived;
-        return `${money(d.amount, d.currency, d.currencySymbol)} (${d.formula})`;
+        const total = money(d.amount, d.currency, d.currencySymbol);
+        // A computed number never stands alone: it says what it is and which listed price it comes from.
+        const base = record.finding.current?.value;
+        if (d.label === 'annualised' && base) {
+          const from = withCites(
+            valueText(base, record.finding.beliefKey),
+            cites(record.finding.current?.citations ?? [], records),
+          );
+          return `${total} a year (12 months of ${from})`;
+        }
+        if (d.label === 'difference') return `a difference of ${total} (${d.formula})`;
+        return `${total} (${d.formula})`;
       }
       case 'message':
         return `"${record.text}" (${formatLocalTime(record.localTime)})`;

@@ -177,3 +177,57 @@ export function buildEnrichment(
     decisions: analysis.userFacts.filter((f) => factIsWellFormed(f, userText)).slice(0, 20),
   };
 }
+
+/** At most this many plain price findings per company are written into the answer; the findings card lists all. */
+export const MAX_PRICES_PER_ENTITY = 4;
+
+/**
+ * The findings the answer is written from. A pricing page can list a dozen plans and add-ons; written out, they
+ * bury the answer. Per company, plain current prices (no baseline, no verdict) beyond the cap are left out of
+ * the text, seat-priced plans first (the main plans of a team product), then the cheapest. Every finding with a
+ * baseline or a verdict, every check that failed and every release finding stays: nothing that says something
+ * changed, or could not be checked, is ever dropped. The full set is still sent, stored and shown in the card.
+ */
+export function findingsForAnswer(
+  set: FindingSet | null,
+  max = MAX_PRICES_PER_ENTITY,
+): FindingSet | null {
+  if (set === null) return null;
+  const plain = (f: Finding): boolean =>
+    f.intent === 'pricing' &&
+    f.baseline === undefined &&
+    f.verdict === null &&
+    f.current?.value != null &&
+    !(f.current.contested && f.current.contested.length > 0);
+  const dropped = new Set<string>();
+  // One plan priced in several currencies (a page with regional prices) is one price: US dollars first, then a
+  // bare symbol, then the first listed.
+  const sameExceptCurrency = new Map<string, Finding[]>();
+  for (const f of set.findings) {
+    if (!plain(f) || f.beliefKey === null) continue;
+    const key = f.beliefKey.replace(/\|cur=[^|]*/, '');
+    sameExceptCurrency.set(key, [...(sameExceptCurrency.get(key) ?? []), f]);
+  }
+  const rank = (f: Finding): number =>
+    f.current?.value?.currency === 'USD' ? 0 : f.current?.value?.currency === 'unknown' ? 1 : 2;
+  for (const group of sameExceptCurrency.values()) {
+    const keep = [...group].sort((a, b) => rank(a) - rank(b))[0];
+    for (const f of group) if (f !== keep) dropped.add(f.id);
+  }
+  const byEntity = new Map<string, Finding[]>();
+  for (const f of set.findings)
+    if (plain(f) && !dropped.has(f.id))
+      byEntity.set(f.entityId, [...(byEntity.get(f.entityId) ?? []), f]);
+  for (const list of byEntity.values()) {
+    if (list.length <= max) continue;
+    const ranked = [...list].sort((a, b) => {
+      const seat =
+        Number(b.current?.value?.unit === 'per_seat') -
+        Number(a.current?.value?.unit === 'per_seat');
+      return seat !== 0 ? seat : (a.current?.value?.amount ?? 0) - (b.current?.value?.amount ?? 0);
+    });
+    for (const f of ranked.slice(max)) dropped.add(f.id);
+  }
+  if (dropped.size === 0) return set;
+  return { ...set, findings: set.findings.filter((f) => !dropped.has(f.id)) };
+}

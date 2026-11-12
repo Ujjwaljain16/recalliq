@@ -167,6 +167,31 @@ describe('rendering of findings by code', () => {
     expect(render(f, 'F1:derived:0')).toBe('$1,800 (20 seats × $90)');
   });
 
+  it('an annualised value says it is a year and names the listed price it comes from', () => {
+    const f = finding(1, {
+      derived: [
+        {
+          label: 'annualised',
+          amount: 1080,
+          currency: 'USD',
+          currencySymbol: '$',
+          formula: '90 x 12',
+        },
+        {
+          label: 'difference',
+          amount: 10,
+          currency: 'USD',
+          currencySymbol: '$',
+          formula: '90 - 80',
+        },
+      ],
+    });
+    const year = render(f, 'F1:derived:0');
+    expect(year).toBe('$1,080 a year (12 months of US$90 per user per month (pro) [1])');
+    expect(year).toContain('90');
+    expect(render(f, 'F1:derived:1')).toBe('a difference of $10 (90 - 80)');
+  });
+
   it.each([
     [
       { verdict: 'unable_to_verify', verdictReason: 'search_timeout' },

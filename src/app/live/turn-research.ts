@@ -1,3 +1,4 @@
+import { RepairingVerifier } from '../../evidence/repair.js';
 import { FindingAssembler } from '../../belief/assembler.js';
 import { RuleChangeDetector } from '../../belief/detector.js';
 import type { BeliefRepository } from '../../belief/repository.js';
@@ -80,7 +81,7 @@ export class PerTurnResearchService implements ResearchService {
           classifier.classify(s, entities.find((e) => e.id === id)?.officialDomains ?? []),
       }),
       runner: new ExtractionRunner(extractor),
-      verifier: new RuleEvidenceVerifier(),
+      verifier: new RepairingVerifier(new RuleEvidenceVerifier()),
       classifier,
       evidence: new EvidenceRepository(this.d.db),
       beliefs: this.d.beliefs,

@@ -16,7 +16,9 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 4. **Two kinds of statement.**
    - **Verified:** prices and releases are extracted as atomic claims with a verbatim quote, then checked by
      code (quote present, value in quote, plan/billing/unit binding, owner of the page). Code renders them into
-     the answer through placeholders; the model never types a verified number.
+     the answer through placeholders; the model never types a verified number. A label the extractor got wrong
+     (a monthly price billed annually labelled annual, a bare "$" labelled USD) is reset to what the text says
+     and checked again; amounts, quotes and plans are never repaired.
    - **Sourced:** for everything else the model writes from source excerpts and must cite one. A deterministic
      check withholds the sentence unless every number, date, amount and name appears in _one_ cited excerpt.
 5. **Temporal truth.** Snapshots, evidence, assertions (what we actually said) and beliefs are separate,
@@ -25,7 +27,8 @@ against today's sources. **Every statement in an answer says how sure it is: ver
    differ and the timing is unknown. Our earlier answer is a baseline only if it was actually shown to the user
    (client acknowledgement) and was verified.
 6. **Safe delivery.** Sentences stream as they pass validation; a sentence that fails is withheld whole, never
-   cut. Change words ("raised", "launched", "unchanged") need a matching verdict from code.
+   cut. Change words ("raised", "launched", "unchanged") need a matching verdict from code. Every finding is
+   reported: one the model left out is added as a line written in code, and a recalled message is quoted once.
 
 ## Why this shape
 
@@ -56,7 +59,9 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 - **Latency, live runs (single samples):** chat and memory 1.4–3.3 s to first text; general research 5–10 s. Price
   questions stream a cited answer from the sources at 8–12 s (22 s total for one vendor, 43 s for five) while the
   checks run; before this they showed nothing for 20–36 s. Each model has its own rolling per-minute budget, and a
-  call goes to a fallback model instead of waiting when the main model's budget is used up.
+  call goes to a fallback model instead of waiting when the main model's budget is used up; an analysis or
+  extraction call still running after 4 s / 12 s is also sent to the fallback model, first answer wins. The three
+  history questions, live: first text 5–13 s, complete in 20–50 s.
 - **Temporal rules:** 55 holdout cases written from the specification and committed before the first run
   (`docs/holdout-evaluation.md`); all pass. About 2,470 automated tests, with mutation checks on every protection
   added recently.
@@ -81,6 +86,8 @@ against today's sources. **Every statement in an answer says how sure it is: ver
   be able to manufacture a change.
 - Exa reports no per-result crawl marker, so freshness is "last seen" rather than "confirmed live".
 - Grounding is lexical: a correct number attached to the wrong plan in the same excerpt passes.
+- A quick sourced sentence can mention a release that the release check did not count (a research paper, say),
+  so the two sections can read as disagreeing.
 - Memory search reads the user's side of conversations; the assistant's side is audited through stored
   assertions instead.
 

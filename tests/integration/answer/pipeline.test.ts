@@ -1,3 +1,4 @@
+import { quotesOf } from '../../../src/answer/pipeline.js';
 import { describe, expect, it } from 'vitest';
 import { LlmAnswerPipeline, citedSnapshotIds } from '../../../src/answer/pipeline.js';
 import { defaultRenderer, type Renderer } from '../../../src/answer/render.js';
@@ -227,6 +228,63 @@ describe('answer pipeline: only validated sentences are released', () => {
     const r = await pipeline(llm).run(input, new FakeBudget(60_000), s.emit);
     expect(r.sentences.map((x) => x.text).join(' ')).toContain('stained white shirt');
     expect(JSON.stringify(withheld(s.events))).not.toContain('duplicate_text');
+  });
+
+  it('a sentence quoting a message the opening already quoted is dropped; the next one is kept', async () => {
+    const quote = 'What does Neon charge per month for its Postgres plans?';
+    const llm = new FakeLlm().queueStream({
+      deltas: [`That day you asked [[M:${MSG_1}]]. I have no answer of my own on record to check.`],
+    });
+    const input = inputFor({
+      ctx: context({ memoryHits: [{ messageId: MSG_1 } as never] }),
+      recall: new Map([[MSG_1, { text: quote, localTime: '2026-11-03 11:00' }]]),
+      quotedBefore: quotesOf(`On 2026-11-03 at 11:00 you asked: "${quote}"`),
+    });
+    const s = sink();
+    const r = await pipeline(llm).run(input, new FakeBudget(60_000), s.emit);
+    expect(r.sentences.map((x) => x.text)).toEqual([
+      'I have no answer of my own on record to check.',
+    ]);
+  });
+
+  it('with completion on, a finding the model left out is said in a line written in code', async () => {
+    const llm = new FakeLlm().queueStream({ deltas: ['ExampleCo1 costs [[F1]].'] });
+    const p = new LlmAnswerPipeline({ llm, options: { completeFindings: true } });
+    const r = await p.run(inputFor(), new FakeBudget(60_000), sink().emit);
+    expect(r.sentences.map((x) => x.template)).toEqual([
+      'ExampleCo1 costs [[F1]].',
+      expect.stringContaining('[[F2]]'),
+    ]);
+    expect(r.sentences[1]?.status).toBe('verified');
+  });
+
+  it('with completion off (the default), nothing is added', async () => {
+    const llm = new FakeLlm().queueStream({ deltas: ['ExampleCo1 costs [[F1]].'] });
+    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
+    expect(r.sentences).toHaveLength(1);
+  });
+
+  it('two bare finding lines of one company that render the same are said once', async () => {
+    const unable = (ord: number, intent: 'pricing' | 'releases') =>
+      finding(ord, {
+        entityId: 'ent_hs',
+        entityName: 'HubSpot',
+        intent,
+        currentStatus: 'unable_to_verify',
+        current: undefined,
+        coverage: { ...finding(1).coverage, extractionFailed: true, failure: 'extraction_failed' },
+      });
+    const llm = new FakeLlm().queueStream({
+      deltas: ['HubSpot: HubSpot: [[F1]]. HubSpot: [[F2]]. That is all.'],
+    });
+    const r = await pipeline(llm).run(
+      inputFor({ findings: findingSet([unable(1, 'pricing'), unable(2, 'releases')]) }),
+      new FakeBudget(60_000),
+      sink().emit,
+    );
+    const lines = r.sentences.filter((s) => s.text.includes("couldn't be checked"));
+    expect(lines).toHaveLength(1);
+    expect(r.sentences.map((s) => s.index)).toEqual([0, 1]);
   });
 
   it('uses the time zone of the input to render dates', async () => {

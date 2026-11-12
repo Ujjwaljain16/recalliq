@@ -58,7 +58,7 @@ describe('DeadlineTurnBudget: one absolute deadline', () => {
       reserveMs: {
         analysis: 0,
         search: 13_000,
-        extraction: 10_000,
+        extraction: 14_000,
         judge: 500,
         synthesis: 0,
         quick: 13_000,
@@ -67,7 +67,7 @@ describe('DeadlineTurnBudget: one absolute deadline', () => {
         search_retry: 2_000,
         extraction_retry: 8_000,
         extraction_split: 8_000,
-        fallback_round: 15_000,
+        fallback_round: 25_000,
         judge: 2_000,
       },
       synthCompactBelowMs: 12_000,
@@ -155,10 +155,10 @@ describe('DeadlineTurnBudget.timeoutFor: min(cap, remaining - reserve)', () => {
     expect(budget.timeoutFor('search', 6_000)).toBeLessThan(0);
   });
 
-  it('extraction reserves 10 s; judge must end 500 ms before the deadline', () => {
+  it('extraction reserves 14 s; judge must end 500 ms before the deadline', () => {
     const { budget, clock } = make();
     clock.advance(40_000); // 20 s remain
-    expect(budget.timeoutFor('extraction', 25_000)).toBe(10_000);
+    expect(budget.timeoutFor('extraction', 25_000)).toBe(6_000);
     clock.advance(18_000); // 2 s remain
     expect(budget.timeoutFor('judge', 4_000)).toBe(1_500);
   });
@@ -213,9 +213,9 @@ describe('DeadlineTurnBudget.admit: remaining - reserve >= minDuration', () => {
   const ops: Array<[BudgetOp, number]> = [
     // op, remaining at which it is exactly admitted
     ['search_retry', 13_000 + 2_000],
-    ['extraction_retry', 10_000 + 8_000],
-    ['extraction_split', 10_000 + 8_000],
-    ['fallback_round', 13_000 + 15_000],
+    ['extraction_retry', 14_000 + 8_000],
+    ['extraction_split', 14_000 + 8_000],
+    ['fallback_round', 13_000 + 25_000],
     ['judge', 500 + 2_000],
   ];
   it.each(ops)('%s is admitted at the boundary and refused one ms below', (op, boundary) => {

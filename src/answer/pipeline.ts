@@ -54,6 +54,11 @@ export interface AnswerPipelineOptions {
   quickCapMs?: number;
   /** Output limit of the quick section. Default 400. */
   quickMaxTokens?: number;
+  /**
+   * Say every finding the model left out in a line written in code. Default false: fixtures and unit tests script
+   * the whole answer; the live application turns it on.
+   */
+  completeFindings?: boolean;
 }
 
 export interface AnswerPipelineDeps {
@@ -212,14 +217,26 @@ export class LlmAnswerPipeline implements AnswerPipeline {
 
     // Sourced sentences already said (by the quick section, or earlier in this answer) are not said again.
     const said: ClaimSignature[] = (input.earlier ?? []).map(claimSignature);
+    // A recalled message quoted by a sentence written in code is not quoted again by the model.
+    const quoted = new Set([
+      ...(input.earlier ?? []).flatMap(quotesOf),
+      ...(input.quotedBefore ?? []),
+    ]);
     const release = async (c: Candidate): Promise<void> => {
       if (c.issues.length > 0) return withhold(c.issues);
+      const own = quotesOf(c.text);
+      if (own.some((q) => quoted.has(q))) return;
+      for (const q of own) quoted.add(q);
       if (c.kind === 'sourced') {
         const sig = claimSignature(c.text);
         // A quick sentence about something other than what the question names (another company's page that
         // matched the search) is not shown as an answer to it.
         const about = input.entities ?? [];
-        if (quick && about.length > 0 && !about.some((n) => namesEntity(c.text, n)))
+        if (
+          quick &&
+          about.length > 0 &&
+          !about.some((n) => namesEntity(withoutAttribution(c.text), n))
+        )
           return withhold(['off_topic']);
         // A repeat is dropped without a warning: nothing the user needs is missing.
         if (said.some((s) => repeatsClaim(sig, s))) return;
@@ -272,10 +289,21 @@ export class LlmAnswerPipeline implements AnswerPipeline {
     // checked" for both its price and its releases): it is said once.
     const sentLines = new Set<string>();
     const deliver = (c: Candidate): void => {
-      if (c.kind !== 'sourced' && c.placeholders.length > 0) {
-        const key = c.text.trim();
-        if (sentLines.has(key)) return;
-        sentLines.add(key);
+      const only1 = c.placeholders.length === 1 ? c.placeholders[0] : undefined;
+      if (c.kind !== 'sourced' && only1?.findingId) {
+        // A bare finding line ("HubSpot: X", or "HubSpot: HubSpot: X"): nothing but the company name around
+        // the rendered value. Two such lines with the same rendering are one line.
+        const name = nameOf.get(only1.findingId) ?? '';
+        const around = c.text
+          .replace(only1.rendered, ' ')
+          .split(name)
+          .join(' ')
+          .replace(/[^\p{L}\p{N}]/gu, '');
+        if (around === '' || around.toLowerCase() === 'releases') {
+          const key = `${name}|${only1.rendered}`;
+          if (sentLines.has(key)) return;
+          sentLines.add(key);
+        }
       }
       const h = held;
       if (h && c.kind === 'sourced' && namesEntity(c.text, h.entity)) {
@@ -408,6 +436,30 @@ export class LlmAnswerPipeline implements AnswerPipeline {
 
     await gate; // sentences already complete finish their checks (and judge) in order
     flushHeld();
+
+    // Every finding is reported. The model chooses what to write, and it sometimes leaves a company or a check
+    // out; a finding no released sentence mentions is then said in a line written in code ("<Company>: [[F3]]."),
+    // which passes the same checks as any other sentence. Not after an interruption: there is no time left.
+    if (
+      opts.completeFindings === true &&
+      !quick &&
+      !interrupted &&
+      released.length > 0 &&
+      budget.remaining() > 0
+    ) {
+      const mentioned = new Set(
+        released.flatMap((s) => s.placeholders.flatMap((p) => (p.findingId ? [p.findingId] : []))),
+      );
+      const missing = findings.filter((f) => !mentioned.has(f.id));
+      if (missing.length > 0) {
+        const tail = new PlaceholderParser();
+        for (const f of missing) assembler.feed(tail.push(`${f.entityName}: [[F${f.ord}]]. `));
+        assembler.feed(tail.flush());
+        assembler.finish();
+        await gate;
+        flushHeld();
+      }
+    }
     if (!quick && !interrupted && released.length === 0) {
       safeEmit({
         event: 'error',
@@ -506,6 +558,16 @@ export class ParagraphLayout {
     const named = this.names.filter((n) => n.re.test(c.text));
     return named.length === 1 ? (named[0]?.name ?? null) : null;
   }
+}
+
+/** The sentence without its "According to <domain>" opening, which names the source, not the subject. */
+const withoutAttribution = (text: string): string => text.replace(/according to \S+/gi, ' ');
+
+/** Quoted passages of at least 20 characters, normalised for comparison. */
+export function quotesOf(text: string): string[] {
+  return [...text.matchAll(/["“]([^"”]{20,})["”]/g)].map((m) =>
+    (m[1] ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim(),
+  );
 }
 
 const namesEntity = (text: string, entity: string): boolean =>
