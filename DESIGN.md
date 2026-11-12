@@ -17,10 +17,10 @@ time, routing, verification and memory.**
 2. **Remember, then route.** If the message refers to earlier conversations, they are fetched first (SQLite
    full-text search over your messages, shortlists and companies). Only then does a deterministic router pick a
    lane:
-   - **chat:** greetings, explanations, follow-ups the model can answer itself, with the current
-     conversation as context. No search.
+   - **chat:** greetings, thanks and short follow-ups that need nothing outside the conversation. No search.
    - **recall:** "What did I ask you on 3 November?" is answered from stored history, with no search.
-   - **research:** a question that needs current facts searches the web, then answers with citations.
+   - **research:** a question about the world, current or not ("Explain TCP congestion control" included),
+     searches the web and answers from cited excerpts, so answers are short and attributed.
    - **audit:** "Is your answer still correct?" finds the earlier answer and checks it against today's sources.
    - **clarify:** "the five tools" with no shortlist on record gets a question back, saying why, not a guess.
 3. **Search, bounded.** A planner written in code turns the analysis into at most 16 searches. One 60 s deadline
@@ -112,8 +112,10 @@ Most of the design was written first. Most of what makes it work live came from 
 
 ## With another week
 
-1. **Ordinary questions, measured.** A set of everyday questions (explanations, comparisons, follow-ups,
-   cold-start "what did I ask?" with no history) graded for quality and for searching only when needed.
+1. **Ordinary conversation.** Answer general-knowledge questions directly and fluently, labelled as such, and
+   search only when currency or sources matter; make a follow-up that analysis fails on degrade to a plain reply
+   instead of an error. Then measure it: a set of everyday questions graded for quality and for searching only
+   when needed (explanations, comparisons, follow-ups, cold-start "what did I ask?").
 2. **Speed.** A proper latency sweep (p50/p95 for first text and completion per lane), then extraction that starts
    per company as its pages arrive instead of after all searches.
 3. **Memory arithmetic.** Counting and date reasoning across conversations, the weakest LongMemEval types.
