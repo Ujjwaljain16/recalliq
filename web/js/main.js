@@ -34,6 +34,8 @@ const els = {
   log: $('log'),
   empty: $('empty'),
   suggestions: $('suggestions'),
+  example: $('example'),
+  loadExample: $('load-example'),
   status: $('status'),
   announcer: $('announcer'),
   form: $('composer'),
@@ -71,7 +73,7 @@ const SCRIPTED_PROMPTS = [
 const LIVE_PROMPTS = [
   'On Monday we shortlisted 5 CRM tools for a 20-person sales team. Has any of them changed pricing or shipped something big since?',
   'What did I ask you on 3 November? Is your answer still correct today?',
-  'What does Supabase charge for its Pro plan?',
+  'Last Tuesday I asked about Postgres hosting. Has any pricing changed since then?',
   "What's new in Node.js 24?",
 ];
 
@@ -762,6 +764,32 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', flushBeacons);
 
+/**
+ * Adds the example earlier conversations the history questions refer to. A first-time visitor has no session
+ * yet: the conversation they would start anyway is created first, which also sets the session cookie.
+ */
+async function loadExampleHistory() {
+  els.loadExample.disabled = true;
+  try {
+    if (!state.conversationId) {
+      const { conversation } = await api.createConversation();
+      state.conversationId = conversation.id;
+    }
+    const { created } = await api.exampleHistory(state.timeZone);
+    setStatus(
+      created > 0
+        ? 'Added three example conversations. Ask one of the questions below.'
+        : 'The example conversations are already there.',
+    );
+    els.example.hidden = true;
+    await refreshList();
+  } catch (error) {
+    els.loadExample.disabled = false;
+    setStatus(error instanceof ApiError ? error.message : 'Could not add the example history.');
+  }
+}
+els.loadExample.addEventListener('click', () => void loadExampleHistory());
+
 function showPrompts(prompts) {
   els.suggestions.hidden = prompts.length === 0;
   for (const text of prompts) {
@@ -789,6 +817,9 @@ async function start() {
   // The scripted components only know their canned questions; a live agent gets questions that show it off.
   showPrompts(scripted ? SCRIPTED_PROMPTS : demo ? [] : LIVE_PROMPTS);
   await refreshList();
+  // Offered on a fresh start of the live agent, where the history questions have nothing to refer to yet.
+  const hasHistory = els.list.querySelector('button') !== null;
+  els.example.hidden = scripted || demo || hasHistory;
   const first = els.list.querySelector('button');
   if (first) first.click();
   els.input.focus();

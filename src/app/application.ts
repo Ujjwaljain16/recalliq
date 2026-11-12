@@ -1,3 +1,4 @@
+import { ExampleHistory } from './example-history.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -131,6 +132,7 @@ export async function startApplication(options: ApplicationOptions): Promise<App
               : null,
       },
       ...(options.heartbeatMs !== undefined ? { heartbeatMs: options.heartbeatMs } : {}),
+      exampleHistory: new ExampleHistory(db),
     });
     const port = await server.listen(options.port ?? env.config.port, env.host);
 
