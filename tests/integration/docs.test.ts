@@ -108,7 +108,9 @@ describe('architecture decision records', () => {
   it('measurement-dependent decisions stay Proposed until something has been measured', () => {
     const status = (n: number) => adrs.find((a) => a.number === n)?.status;
     expect(status(8)).toBe('Proposed'); // search provider
-    expect(status(14)).toBe('Proposed'); // models
+    // models: the provisional choice was replaced once the live configuration was run and benchmarked
+    expect(status(14)).toBe('Superseded');
+    expect(status(45)).toBe('Accepted');
   });
 
   it('a decision whose mechanism is not chosen stays Proposed (single-instance guard)', () => {

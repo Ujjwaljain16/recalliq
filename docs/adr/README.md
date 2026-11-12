@@ -21,8 +21,8 @@ during implementation, and open decisions raised since; they were never in the o
 | partly implemented | Some of it exists; the page says exactly what |
 | not implemented | A design or a decision only |
 
-Counts: 44 ADRs. Accepted 38, Proposed 5, Superseded 1.
-Implemented 36, partly 6, not implemented 2.
+Counts: 45 ADRs. Accepted 39, Proposed 4, Superseded 2.
+Implemented 37, partly 6, not implemented 2.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
 latency, accuracy or cost has been measured. The weighted scores behind ADR-01 are the author's judgements. Numeric limits in ADR-09, ADR-10, ADR-15 and ADR-24 are
@@ -45,7 +45,7 @@ unmeasured defaults. Demo isolation (ADR-28) is enforced only for the tables and
 | [ADR-11](ADR-11.md) | Evidence verification tiers T0 to T3 | Accepted | implemented | Citations come from stored IDs; quotes must appear verbatim; typed fields must bind inside the quote; only comparative sentences go to an LLM judge. | [ADR-12](ADR-12.md) |
 | [ADR-12](ADR-12.md) | Code renders facts into answers through placeholders | Accepted | implemented | Prices, dates and verdicts reach the user only as placeholders the server fills from checked records. | [ADR-11](ADR-11.md), [ADR-16](ADR-16.md), [ADR-32](ADR-32.md) |
 | [ADR-13](ADR-13.md) | Deterministic belief resolution | Accepted | implemented | Authority tier, then freshness, then recency; disagreement within a window is `contested`, not resolved silently. | [ADR-06](ADR-06.md), [ADR-21](ADR-21.md), [ADR-22](ADR-22.md) |
-| [ADR-14](ADR-14.md) | Models: Haiku 5.5 and Sonnet 5.5 behind an LLM port (provisional) | Proposed | partly implemented | Haiku for analysis and judging, Sonnet for extraction and synthesis, behind `LlmPort`; to be confirmed by measurement. The port and both adapters exist, but the live set uses Gemini and the Anthropic adapter is unused. | [ADR-08](ADR-08.md), [ADR-10](ADR-10.md) |
+| [ADR-14](ADR-14.md) | Models: Haiku 5.5 and Sonnet 5.5 behind an LLM port (provisional) | Superseded | partly implemented | Haiku for analysis and judging, Sonnet for extraction and synthesis, behind `LlmPort`; to be confirmed by measurement. The port and both adapters exist, but the live set uses Gemini and the Anthropic adapter is unused. | [ADR-08](ADR-08.md), [ADR-10](ADR-10.md) |
 | [ADR-15](ADR-15.md) | Caching policy | Accepted | not implemented | A search cache that is bypassed for fresh-fetch and recent-date requests; prompt caching on fixed system prompts; no answer cache. The `search_cache` table exists but no code uses it. | [ADR-09](ADR-09.md) |
 | [ADR-16](ADR-16.md) | Streaming: findings first, no hold-back, late verification only downgrades | Superseded | partly implemented | Checked findings are sent before any prose; sentences stream immediately; a late judge result may confirm or downgrade a sentence, never upgrade it. | [ADR-12](ADR-12.md), [ADR-23](ADR-23.md), [ADR-31](ADR-31.md) |
 | [ADR-17](ADR-17.md) | A turn runs to completion after the client disconnects | Accepted | implemented | The server finishes the turn; what the user was told is decided by acknowledgements, not by completion. | [ADR-23](ADR-23.md), [ADR-24](ADR-24.md), [ADR-31](ADR-31.md) |
@@ -76,6 +76,7 @@ unmeasured defaults. Demo isolation (ADR-28) is enforced only for the tables and
 | [ADR-42](ADR-42.md) | Verified and sourced statements | Proposed | implemented | Besides verified findings, an answer may hold sourced sentences: cited to a source shown in this turn, released only when one cited excerpt contains every number and name they state, never an assertion, belief, baseline or change claim. General questions are searched without an entity and never extracted. | [ADR-38](ADR-38.md), [ADR-40](ADR-40.md) |
 | [ADR-43](ADR-43.md) | Quick sourced answer first | Proposed | implemented | For a turn that extracts, a short sourced answer streams as soon as the search results are in, while extraction and verification run; the verified section follows and continues the numbering. Quick sentences are sourced only, never assertions. |
 | [ADR-44](ADR-44.md) | Work out of the box: exact-name domains are official, a requested live crawl is current | Accepted | implemented | Without a registry, supabase.com counts as Supabase's own site; a requested live crawl dates the content so an earlier answer can be a baseline. A change still needs ADR-36's proof. | [ADR-36](ADR-36.md), [ADR-38](ADR-38.md) |
+| [ADR-45](ADR-45.md) | Gemini Flash-Lite for every role, with a fallback model | Accepted | implemented | One model for every role on the free tier, a second model when the first is rate limited, down or slow; replaces ADR-14. | [ADR-14](ADR-14.md), [ADR-24](ADR-24.md) |
 
 ## How these relate to other documents
 

@@ -1,8 +1,8 @@
 # ADR-14: Models: Haiku 5.5 and Sonnet 5.5 behind an LLM port (provisional)
 
-- **Status:** Proposed
+- **Status:** Superseded
 - **Implementation:** partly implemented
-- **Decided:** Pending. Owner: "Haiku + Sonnet is the provisional model configuration, subject to evaluation"
+- **Decided:** Pending, then superseded on 2026-11-12. Superseded by [ADR-45](ADR-45.md): the application runs on Gemini for every role.
 - **Recorded:** 2026-11-11
 - **Provenance:** Reconstructed on 2026-11-11 from the architecture register (§20) and the design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-08](ADR-08.md), [ADR-10](ADR-10.md)
