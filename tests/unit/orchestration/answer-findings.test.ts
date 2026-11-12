@@ -106,3 +106,16 @@ describe('one plan in several currencies', () => {
     expect(findingsForAnswer(set(fs))?.findings.map((f) => f.ord)).toEqual([3, 4]);
   });
 });
+
+describe('a plan the user named', () => {
+  it('is kept first, even when it is not the cheapest', () => {
+    const key = (plan: string) =>
+      `price:v1|e=sb|p=${plan}|a=list|u=flat|b=monthly|cur=USD|vk=exact`;
+    const fs = ['micro', 'small', 'medium', 'branching', 'pro'].map((p, i) =>
+      price(i + 1, 'sb', [10, 15, 60, 0.01, 25][i] ?? 0, 'flat', { beliefKey: key(p) }),
+    );
+    const kept = findingsForAnswer(set(fs), 4, 'What does Supabase charge for its Pro plan?');
+    expect(kept?.findings.map((f) => f.ord)).toContain(5);
+    expect(kept?.findings).toHaveLength(4);
+  });
+});

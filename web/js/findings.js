@@ -207,7 +207,13 @@ function groupRow(group, sources, opts) {
     const plan = planOf(f);
     if (!v || f.intent !== 'pricing') return { plan, money: rows[i].value, unit: '' };
     const money = shortValue(v);
-    return { plan, money, unit: formatValue(v).slice(money.length).trim() };
+    // The unit is what follows the amount in the full text; a 'from'/'up to' bound goes before the amount.
+    const unit = formatValue({ ...v, valueKind: 'exact' })
+      .slice(money.length)
+      .trim();
+    const bound =
+      v.valueKind === 'lower_bound' ? 'from ' : v.valueKind === 'upper_bound' ? 'up to ' : '';
+    return { plan, money: bound + money, unit };
   });
   const units = new Set(parts.map((p) => p.unit));
   const shared = units.size === 1 ? [...units][0] : '';

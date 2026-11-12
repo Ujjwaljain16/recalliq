@@ -243,6 +243,19 @@ describe('one card row per entity', () => {
     expect(rows[0]?.status?.label).toBe('not seen recently');
   });
 
+  it('says a starting price as "from $25" without cutting the words', () => {
+    const from = (ord: number, plan: string, amount: number) =>
+      tier(ord, plan, amount, {
+        current: current(
+          usd(amount, { currency: 'unknown', valueKind: 'lower_bound', unit: 'flat' }),
+          { displayedAt: null, verifiedAt: null },
+        ),
+      });
+    const rows = groupedFindingRows([from(1, 'free', 0), from(2, 'pro', 25)], sources, opts);
+    expect(rows[0]?.value).toContain('Free from US$0 · Pro from US$25 per month');
+    expect(rows[0]?.value).not.toMatch(/\bom\b/);
+  });
+
   it('keeps single findings and different entities apart, in order', () => {
     const other = finding({ id: 'fnd_9', ord: 9, entityId: 'ent_x', entityName: 'Other' });
     const rows = groupedFindingRows(

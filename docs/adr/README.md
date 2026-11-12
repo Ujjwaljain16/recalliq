@@ -21,8 +21,8 @@ during implementation, and open decisions raised since; they were never in the o
 | partly implemented | Some of it exists; the page says exactly what |
 | not implemented | A design or a decision only |
 
-Counts: 43 ADRs. Accepted 37, Proposed 5, Superseded 1.
-Implemented 35, partly 7, not implemented 1.
+Counts: 44 ADRs. Accepted 38, Proposed 5, Superseded 1.
+Implemented 36, partly 7, not implemented 1.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
 latency, accuracy or cost has been measured. The weighted scores behind ADR-01 are the author's judgements. Numeric limits in ADR-09, ADR-10, ADR-15 and ADR-24 are
@@ -75,6 +75,7 @@ unmeasured defaults. Demo isolation (ADR-28) is enforced only for the tables and
 | [ADR-41](ADR-41.md) | Registered domain ownership as subject-binding evidence | Accepted | implemented | A domain the owner's registry explicitly maps to an entity binds the subject of a plan-tied price on a page that presents pricing, unless a comparison, integration, partner, testimonial, embedded or other-entity blocker fires; the result says the basis was ownership. | [ADR-11](ADR-11.md), [ADR-21](ADR-21.md) |
 | [ADR-42](ADR-42.md) | Verified and sourced statements | Proposed | implemented | Besides verified findings, an answer may hold sourced sentences: cited to a source shown in this turn, released only when one cited excerpt contains every number and name they state, never an assertion, belief, baseline or change claim. General questions are searched without an entity and never extracted. | [ADR-38](ADR-38.md), [ADR-40](ADR-40.md) |
 | [ADR-43](ADR-43.md) | Quick sourced answer first | Proposed | implemented | For a turn that extracts, a short sourced answer streams as soon as the search results are in, while extraction and verification run; the verified section follows and continues the numbering. Quick sentences are sourced only, never assertions. |
+| [ADR-44](ADR-44.md) | Work out of the box: exact-name domains are official, a requested live crawl is current | Accepted | implemented | Without a registry, supabase.com counts as Supabase's own site; a requested live crawl dates the content so an earlier answer can be a baseline. A change still needs ADR-36's proof. | [ADR-36](ADR-36.md), [ADR-38](ADR-38.md) |
 
 ## How these relate to other documents
 

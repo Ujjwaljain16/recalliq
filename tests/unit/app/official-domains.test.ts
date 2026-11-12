@@ -56,10 +56,21 @@ describe('OfficialDomains', () => {
     expect(b.officialDomains).toEqual([]);
   });
 
-  it('with no registry, nothing a name suggests becomes official', () => {
+  it('with no registry, only the domains that are exactly the name become official', () => {
     const e = entity('Neon');
     OfficialDomains.none().apply([e]);
-    expect(e.officialDomains).toEqual([]);
+    expect(e.officialDomains).toContain('neon.com');
+    expect(e.officialDomains).toContain('neon.tech');
+    expect(e.officialDomains).not.toContain('neon-deals.com');
+    expect(e.officialDomains.every((d) => d.startsWith('neon.'))).toBe(true);
+  });
+
+  it('a name of several words, or a short one, suggests no domain', () => {
+    const crm = entity('Zoho CRM');
+    const ai = entity('Abc');
+    OfficialDomains.none().apply([crm, ai]);
+    expect(crm.officialDomains).toEqual([]);
+    expect(ai.officialDomains).toEqual([]);
   });
 
   it('only the listed domain is official when two hosts share a name label (neon.tech versus neon.com)', () => {

@@ -983,6 +983,13 @@ export function timeFields(
   if (freshFetch) {
     displayedAt = s.observedAt;
     displayedAtBasis = 'fresh_fetch';
+  } else if (s.crawlBasis === 'requested_live' && s.crawlStatus !== 'failed') {
+    // A live crawl was requested and the content came back, but the provider confirms nothing per result
+    // (Exa). The page is taken as showing this at `observedAt`, so a price can be current and our own earlier
+    // answer can be a baseline. The basis stays 'unknown': the change detector accepts only 'fresh_fetch' for
+    // re-observing an old value and never times a change on an 'unknown' basis, so this can support "the same
+    // as my answer" or "differs", never "changed on <date>".
+    displayedAt = s.observedAt;
   } else if (s.providerLastUpdatedAt !== null) {
     displayedAt = s.providerLastUpdatedAt;
     displayedAtBasis = 'provider_last_updated';

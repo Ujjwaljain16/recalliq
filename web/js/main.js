@@ -399,9 +399,28 @@ function handleEvent(msg, trail, e) {
       scheduler.notify(msg.turnId);
       break;
     }
-    case 'warning':
+    case 'warning': {
+      // Withheld sentences are one quiet note per answer; the technical reasons stay in its tooltip.
+      if (data.code === 'sentence_withheld') {
+        msg.withheld = (msg.withheld ?? 0) + 1;
+        const n = msg.withheld;
+        const text =
+          n === 1
+            ? 'One sentence was left out because it could not be checked against its source.'
+            : `${n} sentences were left out because they could not be checked against their sources.`;
+        if (!msg.withheldNote) {
+          msg.withheldNote = note('quiet', text);
+          msg.extras.append(msg.withheldNote);
+        } else msg.withheldNote.textContent = text;
+        msg.withheldNote.title = [msg.withheldNote.title, data.text].filter(Boolean).join('\n');
+        break;
+      }
+      msg.seenWarnings ??= new Set();
+      if (msg.seenWarnings.has(data.text)) break;
+      msg.seenWarnings.add(data.text);
       msg.extras.append(note('warning', data.text));
       break;
+    }
     case 'error':
       msg.extras.append(note('error', data.text));
       break;

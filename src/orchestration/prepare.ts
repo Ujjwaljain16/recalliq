@@ -191,8 +191,15 @@ export const MAX_PRICES_PER_ENTITY = 4;
 export function findingsForAnswer(
   set: FindingSet | null,
   max = MAX_PRICES_PER_ENTITY,
+  userMessage = '',
 ): FindingSet | null {
   if (set === null) return null;
+  // A plan the user named ("the Pro plan") is kept first, whatever it costs.
+  const asked = userMessage.normalize('NFKC').toLowerCase();
+  const namesPlan = (f: Finding): boolean => {
+    const plan = /\|p=([^|]+)/.exec(f.beliefKey ?? '')?.[1];
+    return plan !== undefined && plan !== '-' && new RegExp(`\\b${escapeRe(plan)}\\b`).test(asked);
+  };
   const plain = (f: Finding): boolean =>
     f.intent === 'pricing' &&
     f.baseline === undefined &&
@@ -221,6 +228,8 @@ export function findingsForAnswer(
   for (const list of byEntity.values()) {
     if (list.length <= max) continue;
     const ranked = [...list].sort((a, b) => {
+      const named = Number(namesPlan(b)) - Number(namesPlan(a));
+      if (named !== 0) return named;
       const seat =
         Number(b.current?.value?.unit === 'per_seat') -
         Number(a.current?.value?.unit === 'per_seat');
@@ -230,4 +239,8 @@ export function findingsForAnswer(
   }
   if (dropped.size === 0) return set;
   return { ...set, findings: set.findings.filter((f) => !dropped.has(f.id)) };
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

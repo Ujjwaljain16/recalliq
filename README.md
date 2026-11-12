@@ -7,6 +7,11 @@ something, it says so instead of guessing.
 
 **How it works and why:** [DESIGN.md](DESIGN.md) (one page). Decisions: [docs/adr/README.md](docs/adr/README.md).
 
+![A live run, no edits: adding the example history, a question about "Monday" answered from memory and then researched, and the agent checking its own earlier Supabase answer](docs/media/demo.gif)
+
+_A real run on the free Gemini tier, recorded without edits and sped up only where nothing changed on screen
+(80 s). The CRM answer is partial: some vendors' prices could not be confirmed, and it says which._
+
 ## Try it in two minutes
 
 Needs Node.js 22 or newer. No database server: storage is one local SQLite file.
@@ -37,7 +42,11 @@ was planted. Then try:
    something big since?_
 2. _Last Tuesday I asked about Postgres hosting. Has any pricing changed since then?_
 3. _What did I ask you on 3 November? Is your answer still correct today?_
-4. Anything current, such as _What's new in Node.js 24?_, or a follow-up to an earlier answer.
+4. **The self-audit, in one sitting:** ask _What does Supabase charge for its Pro plan?_, wait for the answer,
+   then ask _Is the Supabase price you gave me still correct?_ It looks up what it told you, checks the page
+   again and says "no sign of a change in what I could check" (or that the value differs), comparing against its
+   own verified earlier answer rather than guessing.
+5. Anything current, such as _What's new in Node.js 24?_, or a follow-up to an earlier answer.
 
 ## What to look for
 

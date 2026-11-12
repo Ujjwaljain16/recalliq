@@ -231,8 +231,10 @@ describe('ownership that is unknown, conflicting or not enough', () => {
       officialDomains: ['acme.example'],
     };
     OfficialDomains.none().apply([acme]);
-    expect(acme.officialDomains).toEqual(['acme.example']);
-    expect(acme.ownedDomains).toEqual([]);
+    expect(acme.officialDomains).toContain('acme.example');
+    // Not registry ownership: only the domains that are exactly the name, never the carried acme.example.
+    expect(acme.ownedDomains).not.toContain('acme.example');
+    expect(acme.ownedDomains).toContain('acme.com');
     new OfficialDomains({ Acme: ['acme.example'] }).apply([acme]);
     expect(acme.ownedDomains).toEqual(['acme.example']);
   });

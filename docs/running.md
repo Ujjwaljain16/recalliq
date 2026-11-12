@@ -63,19 +63,20 @@ limited or overloaded, the turn asks GEMINI_FALLBACK_MODEL once (logged as "mode
 ## Official domains
 
 A page counts as an official source (the top two authority tiers) only when its domain is explicitly known to
-belong to the entity. Two sources, and no others:
+belong to the entity. Three sources, and no others (the third, exact-name domains, is described after the list):
 
 1. **A registry file you supply**, named by the optional `OFFICIAL_DOMAINS_FILE`: a JSON object mapping a
    normalised entity name to the registrable domains it owns, for example
    `{ "acme crm": ["acme.example"] }`. It is validated at startup (an unreadable or malformed file stops the
    process with a message naming the variable). **None ships with the project and none is downloaded**; without
-   the variable nothing is official and every page is classified below the official tiers. The replay demo uses
+   the variable only the exact-name domains below are official. The replay demo uses
    a synthetic example, `tests/fixtures/e2e/official-domains.example.json` (`.example` domains only).
 2. **A domain the entity's own stored row already carries** from an explicit earlier source. Nothing in the
    application writes one today.
 
-A name that matches a domain never makes it official, and neither does the model's guess: the analysis's
-`officialDomainGuess` only steers a search query. A domain not listed is not official even when it looks
+A domain that is exactly the company's one-word name on a common ending (supabase.com for Supabase, and its
+subdomains) is official when the registry has no entry for that name ([ADR-44](adr/ADR-44.md)); a registry entry
+replaces that guess. The model's guess never counts: the analysis's `officialDomainGuess` only steers a search query. A domain not listed is not official even when it looks
 right (a look-alike such as the same name on another top-level domain). All domains listed for a name are
 official; a domain listed for two entities is official for neither.
 

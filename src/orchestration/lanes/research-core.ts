@@ -24,7 +24,7 @@ function uniqueNames(input: LaneInput, deps: LaneDeps, ctx: ResolvedContext): st
 function namesAbout(input: LaneInput, deps: LaneDeps, ctx: ResolvedContext): string[] {
   const stems = ctx.entities.flatMap((e) =>
     [...e.officialDomains, ...(e.ownedDomains ?? [])]
-      .map((d) => d.replace(/^www./, '').split('.')[0] ?? '')
+      .map((d) => d.replace(/^www\./, '').split('.')[0] ?? '')
       .filter((s) => s.length >= 4),
   );
   return [
@@ -95,7 +95,16 @@ export async function runResearch(
     ...(options.quick === true && extracted && onSourcesReady
       ? {
           onSourcesReady: (sources: FindingSet['sources']) =>
-            onSourcesReady({ ctx, sources, entities: namesAbout(input, deps, ctx) }),
+            onSourcesReady({
+              ctx,
+              sources,
+              entities: namesAbout(input, deps, ctx),
+              companyNames: [
+                ...uniqueNames(input, deps, ctx),
+                ...ctx.entities.flatMap((e) => e.aliases),
+              ],
+              releasesChecked: input.analysis.intents.includes('releases'),
+            }),
         }
       : {}),
   });

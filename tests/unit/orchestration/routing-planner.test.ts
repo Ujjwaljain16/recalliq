@@ -25,8 +25,13 @@ describe('routeTurn: deterministic lanes', () => {
     });
   });
 
-  it('asksStillCorrect on any other lane does not change it', () => {
-    for (const lane of ['chat', 'research', 'clarify'] as const) {
+  it('research + asksStillCorrect becomes audit: the question is about our own earlier answer', () => {
+    const a = analysis({ laneHint: 'research', asksStillCorrect: true, entities: [mention('X')] });
+    expect(routeTurn(a)).toEqual({ lane: 'audit', reason: 'research_asks_still_correct' });
+  });
+
+  it('asksStillCorrect on chat or clarify does not change it', () => {
+    for (const lane of ['chat', 'clarify'] as const) {
       const a = analysis({ laneHint: lane, asksStillCorrect: true, entities: [mention('X')] });
       expect(routeTurn(a).lane).toBe(lane);
     }
