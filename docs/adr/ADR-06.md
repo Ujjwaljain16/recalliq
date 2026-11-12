@@ -1,10 +1,10 @@
 # ADR-06: Four-layer claim model with derived belief
 
 - **Status:** Accepted
-- **Implementation:** partly implemented
+- **Implementation:** implemented
 - **Decided:** Owner confirmed, 2026-11-11
 - **Recorded:** 2026-11-11
-- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture register (§20) and the design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-13](ADR-13.md), [ADR-21](ADR-21.md), [ADR-22](ADR-22.md), [ADR-26](ADR-26.md), [ADR-32](ADR-32.md)
 
 ## Context
@@ -28,8 +28,7 @@ Four layers. L1 and L2 are immutable, L3 is append-only apart from one write-onc
 ## Evidence and implementation references
 
 - Tables and constraints: [src/db/migrations/001_init.sql](../../src/db/migrations/001_init.sql); ER diagram [docs/diagrams/er.mmd](../diagrams/er.mmd).
-- L3 is implemented and tested end to end: [src/db/repositories/turn-completion.ts](../../src/db/repositories/turn-completion.ts), [tests/integration/db/turn-completion.test.ts](../../tests/integration/db/turn-completion.test.ts).
-- L2 rows can be inserted (and are constrained) but no extractor exists. The `beliefs` tables exist; the resolver that fills them does not (milestone 4).
+- L1 and L2: snapshots are stored by [src/sources/snapshot-store.ts](../../src/sources/snapshot-store.ts) and evidence statements by [src/evidence/extractor.ts](../../src/evidence/extractor.ts) and [src/evidence/repository.ts](../../src/evidence/repository.ts). L3: [src/db/repositories/turn-completion.ts](../../src/db/repositories/turn-completion.ts), tested by [tests/integration/db/turn-completion.test.ts](../../tests/integration/db/turn-completion.test.ts). L4: the derived belief is computed by [src/belief/resolver.ts](../../src/belief/resolver.ts) and stored by [src/belief/repository.ts](../../src/belief/repository.ts), tested by [tests/integration/belief/repository.test.ts](../../tests/integration/belief/repository.test.ts).
 
 ## Revisit when
 

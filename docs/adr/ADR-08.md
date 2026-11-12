@@ -1,10 +1,10 @@
 # ADR-08: Search provider: Exa (provisional) behind a port
 
 - **Status:** Proposed
-- **Implementation:** not implemented
+- **Implementation:** partly implemented
 - **Decided:** Pending. Owner: "Exa is the provisional search provider, subject to a measurable bake-off"
 - **Recorded:** 2026-11-11
-- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture register (§20) and the design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-09](ADR-09.md), [ADR-14](ADR-14.md)
 
 ## Context
@@ -18,7 +18,7 @@ One external tool is allowed. The owner confirmed that several calls to one sear
 - Perplexity Search.
 - Parallel.
 - Brave LLM Context.
-- SerpAPI, You.com, Linkup and others (rejected on documented grounds in the Stage 2 review).
+- SerpAPI, You.com, Linkup and others (rejected on documented grounds in the technology review).
 
 ## Decision
 
@@ -31,7 +31,8 @@ Not final. Exa is provisional because its documentation shows inline text, a fre
 ## Evidence and implementation references
 
 - [research-notes.md](../history/research-notes.md) §4: official documentation reviewed on 2026-11-11, with unverifiable items marked UNVERIFIED.
-- **No bake-off has been run and nothing has been measured.** No provider adapter exists.
+- Implemented: the `SearchPort` adapter for Exa ([src/search/exa-adapter.ts](../../src/search/exa-adapter.ts), with [exa-request.ts](../../src/search/exa-request.ts) and [exa-schema.ts](../../src/search/exa-schema.ts)), recording and replay ([src/search/recording.ts](../../src/search/recording.ts), [src/search/replay.ts](../../src/search/replay.ts)) and the bake-off harness [scripts/bakeoff.ts](../../scripts/bakeoff.ts). The live component set uses Exa ([src/app/live.ts](../../src/app/live.ts)). Adapter tests: [tests/unit/search/exa-adapter.test.ts](../../tests/unit/search/exa-adapter.test.ts).
+- **The bake-off has not been run against any provider and nothing has been measured** ([docs/provider-evaluation.md](../provider-evaluation.md)). That is why the decision stays Proposed.
 
 ## Revisit when
 

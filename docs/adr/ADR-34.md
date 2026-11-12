@@ -27,8 +27,8 @@ None yet. The requirement is decided; the mechanism is not.
 
 ## Evidence and implementation references
 
-- Nothing implemented. The option list has not been evaluated.
+- Nothing is implemented: the code has no lock file, no exclusive locking mode and no startup check for a second process. The option list has not been evaluated.
 
 ## Revisit when
 
-- Before the server starts accepting requests (milestone 5).
+- Before the application is run in any setting where two processes could open the same database file. The server already starts without this guard.

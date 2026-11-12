@@ -1,10 +1,10 @@
 # ADR-01: Lane-routed deterministic orchestrator (architecture C)
 
 - **Status:** Accepted
-- **Implementation:** partly implemented
-- **Decided:** Owner approval, 2026-11-11 (Stage 3, reconciled in 3.1)
+- **Implementation:** implemented
+- **Decided:** Owner approval, 2026-11-11 (design review)
 - **Recorded:** 2026-11-11
-- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture register (§20) and the design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-02](ADR-02.md), [ADR-03](ADR-03.md), [ADR-29](ADR-29.md)
 
 ## Context
@@ -30,7 +30,8 @@ C. The orchestrator (not the model) chooses the lane and runs a fixed sequence o
 ## Evidence and implementation references
 
 - Weighted decision matrix in [architecture.md](../architecture.md) (Part II). The scores are the author's judgements, **not** measurements.
-- Implemented so far: only the persistence and state-machine foundation (ADR-29, ADR-30, ADR-32). The orchestrator, lanes and components are not implemented (milestone 5).
+- Implemented: the coordinator [src/orchestration/orchestrator.ts](../../src/orchestration/orchestrator.ts), the deterministic lane rules [src/orchestration/routing.ts](../../src/orchestration/routing.ts) and the five lane handlers (chat, recall, research, audit, clarify) in [src/orchestration/lanes/](../../src/orchestration/lanes). Tested by [tests/unit/orchestration/orchestrator.test.ts](../../tests/unit/orchestration/orchestrator.test.ts), [tests/unit/orchestration/routing-planner.test.ts](../../tests/unit/orchestration/routing-planner.test.ts) and [tests/integration/orchestration/scenario-routing.test.ts](../../tests/integration/orchestration/scenario-routing.test.ts).
+- Persistence and the state machine are in ADR-29, ADR-30 and ADR-32.
 
 ## Revisit when
 

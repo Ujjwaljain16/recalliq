@@ -1,7 +1,7 @@
 # ADR-40: Factual sentences are released only after validation
 
 - **Status:** Accepted
-- **Implementation:** not implemented
+- **Implementation:** implemented
 - **Decided:** Owner decision, 2026-11-12
 - **Recorded:** 2026-11-12
 - **Related:** [ADR-16](ADR-16.md), [ADR-12](ADR-12.md), [ADR-23](ADR-23.md), [ADR-31](ADR-31.md), [ADR-38](ADR-38.md)
@@ -83,7 +83,7 @@ Implemented in `releaseQuoteAllowed` of `src/answer/t3a.ts`; the turn's "since" 
 
 ## Evidence and implementation references
 
-- Implemented in the answer pipeline (`src/answer/pipeline.ts`, `assembler.ts`, `t3a.ts`) and tested in `tests/integration/answer` and `tests/unit/answer`. The synthesis and judge models were only exercised through fakes and recorded fixtures.
+- Implemented in the answer pipeline ([src/answer/pipeline.ts](../../src/answer/pipeline.ts), [assembler.ts](../../src/answer/assembler.ts), [t3a.ts](../../src/answer/t3a.ts)) and tested in [tests/integration/answer/pipeline.test.ts](../../tests/integration/answer/pipeline.test.ts) and [tests/unit/answer/t3a.test.ts](../../tests/unit/answer/t3a.test.ts). The synthesis and judge models were only exercised through fakes and recorded fixtures.
 
 ## Revisit when
 

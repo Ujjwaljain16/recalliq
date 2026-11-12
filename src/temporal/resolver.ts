@@ -42,7 +42,7 @@ const MAX_YEAR = 2999;
 const MAX_LOOKBACK_YEARS = 8;
 
 /** A calendar date with no time zone attached. Compared through `epochDay` and `key`. */
-interface Civil {
+export interface Civil {
   readonly year: number;
   readonly month: number;
   readonly day: number;
@@ -84,12 +84,12 @@ function fromEpochDay(days: number): Civil {
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
 }
 
-function addDays(c: Civil, n: number): Civil {
+export function addDays(c: Civil, n: number): Civil {
   return fromEpochDay(epochDay(c) + n);
 }
 
 /** ISO weekday: Monday 1 .. Sunday 7. Epoch day 0 (1970-01-01) was a Thursday. */
-function isoWeekday(c: Civil): number {
+export function isoWeekday(c: Civil): number {
   return ((((epochDay(c) + 3) % 7) + 7) % 7) + 1;
 }
 
@@ -106,7 +106,7 @@ function isRealDate(year: number, month: number, day: number): boolean {
   return back.year === year && back.month === month && back.day === day;
 }
 
-function localCivil(ms: Ms, tz: IanaTz): Civil {
+export function localCivil(ms: Ms, tz: IanaTz): Civil {
   let year = 0;
   let month = 0;
   let day = 0;
@@ -122,7 +122,7 @@ function localCivil(ms: Ms, tz: IanaTz): Civil {
  * The first instant whose local date is on or after `c`. Scans in 15-minute steps (every real offset and
  * transition is a whole number of minutes), then bisects the last step to the millisecond.
  */
-function firstInstantOnOrAfter(c: Civil, tz: IanaTz): Ms {
+export function firstInstantOnOrAfter(c: Civil, tz: IanaTz): Ms {
   const target = key(c);
   const guess = Date.UTC(c.year, c.month - 1, c.day);
   let lo = guess - 16 * 3_600_000; // earlier than local midnight in every zone (max offset is +14 h)

@@ -44,6 +44,7 @@ export const api = {
   health: () => json('GET', '/api/health'),
   conversations: () => json('GET', '/api/conversations'),
   createConversation: () => json('POST', '/api/conversations'),
+  exampleHistory: (tz) => json('POST', '/api/example-history', { tz }),
   messages: (conversationId) => json('GET', `/api/conversations/${conversationId}/messages`),
   deleteConversation: (conversationId) => json('DELETE', `/api/conversations/${conversationId}`),
   ack: (turnId, body) => json('POST', `/api/turns/${turnId}/ack`, body, { keepalive: true }),

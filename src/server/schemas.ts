@@ -26,3 +26,8 @@ export function pathId<P extends string>(prefix: P, raw: string): `${P}_${string
   if (raw.length > 80 || !/^[A-Za-z0-9_-]+$/.test(raw)) return null;
   return isId(prefix, raw) ? raw : null;
 }
+
+export const exampleHistoryBodySchema = z.strictObject({
+  /** The browser's IANA time zone: the example days are dated in it. */
+  tz: z.string().min(1).max(64),
+});

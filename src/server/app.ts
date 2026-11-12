@@ -2,7 +2,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { ConversationRepository, UserRepository } from '../db/index.js';
 import type { AckRequest } from '../shared/delivery.js';
-import type { ConversationId, Ms, TurnId, UserId } from '../shared/ids.js';
+import type { ConversationId, IanaTz, Ms, TurnId, UserId } from '../shared/ids.js';
 import type { Clock, Logger } from '../shared/infrastructure.js';
 import type { SseEvent } from '../shared/sse.js';
 import type { TurnOrchestrator, TurnResult } from '../shared/turn.js';
@@ -24,7 +24,7 @@ import {
   TokenBuckets,
   type ServerLimits,
 } from './limits.js';
-import { ackBodySchema, pathId, turnBodySchema } from './schemas.js';
+import { ackBodySchema, exampleHistoryBodySchema, pathId, turnBodySchema } from './schemas.js';
 import { SseWriter } from './sse.js';
 import { serveStatic } from './static.js';
 import type { ConversationView } from './types.js';
@@ -64,6 +64,11 @@ export interface ServerOptions {
   /** What `GET /api/health` reports about the running configuration. */
   info: { mode: string; components: 'scripted' | 'replay' | 'live'; banner: string | null };
   heartbeatMs?: number;
+  /**
+   * Writes the example earlier conversations for the current user (`POST /api/example-history`). Absent: the
+   * route answers 404.
+   */
+  exampleHistory?: { seed(userId: UserId, now: Ms, tz: IanaTz): { created: number } };
 }
 
 export interface AppServer {
@@ -83,6 +88,7 @@ const PATTERNS = {
   messages: /^\/api\/conversations\/([^/]+)\/messages$/,
   turns: /^\/api\/conversations\/([^/]+)\/turns$/,
   ack: /^\/api\/turns\/([^/]+)\/ack$/,
+  exampleHistory: /^\/api\/example-history$/,
 };
 
 type Session = { kind: 'none' } | { kind: 'invalid' } | { kind: 'user'; userId: UserId };
@@ -275,6 +281,24 @@ export function createAppServer(options: ServerOptions): AppServer {
       if (userId === null) return;
       const conversationId = pathId('cnv', m[1] ?? '');
       await handleTurn(req, res, headers, userId, conversationId);
+      return;
+    }
+
+    if (match(PATTERNS.exampleHistory)) {
+      allow('POST');
+      if (!options.exampleHistory) throw new HttpError(404, 'not_found', 'Not found');
+      const userId = requireSessionUser(req, res, headers);
+      if (userId === null) return;
+      const body = parseBody(exampleHistoryBodySchema, await readJsonBody(req, 1024));
+      let tz: IanaTz;
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: body.tz });
+        tz = body.tz;
+      } catch {
+        throw new HttpError(400, 'bad_request', 'Unknown time zone');
+      }
+      const result = options.exampleHistory.seed(userId, clock.now(), tz);
+      sendJson(res, 200, result, headers);
       return;
     }
 

@@ -840,3 +840,14 @@ body {
     animation: none !important;
   }
 }
+
+.example {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+.example p {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+}
