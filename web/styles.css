@@ -426,6 +426,11 @@ body {
   color: var(--warn-text);
   border-color: var(--warn-border);
 }
+.note--quiet {
+  color: var(--muted, inherit);
+  border-color: var(--border);
+  font-size: 0.85rem;
+}
 .note--error {
   background: var(--error-bg);
   color: var(--error-text);
