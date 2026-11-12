@@ -61,6 +61,9 @@ export class SqliteMemoryRetriever implements MemoryRetriever {
   searchAll: MemoryRetriever['searchAll'] = (u, terms, limit) =>
     this.messages.searchAll(u, terms, limit);
 
+  topicalRecall: MemoryRetriever['topicalRecall'] = (u, terms, opts) =>
+    this.messages.topicalRecall(u, terms, opts);
+
   conversationOverview: MemoryRetriever['conversationOverview'] = (...a) =>
     this.messages.conversationOverview(...a);
 

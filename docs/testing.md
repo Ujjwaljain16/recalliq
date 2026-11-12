@@ -377,6 +377,19 @@ Existing tests changed because they encoded the old wording or behaviour: the no
 
 Mutation checks, each restored afterwards and each made at least one test fail: the audit lane no longer continues to research when nothing is stored for the day (4 failed); two dates printed again (11); a recall without a day clarifies again (7); the audit lane's unknown-shortlist question removed (1); both unknown-shortlist questions removed, so the turn searches (4); the change-not-established sentence added after the no-record sentence (1).
 
+### Topical recall (added 2026-11-12)
+
+A recall with no day searches all earlier conversations (Thursday 12 November 2026, Europe/London, real coordinator and SQLite).
+
+| File | What it covers |
+|---|---|
+| `tests/integration/orchestration/topical-recall.test.ts` | Seeded Ferrari and Porsche messages in two earlier conversations: both quoted by code in time order under the code-written opening, handed to the answer, an unrelated message left out; nothing matching: the fixed not-found sentence, no research and no answer call; the question's own message never returned; a shown assistant answer quoted as "My earlier answer:"; entity names used when there are no topic terms; `recallScope: conversation` and a dateless recall without terms unchanged; a recall with a day still uses the day lookup. Retriever: another user's messages never returned; the excluded turn left out; only acknowledged assistant sentences (text matching only an unshown sentence finds nothing) and a configurable role filter; best matches first, cap of 8, shown oldest first, hostile MATCH syntax (quotes, NEAR, star, column filter, caret) harmless; 600-character quotes |
+| `tests/unit/llm/prompts.test.ts` | Prompt versions `analysis.v5` and `synthesis.v7`; the dateless earlier-conversation routing line; the most-recent-wins rule |
+
+Existing tests changed: the prompt versions (`prompts.test.ts`, `defuse.test.ts`); test doubles of `MemoryRetriever` gained `topicalRecall` (`fakes.ts`, `scenario-world.ts`, `coordinator-sqlite.test.ts`, `failure-edges.test.ts`). No other test needed a change.
+
+Mutation checks, each restored afterwards and each made at least one test fail: the user_id filter removed (1 failed); the current-turn exclusion removed (2 failed); undelivered assistant text returned (1 failed); the topic search skipped in the lane (5 failed).
+
 ### Verified and sourced statements (added 2026-11-12, [ADR-42](adr/ADR-42.md))
 
 | File | What it covers |

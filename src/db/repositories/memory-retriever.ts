@@ -10,7 +10,9 @@ import type {
   ConversationOverview,
   MemoryCandidate,
   MemoryRetriever,
+  TopicalRecallOptions,
 } from '../../shared/memory.js';
+import { persistedSentencesSchema } from '../schemas.js';
 import type { DayInterval } from '../../shared/temporal.js';
 import type { Db } from '../connection.js';
 import { queryAll } from '../sql.js';
@@ -18,11 +20,15 @@ import { queryAll } from '../sql.js';
 /** The message-memory half of MemoryRetriever; decisions and entities are a separate concern. */
 export type MessageMemory = Pick<
   MemoryRetriever,
-  'messagesInIntervals' | 'searchAll' | 'conversationOverview'
+  'messagesInIntervals' | 'searchAll' | 'conversationOverview' | 'topicalRecall'
 >;
 
 export const MAX_CANDIDATES = 8;
 export const MAX_EXCERPT_CHARS = 300;
+/** A topical recall hit is quoted in full up to this length. */
+export const MAX_TOPICAL_EXCERPT_CHARS = 600;
+/** Ranked rows read before assistant messages are cut down to what was shown. */
+const TOPICAL_OVERFETCH = 5;
 const MAX_INTERVALS = 16;
 const MAX_TERMS = 16;
 const MAX_TOKENS = 24;
@@ -97,10 +103,31 @@ function formatLocal(ms: Ms, tz: string): string {
   return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}`;
 }
 
-function excerptOf(content: string): string {
+function excerptOf(content: string, max: number = MAX_EXCERPT_CHARS): string {
   const chars = Array.from(content.replace(/\s+/g, ' ').trim());
-  if (chars.length <= MAX_EXCERPT_CHARS) return chars.join('');
-  return chars.slice(0, MAX_EXCERPT_CHARS - 1).join('') + '…';
+  if (chars.length <= max) return chars.join('');
+  return chars.slice(0, max - 1).join('') + '…';
+}
+
+const topicalRow = candidateRow.extend({
+  role: z.enum(['user', 'assistant']),
+  rendered_through: z.number().int(),
+  sentences_json: z.string().nullable(),
+});
+
+/** The sentences of an assistant message that were acknowledged as rendered; '' when none, or unreadable. */
+function presentedText(sentencesJson: string | null, renderedThrough: number): string {
+  if (sentencesJson === null || renderedThrough < 0) return '';
+  try {
+    const parsed = persistedSentencesSchema.safeParse(JSON.parse(sentencesJson));
+    if (!parsed.success) return '';
+    return parsed.data
+      .filter((s) => s.index <= renderedThrough)
+      .map((s) => s.text)
+      .join(' ');
+  } catch {
+    return '';
+  }
 }
 
 /** Approximate: FTS stems words (porter), so a token counts as matched on a shared stem-like prefix. */
@@ -201,6 +228,52 @@ export class SqliteMessageMemory implements MessageMemory {
       [toMatchExpression(tokens), u, u],
     );
     return rows.map((row) => this.toCandidate(row, tokens, row.tz, -1));
+  }
+
+  /**
+   * Topical recall across ALL of the user's conversations: messages whose indexed text matches the terms, best
+   * bm25 matches first, at most `limit`, then presented oldest first. The message of `excludeTurn` is never
+   * returned. An assistant message is returned only as the sentences the user was shown (acknowledged as
+   * rendered), and only when that shown text itself matches. Both tables are filtered by user_id.
+   */
+  topicalRecall(u: UserId, terms: string[], opts: TopicalRecallOptions): MemoryCandidate[] {
+    const limit = Math.min(z.number().int().min(0).parse(opts.limit), MAX_CANDIDATES);
+    const tokens = sanitizeTerms(terms);
+    if (tokens.length === 0 || limit === 0) return [];
+    const roles =
+      opts.roles === 'both' ? "m.role IN ('user','assistant')" : `m.role = '${opts.roles}'`;
+    const rows = queryAll(
+      this.db,
+      `SELECT m.id AS message_id, m.conversation_id, m.turn_id, m.created_at, m.tz, m.content, m.role,
+              m.rendered_through, m.sentences_json,
+              ms.body AS body, ms.tags AS tags, bm25(message_fts) AS rank
+         FROM message_fts
+         JOIN message_search ms ON ms.rowid = message_fts.rowid
+         JOIN messages m ON m.id = ms.message_id
+        WHERE message_fts MATCH ?
+          AND ms.user_id = ? AND m.user_id = ? AND ${roles}
+          AND (m.turn_id IS NULL OR m.turn_id <> ?)
+        ORDER BY rank ASC, m.created_at ASC, m.id ASC
+        LIMIT ${limit * TOPICAL_OVERFETCH}`,
+      topicalRow,
+      [toMatchExpression(tokens), u, u, opts.excludeTurn],
+    );
+    const zone = validZone(opts.tz);
+    const hits: MemoryCandidate[] = [];
+    for (const row of rows) {
+      const text =
+        row.role === 'user' ? row.content : presentedText(row.sentences_json, row.rendered_through);
+      if (text.trim() === '') continue;
+      if (row.role === 'assistant' && matchedTokens(tokens, text).length === 0) continue;
+      const candidate = this.toCandidate({ ...row, content: text }, tokens, zone ?? row.tz, -1);
+      hits.push({
+        ...candidate,
+        excerpt: excerptOf(text, MAX_TOPICAL_EXCERPT_CHARS),
+        role: row.role,
+      });
+      if (hits.length >= limit) break;
+    }
+    return hits.sort((a, b) => a.createdAt - b.createdAt || a.messageId.localeCompare(b.messageId));
   }
 
   /**

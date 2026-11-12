@@ -4,7 +4,7 @@ import { SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM } from '../../../src/llm/pro
 
 describe('synthesis prompt', () => {
   it('is version 5 and forbids free-text change language, requiring verdict placeholders', () => {
-    expect(SYNTHESIS_PROMPT_VERSION).toBe('synthesis.v6');
+    expect(SYNTHESIS_PROMPT_VERSION).toBe('synthesis.v7');
     expect(SYNTHESIS_SYSTEM).toContain('CHANGE OVER TIME or a COMPARISON');
     expect(SYNTHESIS_SYSTEM).toContain('[[F3:verdict]]');
     expect(SYNTHESIS_SYSTEM).toContain('Free text must not describe changes');
@@ -16,8 +16,8 @@ describe('synthesis prompt', () => {
 });
 
 describe('analysis prompt', () => {
-  it('is version 4, defines the three time roles with examples and forbids years the user did not write', () => {
-    expect(ANALYSIS_PROMPT_VERSION).toBe('analysis.v4');
+  it('is version 5, defines the three time roles with examples and forbids years the user did not write', () => {
+    expect(ANALYSIS_PROMPT_VERSION).toBe('analysis.v5');
     expect(ANALYSIS_SYSTEM).toContain(
       'reference_conversation: a day or time the user says an EARLIER CONVERSATION',
     );
@@ -42,5 +42,19 @@ describe('analysis prompt', () => {
   it('asks for queries about a stated subject of an earlier conversation, and none when it is not stated', () => {
     expect(ANALYSIS_SYSTEM).toContain('"managed Postgres hosting pricing"');
     expect(ANALYSIS_SYSTEM).toContain('When the subject is not stated');
+  });
+});
+
+describe('topical recall prompt lines', () => {
+  it('routes dateless earlier-conversation questions to recall with topic terms', () => {
+    expect(ANALYSIS_SYSTEM).toContain('"I mentioned ...", "you told me about ..."');
+    expect(ANALYSIS_SYSTEM).toContain('"topicTerms"');
+  });
+
+  it('tells the answer that the most recent of disagreeing earlier messages is current', () => {
+    expect(SYNTHESIS_SYSTEM).toContain(
+      'the most recent one is the current state; say what changed only if both are shown',
+    );
+    expect(SYNTHESIS_SYSTEM).toContain('"My earlier answer:"');
   });
 });

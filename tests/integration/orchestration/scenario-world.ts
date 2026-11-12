@@ -207,6 +207,10 @@ export function world(
       return sql.messagesInIntervals(...a);
     },
     searchAll: (...a) => sql.searchAll(...a),
+    topicalRecall: (...a) => {
+      log.push('topical');
+      return sql.topicalRecall(...a);
+    },
     conversationOverview: (...a) => {
       log.push('overview');
       return sql.conversationOverview(...a);
