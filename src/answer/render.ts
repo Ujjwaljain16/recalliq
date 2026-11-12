@@ -250,7 +250,7 @@ function verdictText(f: Finding, records: AnswerRecords): string {
     case 'differs_timing_unknown':
       return "is different now; I can't tell whether it changed after my answer or my answer was already out of date";
     case 'releases_found':
-      return `${f.releases?.length ?? 0} release${f.releases?.length === 1 ? '' : 's'} found since my earlier answer`;
+      return `${f.releases?.length ?? 0} release${f.releases?.length === 1 ? '' : 's'} found in the period checked`;
     case 'none_found': {
       const n = f.coverage.sourcesChecked;
       const newest = f.coverage.newestDatedSource;

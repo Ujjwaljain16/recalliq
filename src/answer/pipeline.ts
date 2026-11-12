@@ -289,10 +289,21 @@ export class LlmAnswerPipeline implements AnswerPipeline {
     // checked" for both its price and its releases): it is said once.
     const sentLines = new Set<string>();
     const deliver = (c: Candidate): void => {
-      if (c.kind !== 'sourced' && c.placeholders.length > 0) {
-        const key = c.text.trim();
-        if (sentLines.has(key)) return;
-        sentLines.add(key);
+      const only1 = c.placeholders.length === 1 ? c.placeholders[0] : undefined;
+      if (c.kind !== 'sourced' && only1?.findingId) {
+        // A bare finding line ("HubSpot: X", or "HubSpot: HubSpot: X"): nothing but the company name around
+        // the rendered value. Two such lines with the same rendering are one line.
+        const name = nameOf.get(only1.findingId) ?? '';
+        const around = c.text
+          .replace(only1.rendered, ' ')
+          .split(name)
+          .join(' ')
+          .replace(/[^\p{L}\p{N}]/gu, '');
+        if (around === '' || around.toLowerCase() === 'releases') {
+          const key = `${name}|${only1.rendered}`;
+          if (sentLines.has(key)) return;
+          sentLines.add(key);
+        }
       }
       const h = held;
       if (h && c.kind === 'sourced' && namesEntity(c.text, h.entity)) {

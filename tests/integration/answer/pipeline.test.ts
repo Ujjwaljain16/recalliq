@@ -264,6 +264,29 @@ describe('answer pipeline: only validated sentences are released', () => {
     expect(r.sentences).toHaveLength(1);
   });
 
+  it('two bare finding lines of one company that render the same are said once', async () => {
+    const unable = (ord: number, intent: 'pricing' | 'releases') =>
+      finding(ord, {
+        entityId: 'ent_hs' as never,
+        entityName: 'HubSpot',
+        intent,
+        currentStatus: 'unable_to_verify',
+        current: undefined,
+        coverage: { ...finding(1).coverage, extractionFailed: true, failure: 'extraction_failed' },
+      });
+    const llm = new FakeLlm().queueStream({
+      deltas: ['HubSpot: HubSpot: [[F1]]. HubSpot: [[F2]]. That is all.'],
+    });
+    const r = await pipeline(llm).run(
+      inputFor({ findings: findingSet([unable(1, 'pricing'), unable(2, 'releases')]) }),
+      new FakeBudget(60_000),
+      sink().emit,
+    );
+    const lines = r.sentences.filter((s) => s.text.includes("couldn't be checked"));
+    expect(lines).toHaveLength(1);
+    expect(r.sentences.map((s) => s.index)).toEqual([0, 1]);
+  });
+
   it('uses the time zone of the input to render dates', async () => {
     const f = finding(1, {
       baseline: {
