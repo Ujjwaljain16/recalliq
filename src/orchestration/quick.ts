@@ -89,6 +89,7 @@ export class QuickSection {
         sources: ready.sources,
         ctx: ready.ctx,
         ...(ready.entities ? { entities: ready.entities } : {}),
+        ...(ready.companyNames ? { companyNames: ready.companyNames } : {}),
         ...(ready.releasesChecked ? { releasesChecked: true } : {}),
         userMessage: this.c.userMessage,
         tz: this.c.tz,

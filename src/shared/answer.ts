@@ -89,6 +89,8 @@ export interface QuickAnswerInput {
   ctx: ResolvedContext;
   /** The names the question is about; a quick sentence must name one of them when there are any. */
   entities?: readonly string[];
+  /** The company names and aliases alone: a sentence attributed to that name's own domain is on topic. */
+  companyNames?: readonly string[];
   /** The turn checks releases itself: the quick section then states none (they are said once checked). */
   releasesChecked?: boolean;
   userMessage: string;
@@ -120,6 +122,8 @@ export interface AnswerPipeline {
       earlier?: readonly string[];
       /** The names the question is about (the quick section's sentences must name one of them). */
       entities?: readonly string[];
+      /** See QuickAnswerInput.companyNames. */
+      companyNames?: readonly string[];
       /** See QuickAnswerInput.releasesChecked. */
       releasesChecked?: boolean;
       /**

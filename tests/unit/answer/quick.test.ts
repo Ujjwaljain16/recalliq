@@ -152,3 +152,25 @@ describe('quick section and a release check in the same turn', () => {
     expect(out.sentences.map((s) => s.text).join(' ')).toContain('Smart Docs');
   });
 });
+
+describe('quick section: on topic', () => {
+  it("a sentence from the company's own site is on topic even when it does not repeat the name", async () => {
+    const out = await new LlmAnswerPipeline({ llm: new Scripted([SENTENCE]) }).quick(
+      { ...input(), entities: ['Acme'], companyNames: ['Acme'] },
+      new FakeBudget(60_000),
+      () => undefined,
+    );
+    expect(out.sentences.map((s) => s.text).join(' ')).toContain('US$90');
+  });
+
+  it("a sentence from another company's site that names no one asked about is withheld", async () => {
+    const { events, emit } = sink();
+    const out = await new LlmAnswerPipeline({ llm: new Scripted([SENTENCE]) }).quick(
+      { ...input(), entities: ['Beta'], companyNames: ['Beta'] },
+      new FakeBudget(60_000),
+      emit,
+    );
+    expect(out.sentences).toEqual([]);
+    expect(JSON.stringify(events)).toContain('off_topic');
+  });
+});

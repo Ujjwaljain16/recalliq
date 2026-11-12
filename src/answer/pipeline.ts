@@ -134,6 +134,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         recall: new Map(),
         ctx: input.ctx,
         ...(input.entities ? { entities: input.entities } : {}),
+        ...(input.companyNames ? { companyNames: input.companyNames } : {}),
         ...(input.releasesChecked ? { releasesChecked: true } : {}),
         userMessage: input.userMessage,
         window: [],
@@ -236,7 +237,8 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         if (
           quick &&
           about.length > 0 &&
-          !about.some((n) => namesEntity(withoutAttribution(c.text), n))
+          !about.some((n) => namesEntity(withoutAttribution(c.text), n)) &&
+          !fromOwnSite(c.text, input.companyNames ?? [])
         )
           return withhold(['off_topic']);
         // When the turn checks releases, a release is said once that check has counted it, with its coverage.
@@ -572,6 +574,17 @@ export class ParagraphLayout {
 /** A sentence that reports a launch, release or announcement. */
 const RELEASE_CLAIM =
   /\b(?:launch(?:es|ed)?|releas(?:e|es|ed)|ship(?:s|ped)|introduc(?:es|ed)|announc(?:es|ed)|publish(?:es|ed)|unveil(?:s|ed)|roll(?:s|ed)? out|debut(?:s|ed)?)\b/i;
+
+/**
+ * True when the sentence is attributed to a company's own site ("According to supabase.com, the Pro plan ..." in
+ * a question about Supabase): what that site says is about that company, even when the sentence does not repeat
+ * the name. Only a one-word name that is the domain's first label counts.
+ */
+function fromOwnSite(text: string, names: readonly string[]): boolean {
+  const label = /according to (?:www\.)?([a-z0-9-]+)\./i.exec(text)?.[1]?.toLowerCase();
+  if (!label) return false;
+  return names.some((n) => n.normalize('NFKC').toLowerCase().trim() === label);
+}
 
 /** The sentence without its "According to <domain>" opening, which names the source, not the subject. */
 const withoutAttribution = (text: string): string => text.replace(/according to \S+/gi, ' ');
