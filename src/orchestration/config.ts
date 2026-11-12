@@ -29,7 +29,8 @@ export const DEFAULT_TURN_BUDGET_CONFIG: TurnBudgetConfig = {
   reserveMs: {
     analysis: 0,
     search: 13_000,
-    extraction: 10_000,
+    // extraction: the evidence judge, the verified synthesis and persistence still need time after it.
+    extraction: 14_000,
     judge: 500,
     synthesis: 0,
     quick: 13_000,
@@ -38,7 +39,9 @@ export const DEFAULT_TURN_BUDGET_CONFIG: TurnBudgetConfig = {
     search_retry: 2_000,
     extraction_retry: 8_000,
     extraction_split: 8_000,
-    fallback_round: 15_000,
+    // a second search round costs a search and an extraction (15-25 s on a free-tier model), so it runs only
+    // when the first round finished early enough to leave that and the answer.
+    fallback_round: 25_000,
     judge: 2_000,
   },
   synthCompactBelowMs: 12_000,
