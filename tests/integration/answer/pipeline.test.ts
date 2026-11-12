@@ -267,7 +267,7 @@ describe('answer pipeline: only validated sentences are released', () => {
   it('two bare finding lines of one company that render the same are said once', async () => {
     const unable = (ord: number, intent: 'pricing' | 'releases') =>
       finding(ord, {
-        entityId: 'ent_hs' as never,
+        entityId: 'ent_hs',
         entityName: 'HubSpot',
         intent,
         currentStatus: 'unable_to_verify',
