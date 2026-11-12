@@ -40,6 +40,9 @@ export function liveLauncher(
 ): Launcher {
   return async ({ dbPath, clock }) => {
     const env = loadAppEnv({
+      // The harness is the only client of its own private app and opens one session per question, so the
+      // per-address session quota (meant for a shared server) is lifted unless the caller sets it.
+      NEW_SESSIONS_PER_HOUR: '100000',
       ...processEnv,
       APP_COMPONENTS: 'live',
       APP_MODE: 'real',
