@@ -597,7 +597,7 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
           result = await this.deps.answer.run(
             {
               // The answer text is written from at most a few plain prices per company (see findingsForAnswer).
-              findings: findingsForAnswer(outcome.findings),
+              findings: findingsForAnswer(outcome.findings, undefined, c.req.text),
               recall: outcome.recall,
               ctx: outcome.ctx,
               userMessage: c.req.text,

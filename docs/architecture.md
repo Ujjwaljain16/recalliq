@@ -589,6 +589,7 @@ stateDiagram-v2
 
 **Lane rules:**
 - `recall` + `asksStillCorrect` → `audit`.
+- `research` + `asksStillCorrect` → `audit` (added 2026-11-12 after a live run: "Is the Supabase price you gave me still correct?" was hinted as research, so the earlier answer was never looked up).
 - `research` with no entities and no queries → `chat`.
 - Any referent that can't be resolved → `clarify`.
 
