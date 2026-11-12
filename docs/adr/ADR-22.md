@@ -1,10 +1,10 @@
 # ADR-22: Observation time kept separate from effective time
 
 - **Status:** Accepted
-- **Implementation:** partly implemented
-- **Decided:** Owner approval, 2026-11-11 (3.1)
+- **Implementation:** implemented
+- **Decided:** Owner approval, 2026-11-11 (design review)
 - **Recorded:** 2026-11-11
-- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture register (§20) and the design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-36](ADR-36.md), [ADR-21](ADR-21.md), [ADR-07](ADR-07.md)
 
 ## Context
@@ -30,7 +30,8 @@ Retrieval time stays separate from source time: `observedAt` is when we retrieve
 
 ## Evidence and implementation references
 
-- Columns `observed_at`, `effective_from`, `displayed_at`, `displayed_at_basis`, `provider_published_at`, `provider_last_updated_at` in [src/db/migrations/001_init.sql](../../src/db/migrations/001_init.sql). Logic is not implemented.
+- Columns `observed_at`, `effective_from`, `displayed_at`, `displayed_at_basis`, `provider_published_at`, `provider_last_updated_at` in [src/db/migrations/001_init.sql](../../src/db/migrations/001_init.sql) and `crawl_basis` in [src/db/migrations/009_snapshot_crawl_basis.sql](../../src/db/migrations/009_snapshot_crawl_basis.sql).
+- Logic: the as-of rule ([src/belief/as-of.ts](../../src/belief/as-of.ts)), the change detector with `differs_timing_unknown` ([src/belief/detector.ts](../../src/belief/detector.ts)) and the crawl-basis rule ([src/search/crawl-basis.ts](../../src/search/crawl-basis.ts)). Tested by [tests/unit/belief/detector.test.ts](../../tests/unit/belief/detector.test.ts), [tests/unit/belief/as-of.test.ts](../../tests/unit/belief/as-of.test.ts) and [tests/unit/search/crawl-basis.test.ts](../../tests/unit/search/crawl-basis.test.ts), with synthetic evidence only.
 
 ## Revisit when
 

@@ -1,10 +1,10 @@
 # ADR-11: Evidence verification tiers T0 to T3
 
 - **Status:** Accepted
-- **Implementation:** not implemented
-- **Decided:** Owner approval, 2026-11-11 (Stage 3, 3.1)
+- **Implementation:** implemented
+- **Decided:** Owner approval, 2026-11-11 (design review)
 - **Recorded:** 2026-11-11
-- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture register (§20) and the design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-12](ADR-12.md)
 
 ## Context
@@ -27,7 +27,9 @@ The tiers. A page title, URL or domain never establishes which entity a price be
 
 ## Evidence and implementation references
 
-- [architecture.md](../architecture.md) R2 and [design-review.md](../history/design-review.md). Nothing is implemented; the weak-rate on real pages is unknown (open item U15).
+- Verifier: [src/evidence/verifier.ts](../../src/evidence/verifier.ts) (T0 citation integrity, T1 verbatim quote and context, T2 relational binding), with [binding.ts](../../src/evidence/binding.ts), [currency.ts](../../src/evidence/currency.ts), [dates.ts](../../src/evidence/dates.ts) and [ownership.ts](../../src/evidence/ownership.ts) (ADR-41). T3, the LLM judge for comparative sentences only, is in [src/evidence/entailment.ts](../../src/evidence/entailment.ts) and the answer pipeline.
+- Tested by [tests/unit/evidence/verifier.test.ts](../../tests/unit/evidence/verifier.test.ts) and the calibration set ([tests/unit/evidence/calibration-oracle.test.ts](../../tests/unit/evidence/calibration-oracle.test.ts)).
+- [architecture.md](../architecture.md) R2 and [design-review.md](../history/design-review.md) give the design. The weak-rate on real pages is measured on a small labelled set only ([docs/extraction-calibration.md](../extraction-calibration.md)); open item U15 stays open.
 
 ## Revisit when
 

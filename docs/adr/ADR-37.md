@@ -39,4 +39,4 @@ Locale is part of the key and of pricing comparability.
 
 ## Revisit when
 
-- The belief-key functions are written (milestone 4), and after the U17 spot check.
+- After the U17 spot check of regional prices.

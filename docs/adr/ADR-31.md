@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Implementation:** implemented
-- **Decided:** Owner approval, 2026-11-11 (M2 approved)
+- **Decided:** Owner approval, 2026-11-11 (approved after review)
 - **Recorded:** 2026-11-11
 - **Related:** [ADR-23](ADR-23.md), [ADR-16](ADR-16.md), [ADR-32](ADR-32.md)
 

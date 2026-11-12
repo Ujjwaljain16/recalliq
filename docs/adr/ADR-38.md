@@ -51,7 +51,7 @@ A baseline keeps its original evidence links and the sentence status it had when
 
 ## Consequences and trade-offs
 
-- The baseline loader (milestone 3) must apply rules 2 to 5; the database enforces only presentation (rule 1) and cannot judge sentence status or evidence quality. A recalled but ineligible claim means an audit says what was said and that it was not verified, never a verdict on it.
+- The baseline loader ([src/db/repositories/baseline-loader.ts](../../src/db/repositories/baseline-loader.ts)) applies rules 2 to 5; the database enforces only presentation (rule 1) and cannot judge sentence status or evidence quality. A recalled but ineligible claim means an audit says what was said and that it was not verified, never a verdict on it.
 - Fewer audits get a baseline. That is intended: an unverified claim is not a fact to compare against.
 - The rules rely on the sentence status stored in JSON, so the loader reads `sentences_json` (or an equivalent join) and is untested until it exists.
 
@@ -63,4 +63,4 @@ A baseline keeps its original evidence links and the sentence status it had when
 
 ## Revisit when
 
-- The baseline loader is written (milestone 3), and when a sentence status or placeholder variant is added.
+- A sentence status or placeholder variant is added.

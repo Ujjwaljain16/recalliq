@@ -25,9 +25,10 @@ Explicit procedure (contracts §1.1), user-scoped throughout. The belief rebuild
 
 ## Evidence and implementation references
 
-- [src/db/privacy-deletion.ts](../../src/db/privacy-deletion.ts); tests in [tests/integration/db/privacy-deletion.test.ts](../../tests/integration/db/privacy-deletion.test.ts) use a recording fake rebuilder.
-- **T-DB-09 (rebuild after deletion equals a fresh rebuild) is `todo`**, as is the recall half of T-MEM-08. Deletion plus rebuilding is not fully tested and must not be described as such before milestone 4.
+- [src/db/privacy-deletion.ts](../../src/db/privacy-deletion.ts), reached through the turn repository and the server's delete route ([src/server/app.ts](../../src/server/app.ts)). The rebuilder is the real `BeliefRepository` ([src/belief/repository.ts](../../src/belief/repository.ts)); the deletion tests in [tests/integration/db/privacy-deletion.test.ts](../../tests/integration/db/privacy-deletion.test.ts) use a recording fake rebuilder.
+- Rebuilding after a deletion is tested against the real repository ([tests/integration/belief/repository.test.ts](../../tests/integration/belief/repository.test.ts), T-DB-REBUILD-03 and 04), and T-MEM-08 (a deleted conversation cannot be recalled) runs on the real recall path ([tests/integration/db/memory-recall.test.ts](../../tests/integration/db/memory-recall.test.ts)).
+- **T-DB-09 (beliefs after deletion equal a fresh rebuild) is still `todo`** in [tests/integration/db/invariants.test.ts](../../tests/integration/db/invariants.test.ts), so the full equivalence is not asserted and must not be described as tested.
 
 ## Revisit when
 
-- The belief resolver exists (milestone 4): implement T-DB-09.
+- T-DB-09 is written as an equality test between the beliefs left after deletion and a fresh rebuild.

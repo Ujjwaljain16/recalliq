@@ -1,7 +1,7 @@
-# ADR-27: Ownership consistency enforced by database triggers (partial)
+# ADR-27: Ownership consistency enforced by database triggers
 
 - **Status:** Accepted
-- **Implementation:** partly implemented
+- **Implementation:** implemented
 - **Decided:** Owner approval, 2026-11-11; coverage still open (Q-007)
 - **Recorded:** 2026-11-11
 - **Related:** [ADR-20](ADR-20.md), [ADR-26](ADR-26.md), [ADR-28](ADR-28.md), [Q-007](../questions.md)

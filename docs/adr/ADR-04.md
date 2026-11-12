@@ -4,7 +4,7 @@
 - **Implementation:** implemented
 - **Decided:** Owner confirmed "SQLite + FTS5 for v1", 2026-11-11
 - **Recorded:** 2026-11-11
-- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture register (§20) and the design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-05](ADR-05.md), [ADR-25](ADR-25.md), [ADR-26](ADR-26.md)
 
 ## Context
@@ -21,7 +21,7 @@ Evaluators run `npm install` and the app with no other service. Queries are most
 
 ## Decision
 
-SQLite through better-sqlite3, pinned to exactly 13.0.3 (the Stage 2 review found 13.1.0 broken on Windows ARM). Migrations are explicit SQL files.
+SQLite through better-sqlite3, pinned to exactly 13.0.3 (the technology review found 13.1.0 broken on Windows ARM). Migrations are explicit SQL files.
 
 ## Consequences and trade-offs
 

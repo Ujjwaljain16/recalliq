@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Implementation:** implemented
-- **Decided:** Owner approval, 2026-11-11 (M2 approved); edge list extended by ADR-39, 2026-11-12
+- **Decided:** Owner approval, 2026-11-11 (approved after review); edge list extended by ADR-39, 2026-11-12
 - **Recorded:** 2026-11-11
 - **Related:** [ADR-01](ADR-01.md), [ADR-30](ADR-30.md), [ADR-39](ADR-39.md)
 

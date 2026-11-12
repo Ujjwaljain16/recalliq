@@ -4,7 +4,7 @@
 - **Implementation:** implemented
 - **Decided:** Owner confirmed U3, 2026-11-11
 - **Recorded:** 2026-11-11
-- **Provenance:** Reconstructed on 2026-11-11 from the architecture §20 register and the Stage 3 / 3.1 design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
+- **Provenance:** Reconstructed on 2026-11-11 from the architecture register (§20) and the design documents. This is **not** recovered original ADR text: no earlier ADR pages existed. **Status** (the decision) and **Implementation** (the code) are recorded separately and audited separately.
 - **Related:** [ADR-05](ADR-05.md), [ADR-22](ADR-22.md), [ADR-36](ADR-36.md)
 
 ## Context
@@ -29,7 +29,7 @@ The third. Intervals are half-open UTC ranges for local calendar days (Luxon). `
 
 - Resolver: [src/temporal/resolver.ts](../../src/temporal/resolver.ts), tested by [tests/unit/temporal.test.ts](../../tests/unit/temporal.test.ts) (T-TEMP-01..12: every weekday and modifier, DST, skipped midnights and days, year boundary). Ask-when-several: [src/memory/recall.ts](../../src/memory/recall.ts), tested by [tests/integration/db/recall.test.ts](../../tests/integration/db/recall.test.ts).
 - Implemented with `Intl` instead of Luxon, to avoid a dependency; the interface is unchanged. Interpretations the contract left open (a bare weekday on the same weekday is ambiguous; `this <weekday>` in the future is ambiguous; `last_week` is the previous Monday to Sunday) are written in the header of the resolver and tested.
-- Not wired into a turn yet: the orchestrator (milestone 5) is the caller.
+- The resolver is wired into the application in [src/app/application.ts](../../src/app/application.ts) and used by the lanes and by recall.
 
 ## Revisit when
 
