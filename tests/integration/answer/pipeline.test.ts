@@ -1,3 +1,4 @@
+import { quotesOf } from '../../../src/answer/pipeline.js';
 import { describe, expect, it } from 'vitest';
 import { LlmAnswerPipeline, citedSnapshotIds } from '../../../src/answer/pipeline.js';
 import { defaultRenderer, type Renderer } from '../../../src/answer/render.js';
@@ -227,6 +228,25 @@ describe('answer pipeline: only validated sentences are released', () => {
     const r = await pipeline(llm).run(input, new FakeBudget(60_000), s.emit);
     expect(r.sentences.map((x) => x.text).join(' ')).toContain('stained white shirt');
     expect(JSON.stringify(withheld(s.events))).not.toContain('duplicate_text');
+  });
+
+  it('a sentence quoting a message the opening already quoted is dropped; the next one is kept', async () => {
+    const quote = 'What does Neon charge per month for its Postgres plans?';
+    const llm = new FakeLlm().queueStream({
+      deltas: [
+        `That day you asked [[M:${MSG_1}]]. I have no answer of my own on record to check.`,
+      ],
+    });
+    const input = inputFor({
+      ctx: context({ memoryHits: [{ messageId: MSG_1 } as never] }),
+      recall: new Map([[MSG_1, { text: quote, localTime: '2026-11-03 11:00' }]]),
+      quotedBefore: quotesOf(`On 2026-11-03 at 11:00 you asked: "${quote}"`),
+    });
+    const s = sink();
+    const r = await pipeline(llm).run(input, new FakeBudget(60_000), s.emit);
+    expect(r.sentences.map((x) => x.text)).toEqual([
+      'I have no answer of my own on record to check.',
+    ]);
   });
 
   it('uses the time zone of the input to render dates', async () => {

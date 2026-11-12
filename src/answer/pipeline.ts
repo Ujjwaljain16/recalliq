@@ -213,9 +213,10 @@ export class LlmAnswerPipeline implements AnswerPipeline {
     // Sourced sentences already said (by the quick section, or earlier in this answer) are not said again.
     const said: ClaimSignature[] = (input.earlier ?? []).map(claimSignature);
     // A recalled message quoted by a sentence written in code is not quoted again by the model.
-    const quoted = new Set(
-      [...(input.earlier ?? []), ...(input.quotedBefore ?? [])].flatMap(quotesOf),
-    );
+    const quoted = new Set([
+      ...(input.earlier ?? []).flatMap(quotesOf),
+      ...(input.quotedBefore ?? []),
+    ]);
     const release = async (c: Candidate): Promise<void> => {
       if (c.issues.length > 0) return withhold(c.issues);
       const own = quotesOf(c.text);
