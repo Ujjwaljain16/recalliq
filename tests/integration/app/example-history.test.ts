@@ -45,7 +45,7 @@ describe('example history for reviewers', () => {
       localDate: '2026-11-09',
       tz: 'UTC',
     };
-    const hits = memory.messagesInIntervals(userId, [monday as never], ['crm']);
+    const hits = memory.messagesInIntervals(userId, [monday], ['crm']);
     expect(hits.map((h) => h.excerpt).join(' ')).toContain('Our shortlist is HubSpot');
     const shortlist = memory.decisions(userId, 'shortlist', null);
     expect(shortlist).toHaveLength(1);
