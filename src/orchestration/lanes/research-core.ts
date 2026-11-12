@@ -74,7 +74,10 @@ export async function runResearch(
     budget: input.budget,
     emit: input.emit,
     ...(options.quick === true && extracted && onSourcesReady
-      ? { onSourcesReady: (sources: FindingSet['sources']) => onSourcesReady({ ctx, sources }) }
+      ? {
+          onSourcesReady: (sources: FindingSet['sources']) =>
+            onSourcesReady({ ctx, sources, entities: uniqueNames(input, deps, ctx) }),
+        }
       : {}),
   });
   assertFindingSetConsistent(findings, input.turnId);

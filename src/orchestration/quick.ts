@@ -88,6 +88,7 @@ export class QuickSection {
         createdAt: this.c.now,
         sources: ready.sources,
         ctx: ready.ctx,
+        ...(ready.entities ? { entities: ready.entities } : {}),
         userMessage: this.c.userMessage,
         tz: this.c.tz,
         cut: this.cut.signal,

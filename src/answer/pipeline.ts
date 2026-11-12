@@ -128,6 +128,7 @@ export class LlmAnswerPipeline implements AnswerPipeline {
         },
         recall: new Map(),
         ctx: input.ctx,
+        ...(input.entities ? { entities: input.entities } : {}),
         userMessage: input.userMessage,
         window: [],
         tz: input.tz,
@@ -215,6 +216,11 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       if (c.issues.length > 0) return withhold(c.issues);
       if (c.kind === 'sourced') {
         const sig = claimSignature(c.text);
+        // A quick sentence about something other than what the question names (another company's page that
+        // matched the search) is not shown as an answer to it.
+        const about = input.entities ?? [];
+        if (quick && about.length > 0 && !about.some((n) => namesEntity(c.text, n)))
+          return withhold(['off_topic']);
         // A repeat is dropped without a warning: nothing the user needs is missing.
         if (said.some((s) => repeatsClaim(sig, s))) return;
         said.push(sig);

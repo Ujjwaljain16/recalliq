@@ -82,6 +82,7 @@ const sentenceIssue = exhaustive<SentenceIssue>()([
   'ungrounded_name',
   'ungrounded_source',
   'sourced_link',
+  'off_topic',
   'sourced_too_long',
   'empty_sentence',
 ]);
