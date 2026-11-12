@@ -3,6 +3,7 @@ import type { Ms, TurnId } from '../shared/ids.js';
 import type { Logger, TurnBudget } from '../shared/infrastructure.js';
 import type { EventSink } from '../shared/sse.js';
 import type { LaneInput } from './lanes/types.js';
+import { deterministicAnswer } from './prepare.js';
 
 /**
  * The quick sourced section of one turn (ADR-43). The research lane calls `start` when the turn's sources are
@@ -17,6 +18,8 @@ export class QuickSection {
   private running: Promise<void> | null = null;
   private result: AnswerResult | null = null;
   private failure: { error: unknown } | null = null;
+  /** The sentences written in code that were released before the quick section's own. */
+  private opening: ReturnType<typeof deterministicAnswer> | null = null;
 
   constructor(
     private readonly c: {
@@ -36,9 +39,49 @@ export class QuickSection {
     return this.c.answer.quick !== undefined;
   }
 
+  /** How many sentences written in code were released first (the quick section is numbered after them). */
+  get leadCount(): number {
+    return this.opening?.sentences.length ?? 0;
+  }
+
   start(ready: Parameters<NonNullable<LaneInput['onSourcesReady']>>[0]): void {
     const quick = this.c.answer.quick?.bind(this.c.answer);
     if (this.running || !quick) return;
+    const opening = deterministicAnswer(ready.lead ?? []);
+    const k = opening.sentences.length;
+    if (k > 0) {
+      this.opening = opening;
+      for (const s of opening.sentences) {
+        this.c.emit({
+          event: 'answer.delta',
+          data: { sentenceIndex: s.index, text: (s.index === 0 ? '' : ' ') + s.text },
+        });
+        this.c.emit({
+          event: 'answer.sentence_end',
+          data: { index: s.index, status: s.status, issues: s.issues },
+        });
+      }
+    }
+    // The quick section numbers its sentences from 0; they follow the opening ones.
+    const emit: EventSink = (e) => {
+      if (k === 0) return this.c.emit(e);
+      switch (e.event) {
+        case 'answer.delta':
+          return this.c.emit({
+            event: 'answer.delta',
+            data: {
+              sentenceIndex: e.data.sentenceIndex + k,
+              text: e.data.sentenceIndex === 0 ? ' ' + e.data.text : e.data.text,
+            },
+          });
+        case 'answer.sentence_end':
+          return this.c.emit({ event: e.event, data: { ...e.data, index: e.data.index + k } });
+        case 'verification':
+          return this.c.emit({ event: e.event, data: { ...e.data, index: e.data.index + k } });
+        default:
+          return this.c.emit(e);
+      }
+    };
     this.running = quick(
       {
         turnId: this.c.turnId,
@@ -50,7 +93,7 @@ export class QuickSection {
         cut: this.cut.signal,
       },
       this.c.budget,
-      this.c.emit,
+      emit,
     ).then(
       (r) => {
         this.result = r;
@@ -69,6 +112,23 @@ export class QuickSection {
     this.cut.abort();
     if (this.running) await this.running;
     if (this.failure) throw this.failure.error;
-    return this.result && this.result.sentences.length > 0 ? this.result : null;
+    const quick = this.result && this.result.sentences.length > 0 ? this.result : null;
+    const opening = this.opening;
+    if (!opening) return quick;
+    const k = opening.sentences.length;
+    if (!quick) return { ...opening, interrupted: false };
+    return {
+      sentences: [
+        ...opening.sentences,
+        ...quick.sentences.map((x) => ({ ...x, index: x.index + k })),
+      ],
+      streamedThrough:
+        quick.streamedThrough < quick.sentences.length - 1
+          ? quick.streamedThrough + k
+          : k + quick.sentences.length - 1,
+      interrupted: quick.interrupted,
+      template: [opening.template, quick.template].filter((t) => t !== '').join(' '),
+      rendered: [opening.rendered, quick.rendered].filter((t) => t !== '').join(' '),
+    };
   }
 }

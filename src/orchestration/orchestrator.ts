@@ -600,7 +600,9 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
               userMessage: c.req.text,
               window: c.window,
               tz: c.tz,
-              ...(early ? { earlier: early.sentences.map((s) => s.text) } : {}),
+              ...(early
+                ? { earlier: early.sentences.slice(quick.leadCount).map((s) => s.text) }
+                : {}),
             },
             c.budget,
             pipelineEmit,
@@ -626,7 +628,7 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
           // The verified section had nothing to add (every sentence a repeat or withheld) and nothing failed:
           // the quick answer stands as a complete answer. Only a stream that broke counts as interrupted.
           if (early) {
-            return result.interrupted
+            return result.interrupted || early.sentences.length <= quick.leadCount
               ? this.keptEnding(opening(), outcome, 'synthesis_empty')
               : this.completedByQuick(opening(), outcome);
           }

@@ -196,16 +196,32 @@ export async function researchTurn(
   }
   emitContext(input, ctx);
   if (capped) emitEntityCap(input);
-  // The quick sourced answer opens the answer, so it runs only when no sentence written in code has to open
-  // it first; a sentence that can be written only once the findings are known comes after it.
-  const outcome = await runResearch(researchInput, deps, ctx, 'research', {
-    quick: lead.length === 0 && options.noRecordDay === undefined,
+  // The quick sourced answer follows the sentences written in code that are known before the search (what was
+  // recalled): the quick section releases them first. A sentence that can be written only once the findings
+  // are known comes after it.
+  let leadSent = false;
+  const quickInput =
+    lead.length > 0 && researchInput.onSourcesReady
+      ? {
+          ...researchInput,
+          onSourcesReady: (ready: Parameters<NonNullable<typeof input.onSourcesReady>>[0]) => {
+            leadSent = true;
+            input.onSourcesReady?.({ ...ready, lead: [...lead] });
+          },
+        }
+      : researchInput;
+  const outcome = await runResearch(quickInput, deps, ctx, 'research', {
+    quick: options.noRecordDay === undefined,
   });
   if (outcome.kind !== 'synthesize') return outcome;
   const unproven =
     options.noRecordDay === undefined
       ? changeNotEstablishedSentence(input, ctx, outcome.findings, hits)
       : null;
-  const opening = [...noRecord(true), ...lead, ...(unproven === null ? [] : [unproven])];
+  const opening = [
+    ...noRecord(true),
+    ...(leadSent ? [] : lead),
+    ...(unproven === null ? [] : [unproven]),
+  ];
   return opening.length > 0 ? { ...outcome, lead: opening } : outcome;
 }
