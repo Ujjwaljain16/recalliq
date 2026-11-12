@@ -19,7 +19,7 @@ export interface MemoryCandidate {
   turnId: TurnId | null;
   createdAt: Ms;
   localTime: string;
-  /** ≤ 300 chars */
+  /** ≤ 300 chars, or ≤ 600 for a topical recall hit */
   excerpt: string;
   matchedTerms: string[];
   score: number;
@@ -27,6 +27,8 @@ export interface MemoryCandidate {
   intervalIndex: number;
   /** The message's stored tags: normalised topic terms and entity names, written at enrichment. Absent in test doubles. */
   tags?: string[];
+  /** Whose words the excerpt is. Set by topical recall; absent means a user message. */
+  role?: 'user' | 'assistant';
 }
 
 export interface DecisionRecord {
@@ -81,6 +83,19 @@ export interface ConversationOverview {
   otherConversations: number;
 }
 
+/** Which stored messages a topical recall may return. */
+export type TopicalRoles = 'user' | 'assistant' | 'both';
+
+export interface TopicalRecallOptions {
+  /** The turn being answered: its own user message is never returned. */
+  excludeTurn: TurnId;
+  /** At most this many hits (best matches first, then presented oldest first). */
+  limit: number;
+  /** The zone the local times are given in. */
+  tz: string;
+  roles: TopicalRoles;
+}
+
 export interface MemoryRetriever {
   messagesInIntervals(u: UserId, iv: DayInterval[], terms: string[]): MemoryCandidate[];
   /**
@@ -96,6 +111,11 @@ export interface MemoryRetriever {
     tz: string,
   ): ConversationOverview;
   searchAll(u: UserId, terms: string[], limit: number): MemoryCandidate[];
+  /**
+   * Messages of ALL the user's conversations whose indexed text matches the terms (full-text, bm25 best first,
+   * capped), returned oldest first. An assistant message is returned only as the sentences the user was shown.
+   */
+  topicalRecall(u: UserId, terms: string[], opts: TopicalRecallOptions): MemoryCandidate[];
   decisions(
     u: UserId,
     kind: DecisionPayload['kind'] | null,

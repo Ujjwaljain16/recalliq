@@ -1,4 +1,5 @@
 import { resolveRecall } from '../../memory/recall.js';
+import { topicalRecall, topicalTerms } from './recall-topical.js';
 import {
   clarifyOutcome,
   dayOf,
@@ -18,7 +19,9 @@ export const MAX_CONVERSATION_RECALL = 8;
 /**
  * Recall lane: "what did I ask last Tuesday?", "what have we talked about so far?".
  *
- *  - No day named: the user means this conversation. Its latest user messages (never the question being answered)
+ *  - No day named but a subject (topic terms, entities): topical recall across all earlier conversations (see
+ *    `topicalRecall`).
+ *  - No day and no subject: the user means this conversation. Its latest user messages (never the question being answered)
  *    are retrieved and handed to the answer as recall records, quoted by code; an opening sentence written in code
  *    says how many there were and how many other conversations are on record. An empty conversation is a fixed
  *    reply that says so. Never a "which day?" question.
@@ -30,7 +33,8 @@ export const MAX_CONVERSATION_RECALL = 8;
  */
 export const recallLane: LaneHandler = (input, deps) => {
   if (!input.analysis.temporal.some((t) => t.role === 'reference_conversation')) {
-    return conversationRecall(input, deps);
+    const terms = input.analysis.recallScope === 'conversation' ? [] : topicalTerms(input.analysis);
+    return terms.length > 0 ? topicalRecall(input, deps, terms) : conversationRecall(input, deps);
   }
   const outcome = resolveRecall(
     { resolver: deps.resolver, memory: deps.memory },

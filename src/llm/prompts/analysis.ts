@@ -1,5 +1,5 @@
 /** Bump when the wording or the output contract changes, so recorded fixtures and benchmarks can be matched. */
-export const ANALYSIS_PROMPT_VERSION = 'analysis.v4';
+export const ANALYSIS_PROMPT_VERSION = 'analysis.v5';
 export const ANALYSIS_SCHEMA_NAME = 'TurnAnalysis';
 
 export const ANALYSIS_SYSTEM = `You analyse one user message in a conversation with a research assistant that tracks prices and product releases. You do not answer the user. You return a JSON object describing the message.
@@ -14,6 +14,7 @@ Rules:
 - laneHint is advisory: chat, recall, research, audit or clarify.
   - chat: greetings, thanks, small talk and questions about what you can do ("hi", "what can you help with?"). No time expressions, entities or queries.
   - recall: the user asks what was said earlier. When they name no day ("what have we talked about so far?", "what did I ask earlier?", "remind me what we discussed"), set "recallScope" to "conversation" and add no time expression. "today" or "yesterday" is a day: give it a time expression with role reference_conversation and leave "recallScope" out.
+  - recall also covers a question about something said in an EARLIER conversation with no day named: "I mentioned ...", "you told me about ...", "in our previous conversation about X", "earlier you recommended ...", "remind me what we said about X", "how many X have I tried?", "which did I start first, A or B?". Set laneHint to recall, add no time expression, leave "recallScope" out, and put the subject words of the question in "topicTerms" (nouns and names only, no filler such as "remind", "conversation" or "earlier").
   - Leave "recallScope" out on every other message.
 - intents: pricing, releases or general.
 - entities: ONLY named organisations, vendors or products that the user is asking about, at most 8 (for example "Neon", "Slack"). A generic technology or product category is NOT an entity: Postgres, PostgreSQL, MySQL, CRM, database, hosting, serverless, API, LLM, SaaS, Kubernetes and the like go in "topicTerms". Example: for "What does Neon charge per month for its Postgres plans?" the entity is Neon and "postgres" is a topic term (and the query may be "Neon Postgres pricing"). "normalized" is lower case without punctuation. Give "officialDomainGuess" only when you are confident.

@@ -189,8 +189,13 @@ export class SpyMemory implements MemoryRetriever {
       entities?: ReturnType<MemoryRetriever['entitiesByAlias']>;
       decisions?: ReturnType<MemoryRetriever['decisions']>;
       conversation?: ConversationOverview;
+      topical?: MemoryCandidate[];
     } = {},
   ) {}
+  topicalRecall(): MemoryCandidate[] {
+    this.calls.push('topicalRecall');
+    return this.data.topical ?? [];
+  }
   conversationOverview(): ConversationOverview {
     this.calls.push('conversationOverview');
     return this.data.conversation ?? { hits: [], total: 0, otherConversations: 0 };
