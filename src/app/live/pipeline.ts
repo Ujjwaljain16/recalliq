@@ -86,7 +86,10 @@ export function buildRealComponents(env: ComponentEnv, ports: ProviderPorts): Co
   const answer = new LlmAnswerPipeline({
     llm: ports.llm,
     logger: env.logger,
-    options: { quick: ports.quick ?? ports.kind === 'live' },
+    options: {
+      quick: ports.quick ?? ports.kind === 'live',
+      completeFindings: ports.kind === 'live',
+    },
   });
   return {
     kind: ports.kind,

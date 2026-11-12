@@ -54,6 +54,11 @@ export interface AnswerPipelineOptions {
   quickCapMs?: number;
   /** Output limit of the quick section. Default 400. */
   quickMaxTokens?: number;
+  /**
+   * Say every finding the model left out in a line written in code. Default false: fixtures and unit tests script
+   * the whole answer; the live application turns it on.
+   */
+  completeFindings?: boolean;
 }
 
 export interface AnswerPipelineDeps {
@@ -420,6 +425,30 @@ export class LlmAnswerPipeline implements AnswerPipeline {
 
     await gate; // sentences already complete finish their checks (and judge) in order
     flushHeld();
+
+    // Every finding is reported. The model chooses what to write, and it sometimes leaves a company or a check
+    // out; a finding no released sentence mentions is then said in a line written in code ("<Company>: [[F3]]."),
+    // which passes the same checks as any other sentence. Not after an interruption: there is no time left.
+    if (
+      opts.completeFindings === true &&
+      !quick &&
+      !interrupted &&
+      released.length > 0 &&
+      budget.remaining() > 0
+    ) {
+      const mentioned = new Set(
+        released.flatMap((s) => s.placeholders.flatMap((p) => (p.findingId ? [p.findingId] : []))),
+      );
+      const missing = findings.filter((f) => !mentioned.has(f.id));
+      if (missing.length > 0) {
+        const tail = new PlaceholderParser();
+        for (const f of missing) assembler.feed(tail.push(`${f.entityName}: [[F${f.ord}]]. `));
+        assembler.feed(tail.flush());
+        assembler.finish();
+        await gate;
+        flushHeld();
+      }
+    }
     if (!quick && !interrupted && released.length === 0) {
       safeEmit({
         event: 'error',

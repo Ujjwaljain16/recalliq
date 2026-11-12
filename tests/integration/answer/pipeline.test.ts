@@ -233,9 +233,7 @@ describe('answer pipeline: only validated sentences are released', () => {
   it('a sentence quoting a message the opening already quoted is dropped; the next one is kept', async () => {
     const quote = 'What does Neon charge per month for its Postgres plans?';
     const llm = new FakeLlm().queueStream({
-      deltas: [
-        `That day you asked [[M:${MSG_1}]]. I have no answer of my own on record to check.`,
-      ],
+      deltas: [`That day you asked [[M:${MSG_1}]]. I have no answer of my own on record to check.`],
     });
     const input = inputFor({
       ctx: context({ memoryHits: [{ messageId: MSG_1 } as never] }),
@@ -247,6 +245,23 @@ describe('answer pipeline: only validated sentences are released', () => {
     expect(r.sentences.map((x) => x.text)).toEqual([
       'I have no answer of my own on record to check.',
     ]);
+  });
+
+  it('with completion on, a finding the model left out is said in a line written in code', async () => {
+    const llm = new FakeLlm().queueStream({ deltas: ['ExampleCo1 costs [[F1]].'] });
+    const p = new LlmAnswerPipeline({ llm, options: { completeFindings: true } });
+    const r = await p.run(inputFor(), new FakeBudget(60_000), sink().emit);
+    expect(r.sentences.map((x) => x.template)).toEqual([
+      'ExampleCo1 costs [[F1]].',
+      expect.stringContaining('[[F2]]'),
+    ]);
+    expect(r.sentences[1]?.status).toBe('verified');
+  });
+
+  it('with completion off (the default), nothing is added', async () => {
+    const llm = new FakeLlm().queueStream({ deltas: ['ExampleCo1 costs [[F1]].'] });
+    const r = await pipeline(llm).run(inputFor(), new FakeBudget(60_000), sink().emit);
+    expect(r.sentences).toHaveLength(1);
   });
 
   it('uses the time zone of the input to render dates', async () => {
