@@ -65,13 +65,14 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 - **Security review:** no critical or high findings; rebinding, quota, CORS and baseline-poisoning issues fixed
   (`docs/security.md`).
 - **Public benchmarks** (FreshQA, SimpleQA, LongMemEval; `docs/benchmarks.md`): 30-question dev samples, then
-  the 100-question test samples, which a daily free-tier quota stopped part way, so those counts are partial.
-  SimpleQA 80% on the first 60 test questions (48 correct, 95% range 68–88%, 15% declined; dev 24 of 30).
-  FreshQA 58% on the first 31 graded (18 correct, 41–74%; dev 16 of 30); fast-changing facts are weak (1 of 11)
-  and its answer key dates from April 2026. LongMemEval dev 11 of 29 (38%, 23–56%) after topical recall was
-  added (13% before); only 16 test questions finished (4 correct). Graders: SimpleQA uses the published
-  template; the other two are our wording of each paper's description. Small samples, one run each, a lite
-  model on a free tier: read them as a rough picture, not a score to compare with other systems.
+  100-question test samples, one run each, all finished. SimpleQA 80/100 (80%, 95% range 71–87%; 13% declined,
+  7% wrong). FreshQA 69/100 (69%, 59–77%); fast-changing facts are weak (11 of 27, 41%) and its answer key dates
+  from April 2026. LongMemEval 37/100 (37%, 28–47%): single-session questions 15 of 24 on the user and assistant
+  sides, but multi-session (3 of 24) and temporal reasoning (6 of 25) are weak because counting and date
+  arithmetic across messages are not supported. Median time to first text 4–7 s. Graders: SimpleQA uses the
+  published template; the other two are our wording of each paper's description. Small samples, a lite model on
+  a free tier, with some provider failures retried: read them as a rough picture, not a score to compare with
+  other systems.
 
 ## Known limits
 
@@ -85,7 +86,7 @@ against today's sources. **Every statement in an answer says how sure it is: ver
 
 ## With another week
 
-1. Run the benchmark test sets once and publish the numbers with their intervals.
+1. Counting and date arithmetic across remembered messages (the weak LongMemEval types).
 2. Gap-directed second search round (search for _why_ a claim failed: plan, billing period, owner page).
 3. A small, reviewed official-domain registry flow so change verdicts work out of the box.
 4. Evaluate stronger models per role (analysis, extraction, synthesis) on the dev sets.
