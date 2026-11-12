@@ -284,6 +284,17 @@ describe('T-QUICK a sourced answer streams while extraction runs', () => {
     expect(llm().quickPrompts[0]).not.toContain('kind="findings"');
   });
 
+  it('a verified section with nothing to add leaves the quick answer as a complete answer, not an interrupted one', async () => {
+    // The only verified sentence states a number no source holds, so it is withheld and nothing new remains.
+    const { app } = await start({ deltas: [S1] }, 250, [say(Q, 'It costs 5 dollars flat.')]);
+    const user = app.client();
+    const turn = await ask(user, await user.newConversation(), Q);
+    expect(turn.sentences.join('')).toContain('US$90');
+    expect(turn.sentences.join('')).not.toContain('5 dollars');
+    expect(turn.status).toBe('complete');
+    expect(eventsOf(turn, 'error')).toEqual([]);
+  });
+
   it('a failed quick call leaves the turn exactly as it is without one', async () => {
     const { app } = await start({ deltas: [], fail: true }, 200);
     const user = app.client();

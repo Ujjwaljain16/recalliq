@@ -569,6 +569,10 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
               return c.emit({ event: e.event, data: { ...e.data, index: e.data.index + offset } });
             case 'verification':
               return c.emit({ event: e.event, data: { ...e.data, index: e.data.index + offset } });
+            case 'error':
+              // The quick part already answered: a verified section that released nothing is not an error.
+              if (e.data.code === 'empty_answer') return;
+              return c.emit(e);
             default:
               return c.emit(e);
           }
@@ -619,7 +623,13 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
           );
         }
         if (result.sentences.length === 0) {
-          if (early) return this.keptEnding(opening(), outcome, 'synthesis_empty');
+          // The verified section had nothing to add (every sentence a repeat or withheld) and nothing failed:
+          // the quick answer stands as a complete answer. Only a stream that broke counts as interrupted.
+          if (early) {
+            return result.interrupted
+              ? this.keptEnding(opening(), outcome, 'synthesis_empty')
+              : this.completedByQuick(opening(), outcome);
+          }
           return this.fixedEnding(
             c.emit,
             OUTAGE_REPLY,
@@ -672,6 +682,25 @@ export class DefaultTurnOrchestrator implements TurnOrchestrator {
         };
       }
     }
+  }
+
+  /** The quick section is the whole answer: the verified section had nothing to add and nothing went wrong. */
+  private completedByQuick(
+    released: AnswerResult,
+    outcome: Extract<LaneOutcome, { kind: 'synthesize' }>,
+  ): Ending {
+    return {
+      status: statusForFindings(outcome.findings),
+      answer: {
+        rendered: released.rendered,
+        template: released.template,
+        sentences: released.sentences,
+        streamedThrough: released.streamedThrough,
+        messageStatus: 'complete',
+      },
+      findings: outcome.findings,
+      ctx: outcome.ctx,
+    };
   }
 
   /**
