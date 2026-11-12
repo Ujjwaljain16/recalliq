@@ -168,7 +168,6 @@ describe('documentation links', () => {
     'docs/questions.md',
     'docs/testing.md',
     'docs/turn-lifecycle.md',
-    ...fs.readdirSync('docs/proposals').map((f) => path.join('docs/proposals', f)),
     ...fs.readdirSync(ADR_DIR).map((f) => path.join(ADR_DIR, f)),
   ].filter((f) => f.endsWith('.md'));
 

@@ -22,7 +22,7 @@ during implementation, and open decisions raised since; they were never in the o
 | not implemented | A design or a decision only |
 
 Counts: 44 ADRs. Accepted 38, Proposed 5, Superseded 1.
-Implemented 36, partly 7, not implemented 1.
+Implemented 36, partly 6, not implemented 2.
 
 **What is not claimed.** The search provider (ADR-08) and the models (ADR-14) are measurement-dependent and remain Proposed: no bake-off has been run and no
 latency, accuracy or cost has been measured. The weighted scores behind ADR-01 are the author's judgements. Numeric limits in ADR-09, ADR-10, ADR-15 and ADR-24 are
@@ -46,7 +46,7 @@ unmeasured defaults. Demo isolation (ADR-28) is enforced only for the tables and
 | [ADR-12](ADR-12.md) | Code renders facts into answers through placeholders | Accepted | implemented | Prices, dates and verdicts reach the user only as placeholders the server fills from checked records. | [ADR-11](ADR-11.md), [ADR-16](ADR-16.md), [ADR-32](ADR-32.md) |
 | [ADR-13](ADR-13.md) | Deterministic belief resolution | Accepted | implemented | Authority tier, then freshness, then recency; disagreement within a window is `contested`, not resolved silently. | [ADR-06](ADR-06.md), [ADR-21](ADR-21.md), [ADR-22](ADR-22.md) |
 | [ADR-14](ADR-14.md) | Models: Haiku 5.5 and Sonnet 5.5 behind an LLM port (provisional) | Proposed | partly implemented | Haiku for analysis and judging, Sonnet for extraction and synthesis, behind `LlmPort`; to be confirmed by measurement. The port and both adapters exist, but the live set uses Gemini and the Anthropic adapter is unused. | [ADR-08](ADR-08.md), [ADR-10](ADR-10.md) |
-| [ADR-15](ADR-15.md) | Caching policy | Accepted | partly implemented | A search cache that is bypassed for fresh-fetch and recent-date requests; prompt caching on fixed system prompts; no answer cache. The `search_cache` table exists but no code uses it. | [ADR-09](ADR-09.md) |
+| [ADR-15](ADR-15.md) | Caching policy | Accepted | not implemented | A search cache that is bypassed for fresh-fetch and recent-date requests; prompt caching on fixed system prompts; no answer cache. The `search_cache` table exists but no code uses it. | [ADR-09](ADR-09.md) |
 | [ADR-16](ADR-16.md) | Streaming: findings first, no hold-back, late verification only downgrades | Superseded | partly implemented | Checked findings are sent before any prose; sentences stream immediately; a late judge result may confirm or downgrade a sentence, never upgrade it. | [ADR-12](ADR-12.md), [ADR-23](ADR-23.md), [ADR-31](ADR-31.md) |
 | [ADR-17](ADR-17.md) | A turn runs to completion after the client disconnects | Accepted | implemented | The server finishes the turn; what the user was told is decided by acknowledgements, not by completion. | [ADR-23](ADR-23.md), [ADR-24](ADR-24.md), [ADR-31](ADR-31.md) |
 | [ADR-18](ADR-18.md) | Test strategy: ports, recorded replay, fixed clock, offline by default | Accepted | implemented | External services sit behind ports; tests are offline and deterministic; live runs are separate and explicit. | [ADR-19](ADR-19.md) |

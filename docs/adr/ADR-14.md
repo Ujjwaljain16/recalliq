@@ -28,9 +28,8 @@ Not final. Anthropic is provisional.
 
 ## Evidence and implementation references
 
-- [research-notes.md](../history/research-notes.md) §5: pricing and capabilities from provider documentation; latency figures there are third-party. The recommendation discloses that the author is itself an Anthropic model.
-- The port exists: `LlmPort` in [src/shared/llm.ts](../../src/shared/llm.ts), with a Gemini adapter ([src/llm/gemini/](../../src/llm/gemini)), an Anthropic adapter ([src/llm/anthropic/](../../src/llm/anthropic)), a fallback wrapper, a recording and replay adapter and a scripted fake. **The live component set uses Gemini for every role** (default model `gemini-3.5-flash-lite`, fallback `gemini-3.1-flash-lite`, [src/config/env.ts](../../src/config/env.ts)); the Anthropic adapter is not used by any component set and has never been run against the real API.
-- Prompts are in [src/llm/prompts/](../../src/llm/prompts) and [src/evidence/prompts/](../../src/evidence/prompts). The model benchmark has not been run ([docs/model-evaluation.md](../model-evaluation.md)), so no latency, quality or cost figure is a result. The per-turn cost is an estimate.
+- The port exists: `LlmPort` in [src/shared/llm.ts](../../src/shared/llm.ts), with a Gemini adapter ([src/llm/gemini/](../../src/llm/gemini)), a fallback wrapper, a recording and replay adapter and a scripted fake. **The live component set uses Gemini for every role** (default model `gemini-3.5-flash-lite`, fallback `gemini-3.1-flash-lite`, [src/config/env.ts](../../src/config/env.ts)). An Anthropic adapter was written early and removed unused on 2026-11-12; it is in the git history.
+- Prompts are in [src/llm/prompts/](../../src/llm/prompts) and [src/evidence/prompts/](../../src/evidence/prompts). No per-role model comparison has been run; the measured results of the live set are in [docs/benchmarks.md](../benchmarks.md). The per-turn cost is an estimate.
 
 ## Revisit when
 

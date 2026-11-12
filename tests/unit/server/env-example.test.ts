@@ -49,9 +49,6 @@ describe('.env.example', () => {
       'SERVER_HEADERS_TIMEOUT_MS',
       'SERVER_REQUEST_TIMEOUT_MS',
       'OFFICIAL_DOMAINS_FILE',
-      'MODEL_FAST',
-      'MODEL_MAIN',
-      'ANTHROPIC_API_KEY',
     ]) {
       expect(all.has(name), name).toBe(true);
     }
@@ -59,7 +56,7 @@ describe('.env.example', () => {
 
   it('contains no secret values', () => {
     const { active } = exampleVariables();
-    for (const name of ['SESSION_SECRET', 'GEMINI_API_KEY', 'EXA_API_KEY', 'ANTHROPIC_API_KEY']) {
+    for (const name of ['SESSION_SECRET', 'GEMINI_API_KEY', 'EXA_API_KEY']) {
       expect(active[name] ?? '', name).toBe('');
     }
     expect(fs.readFileSync('.env.example', 'utf8')).not.toMatch(

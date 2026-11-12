@@ -3,10 +3,9 @@
 **Status:** approved direction, reconciled after the design review on 2026-11-11.
 **Companion documents:**
 - [contracts.md](contracts.md): SQL schema, TypeScript contracts, SSE contract. These are normative.
-- [design-doc-blueprint.md](history/design-doc-blueprint.md): the plan for the final design document (historical).
-- [design-review.md](history/design-review.md): the record of the first design reconciliation (historical).
+- [DESIGN.md](../DESIGN.md): the one-page summary; [adr/](adr/README.md): the decision records.
 
-The earlier technology decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, Exa as provisional search provider, and Haiku + Sonnet as provisional models.
+The earlier technology decisions stand: U2, U3, SQLite + FTS5, no embeddings, the four-layer claim model, and Exa as provisional search provider. The live set runs on Gemini (`gemini-3.5-flash-lite` with a fallback model).
 
 Where this document and the contracts file disagree, **the contracts file wins**, and the disagreement is a bug to fix.
 
@@ -338,13 +337,13 @@ There is one absolute deadline per turn: `deadline = startedAt + TURN_DEADLINE_M
 
    | Call | Cap |
    |---|---|
-   | Search | 9 s in total for one search, retries and waits included (live crawl ≤ 5 s on the provider's side). *Raised from 6 s on 2026-11-12 after a single observation batch: see [provider-evaluation.md](provider-evaluation.md)* |
+   | Search | 9 s in total for one search, retries and waits included (live crawl ≤ 5 s on the provider's side). *Raised from 6 s on 2026-11-12 after a single observation batch of 20 live-crawl requests* |
    | Analysis | 8 s |
    | Extraction | 25 s |
    | Judge | 4 s |
    | Synthesis | Until the deadline |
 
-   **How the search cap behaves.** One search has one time budget of 9 s for all its attempts together: a retry gets what is left, never a fresh 9 s, and it starts only if at least 2 s of that budget and the stage's admission rule allow it. Every attempt is also bounded by the turn deadline minus the stage reserve, and parallel searches all draw on that one deadline. A search that runs out of time is a typed `timeout` (or `deadline`) failure that becomes a coverage failure, never a success. The configured caps for the longest sequence (analysis 8 s, one search round 9 s, extraction 25 s, judge 4 s) add up to 46 s of the 60 s deadline, which leaves 14 s for synthesis and persistence by design. That is an allocation of time limits, not a measured execution time: no full turn has been timed under load, and the only measured figures are in the observation batch in [provider-evaluation.md](provider-evaluation.md).
+   **How the search cap behaves.** One search has one time budget of 9 s for all its attempts together: a retry gets what is left, never a fresh 9 s, and it starts only if at least 2 s of that budget and the stage's admission rule allow it. Every attempt is also bounded by the turn deadline minus the stage reserve, and parallel searches all draw on that one deadline. A search that runs out of time is a typed `timeout` (or `deadline`) failure that becomes a coverage failure, never a success. The configured caps for the longest sequence (analysis 8 s, one search round 9 s, extraction 25 s, judge 4 s) add up to 46 s of the 60 s deadline, which leaves 14 s for synthesis and persistence by design. That is an allocation of time limits, not a measured execution time: no full turn has been timed under load, and the only measured figures come from one observation batch of 20 live-crawl requests (median 4.6 s, slowest 7.0 s).
 
 3. **Reserves.** Time is set aside for the stages still to come:
 
@@ -1043,24 +1042,7 @@ ADR-01 to ADR-20 stand, with the following updates and additions.
 
 ---
 
-## Part V: Roadmap
-
-The roadmap has 15 steps (0 to 14), each with a documentation gate from the [blueprint](history/design-doc-blueprint.md) §6. Within those steps, the design review adds:
-
-| Step | Additions |
-|---|---|
-| 1 | Triggers and owner checks; T-DB-* |
-| 3 | `TurnBudget` from the first vertical slice; T-BUD-01..03 |
-| 4 | Bake-off also measures T2 weak rates, bare-`$` frequency, and how often A1 sections lack a product name (U15, U16) |
-| 7 | T-EV-CUR, T-EV-SUBJ, T-EV-UNIT |
-| 8 | T-KEY, T-BEL-20..36 |
-| 9 | T-ANS, T-DLV, ack endpoint |
-
-## Part VI: DESIGN.md outline
-
-See the [blueprint](history/design-doc-blueprint.md).
-
-## Part VII: Open decisions
+## Part V: Open decisions
 
 | ID | Item | Default | Settled by |
 |---|---|---|---|

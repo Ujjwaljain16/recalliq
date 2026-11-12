@@ -29,7 +29,7 @@ The tiers. A page title, URL or domain never establishes which entity a price be
 
 - Verifier: [src/evidence/verifier.ts](../../src/evidence/verifier.ts) (T0 citation integrity, T1 verbatim quote and context, T2 relational binding), with [binding.ts](../../src/evidence/binding.ts), [currency.ts](../../src/evidence/currency.ts), [dates.ts](../../src/evidence/dates.ts) and [ownership.ts](../../src/evidence/ownership.ts) (ADR-41). T3, the LLM judge for comparative sentences only, is in [src/evidence/entailment.ts](../../src/evidence/entailment.ts) and the answer pipeline.
 - Tested by [tests/unit/evidence/verifier.test.ts](../../tests/unit/evidence/verifier.test.ts) and the calibration set ([tests/unit/evidence/calibration-oracle.test.ts](../../tests/unit/evidence/calibration-oracle.test.ts)).
-- [architecture.md](../architecture.md) R2 and [design-review.md](../history/design-review.md) give the design. The weak-rate on real pages is measured on a small labelled set only ([docs/extraction-calibration.md](../extraction-calibration.md)); open item U15 stays open.
+- [architecture.md](../architecture.md) R2 gives the design. The weak-rate on real pages is measured on a small labelled set only ([docs/extraction-calibration.md](../extraction-calibration.md)); open item U15 stays open.
 
 ## Revisit when
 
