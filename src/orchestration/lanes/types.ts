@@ -28,7 +28,12 @@ export interface LaneInput {
    * extraction starts, so the coordinator can start the quick sourced answer while extraction runs. A lane that
    * does not call it gets no quick section.
    */
-  onSourcesReady?: (ready: { ctx: ResolvedContext; sources: FindingSet['sources'] }) => void;
+  onSourcesReady?: (ready: {
+    ctx: ResolvedContext;
+    sources: FindingSet['sources'];
+    /** Sentences written in code that open the answer; the quick section releases them before its own. */
+    lead?: string[];
+  }) => void;
 }
 
 export interface LaneDeps {

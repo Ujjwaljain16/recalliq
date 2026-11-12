@@ -262,7 +262,15 @@ export class LlmAnswerPipeline implements AnswerPipeline {
       held = null;
       if (h) emitReleased(h.c);
     };
+    // A finding line written in code can come out the same for two findings of one entity ("couldn't be
+    // checked" for both its price and its releases): it is said once.
+    const sentLines = new Set<string>();
     const deliver = (c: Candidate): void => {
+      if (c.kind !== 'sourced' && c.placeholders.length > 0) {
+        const key = c.text.trim();
+        if (sentLines.has(key)) return;
+        sentLines.add(key);
+      }
       const h = held;
       if (h && c.kind === 'sourced' && namesEntity(c.text, h.entity)) {
         held = null;
