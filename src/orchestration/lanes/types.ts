@@ -33,6 +33,8 @@ export interface LaneInput {
     sources: FindingSet['sources'];
     /** Sentences written in code that open the answer; the quick section releases them before its own. */
     lead?: string[];
+    /** The names the question is about. */
+    entities?: string[];
   }) => void;
 }
 

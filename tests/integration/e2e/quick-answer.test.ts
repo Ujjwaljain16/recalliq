@@ -227,6 +227,18 @@ describe('T-QUICK a sourced answer streams while extraction runs', () => {
     expect(ends(turn)).toEqual([0]);
   });
 
+  it('withholds a quick sentence that names none of the things the question is about', async () => {
+    const { app } = await start(
+      { deltas: ['Another tool lists Pro at US$90 per user per month {{S:acme.example}}.'] },
+      200,
+    );
+    const user = app.client();
+    const turn = await ask(user, await user.newConversation(), Q);
+    const warnings = eventsOf(turn, 'warning') as Array<{ code: string; text: string }>;
+    expect(warnings.find((w) => w.code === 'sentence_withheld')?.text).toContain('off_topic');
+    expect(turn.sentences.join('')).not.toContain('Another tool');
+  });
+
   it('never makes an assertion from a quick sentence; the verified section does', async () => {
     const { app } = await start({ deltas: [S1, S2] }, 200);
     const user = app.client();

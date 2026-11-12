@@ -36,6 +36,7 @@ export type SentenceIssue =
   | 'ungrounded_source'
   /** A sourced sentence contains a link or an email address. */
   | 'sourced_link'
+  | 'off_topic'
   /** A sourced sentence quotes more than the per-sentence or per-answer cap. */
   | 'sourced_too_long'
   /** A verified or sourced sentence with fewer than three words once citations and attribution are removed. */
@@ -85,6 +86,8 @@ export interface QuickAnswerInput {
   /** The turn's sources with their content, in the order their `source` events were sent. */
   sources: FindingSet['sources'];
   ctx: ResolvedContext;
+  /** The names the question is about; a quick sentence must name one of them when there are any. */
+  entities?: readonly string[];
   userMessage: string;
   tz: IanaTz;
   /** Aborted by the caller when the verified section is ready: the stream stops and the open sentence is dropped. */
@@ -112,6 +115,8 @@ export interface AnswerPipeline {
        * and told to confirm, add or correct, never to repeat or silently contradict them.
        */
       earlier?: readonly string[];
+      /** The names the question is about (the quick section's sentences must name one of them). */
+      entities?: readonly string[];
     },
     budget: TurnBudget,
     emit: EventSink,
